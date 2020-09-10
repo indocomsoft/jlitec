@@ -180,3 +180,6 @@ tags
 [._]*.un~
 
 # End of https://www.toptal.com/developers/gitignore/api/java,intellij,vim,macos
+
+deps/
+classes/
