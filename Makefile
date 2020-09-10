@@ -35,7 +35,7 @@ deps: jflex
 jflex: deps/jflex-full-$(JFLEX_VERSION).jar
 
 deps/jflex-full-$(JFLEX_VERSION).jar: jflex-$(JFLEX_VERSION).tar.gz
-	tar -zxvf jflex-$(JFLEX_VERSION).tar.gz jflex-$(JFLEX_VERSION)/lib/jflex-full-$(JFLEX_VERSION).jar > $@ || (rm $@; exit 1)
+	tar -zxvf jflex-$(JFLEX_VERSION).tar.gz -C deps --strip-components=2 jflex-$(JFLEX_VERSION)/lib/jflex-full-$(JFLEX_VERSION).jar || (rm $@; exit 1)
 
 .INTERMEDIATE: jflex-$(JFLEX_VERSION).tar.gz
 jflex-$(JFLEX_VERSION).tar.gz:
