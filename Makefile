@@ -18,26 +18,6 @@ JVM   := $(JAVA) $(JVMFLAGS)
 .PHONY: all
 all: compile
 
-# all_javas - Temp file for holding source file list
-all_javas := $(OUTPUT_DIR)/all.javas
-
-.PHONY: compile
-compile: $(all_javas) jflex cup
-	$(JAVAC) $(JFLAGS) @$<
-
-# all_javas - Gather source file list
-.INTERMEDIATE: $(all_javas)
-$(all_javas):
-	$(FIND) $(SOURCE_DIR) -name '*.java' > $@
-
-.PHONY: format
-format: $(all_javas) googlejavaformatter
-	$(JVM) -jar $(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar --replace @$<
-
-.PHONY: lint
-lint: $(all_javas) checkstyle
-	$(JVM) -jar $(DEPS_DIR)/checkstyle-$(CHECKSTYLE_VERSION)-all.jar -c /google_checks.xml @$<
-
 # Dependency versions
 JFLEX_VERSION                   := 1.8.2
 CUP_VERSION                     := 20160615
@@ -46,20 +26,71 @@ GOOGLE_JAVA_FORMATTER_VERSION   := 1.9
 
 $(DEPS_DIR): jflex cup checkstyle googlejavaformatter
 
-.PHONY: jflex
-jflex: $(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar
+# all_javas - Temp file for holding source file list
+all_javas := $(OUTPUT_DIR)/all.javas
 
-$(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar: jflex-$(JFLEX_VERSION).tar.gz
+# format_javas - Temp file for holding source file list to be formatted
+format_javas := $(OUTPUT_DIR)/format.javas
+
+# JAR files
+jflex_jar := $(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar
+cup_jar := $(DEPS_DIR)/java-cup-11b.jar
+cup_runtime_jar := $(DEPS_DIR)/java-cup-11b-runtime.jar
+
+# JFLEX
+jflex_input := $(SOURCE_DIR)/jflex/jlite.flex
+jflex_output := $(SOURCE_DIR)/jlitec/Lexer.java
+$(jflex_output): $(jflex_input) $(jflex_jar)
+	$(JVM) -jar $(jflex_jar) --nobak -d $(@D) $<
+
+# CUP
+cup_input := $(SOURCE_DIR)/cup/jlite.cup
+cup_output_sym    := $(SOURCE_DIR)/jlitec/sym.java
+cup_output_parser := $(SOURCE_DIR)/jlitec/parser.java
+$(cup_output_sym) $(cup_output_parser): $(cup_input) $(cup_jar)
+	$(JVM) -jar $(cup_jar) -destdir $(@D) $<
+
+.PHONY: compile
+compile: $(all_javas) $(cup_runtime_jar)
+	$(JAVAC) $(JFLAGS) -classpath $(cup_runtime_jar) @$<
+
+# all_javas - Gather source file list
+.INTERMEDIATE: $(all_javas)
+$(all_javas): $(jflex_output) $(cup_output_sym) $(cup_output_parser)
+	$(FIND) $(SOURCE_DIR) -name '*.java' > $@
+
+# format_javas - Skip jflex and cup outputs
+.INTERMEDIATE: $(format_javas)
+$(format_javas): $(all_javas)
+	cat $< \
+		| grep -v '^$(jflex_output)$$' \
+		| grep -v '^$(cup_output_sym)$$' \
+		| grep -v '^$(cup_output_parser)$$' \
+		> $@
+
+.PHONY: format
+format: $(format_javas) googlejavaformatter
+	$(JVM) -jar $(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar --replace @$<
+
+.PHONY: lint
+lint: $(format_javas) checkstyle
+	$(JVM) -jar $(DEPS_DIR)/checkstyle-$(CHECKSTYLE_VERSION)-all.jar -c /google_checks.xml @$<
+
+.PHONY: jflex
+jflex: $(jflex_jar)
+
+$(jflex_jar): jflex-$(JFLEX_VERSION).tar.gz
 	tar -zxf $< -C $(DEPS_DIR) --strip-components=2 jflex-$(JFLEX_VERSION)/lib/$(@F) || ($(RM) $@; exit 1)
 
 .INTERMEDIATE: jflex-$(JFLEX_VERSION).tar.gz
 jflex-$(JFLEX_VERSION).tar.gz:
 	$(CURL) https://github.com/jflex-de/jflex/releases/download/v$(JFLEX_VERSION)/$(@F) > $(@F) || ($(RM) $@; exit 1)
 
-.PHONY: cup
-cup: $(DEPS_DIR)/java-cup-11b.jar $(DEPS_DIR)/java-cup-11b-runtime.jar
 
-$(DEPS_DIR)/java-cup-11b-runtime.jar $(DEPS_DIR)/java-cup-11b.jar: java-cup-bin-11b-$(CUP_VERSION).tar.gz
+.PHONY: cup
+cup: $(cup_jar) $(DEPS_DIR)/java-cup-11b-runtime.jar
+
+$(cup_runtime_jar) $(cup_jar): java-cup-bin-11b-$(CUP_VERSION).tar.gz
 	tar -zxf $< -C $(DEPS_DIR) $(@F) || ($(RM) $@; exit 1)
 
 .INTERMEDIATE: java-cup-bin-11b-$(CUP_VERSION).tar.gz
@@ -81,6 +112,10 @@ $(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar:
 .PHONY: clean
 clean:
 	$(RM) $(OUTPUT_DIR) $(DEPS_DIR)
+
+.PHONY: superclean
+superclean:
+	$(RM) $(OUTPUT_DIR) $(DEPS_DIR) $(jflex_output) $(cup_output_sym) $(cup_output_parser)
 
 # make-directories - Ensure output directory exists.
 make-directories := $(shell $(MKDIR) $(OUTPUT_DIR) $(DEPS_DIR))

@@ -1,0 +1,9 @@
+package jlitec;
+
+import java_cup.runtime.*;
+
+terminal ID; // Identifier
+
+non terminal id;
+
+id ::= ID;
