@@ -1,4 +1,4 @@
-package JLiteC;
+package jlitec;
 
 public class Main {
   public static void main(String[] args) {

@@ -1,19 +1,19 @@
-SOURCE_DIR := src
+SOURCE_DIR := src/main
 OUTPUT_DIR := classes
 DEPS_DIR := deps
-
-JFLEX_VERSION := 1.8.2
-CUP_VERSION   := 20160615
 
 FIND  := /usr/bin/find
 MKDIR := mkdir -p
 CURL  := curl -L -s -S
 RM    := rm -rf
 
-JAVAC := JAVAC
-
 JFLAGS := -sourcepath $(SOURCE_DIR)	\
-	-d $(OUTPUT_DIR) \
+	-d $(OUTPUT_DIR)
+JVMFLAGS :=
+
+JAVAC := javac
+JAVA  := java
+JVM   := $(JAVA) $(JVMFLAGS)
 
 .PHONY: all
 all: compile
@@ -22,15 +22,29 @@ all: compile
 all_javas := $(OUTPUT_DIR)/all.javas
 
 .PHONY: compile
-compile: $(all_javas)
+compile: $(all_javas) jflex cup
 	$(JAVAC) $(JFLAGS) @$<
 
 # all_javas - Gather source file list
 .INTERMEDIATE: $(all_javas)
-$(all_javas): $(DEPS_DIR)
+$(all_javas):
 	$(FIND) $(SOURCE_DIR) -name '*.java' > $@
 
-$(DEPS_DIR): jflex cup
+.PHONY: format
+format: $(all_javas) googlejavaformatter
+	$(JVM) -jar $(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar --replace @$<
+
+.PHONY: lint
+lint: $(all_javas) checkstyle
+	$(JVM) -jar $(DEPS_DIR)/checkstyle-$(CHECKSTYLE_VERSION)-all.jar -c /google_checks.xml @$<
+
+# Dependency versions
+JFLEX_VERSION                   := 1.8.2
+CUP_VERSION                     := 20160615
+CHECKSTYLE_VERSION              := 8.36
+GOOGLE_JAVA_FORMATTER_VERSION   := 1.9
+
+$(DEPS_DIR): jflex cup checkstyle googlejavaformatter
 
 .PHONY: jflex
 jflex: $(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar
@@ -52,6 +66,17 @@ $(DEPS_DIR)/java-cup-11b-runtime.jar $(DEPS_DIR)/java-cup-11b.jar: java-cup-bin-
 java-cup-bin-11b-$(CUP_VERSION).tar.gz:
 	$(CURL) http://www2.cs.tum.edu/projects/cup/download.php?file=$@ > $@ || ($(RM) $@; exit 1)
 
+.PHONY: checkstyle
+checkstyle: $(DEPS_DIR)/checkstyle-$(CHECKSTYLE_VERSION)-all.jar
+
+$(DEPS_DIR)/checkstyle-$(CHECKSTYLE_VERSION)-all.jar:
+	$(CURL) https://github.com/checkstyle/checkstyle/releases/download/checkstyle-$(CHECKSTYLE_VERSION)/$(@F) > $@ || ($(RM) $@; exit 1)
+
+.PHONY: googlejavaformatter
+googlejavaformatter: $(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar
+
+$(DEPS_DIR)/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)-all-deps.jar:
+	$(CURL) https://github.com/google/google-java-format/releases/download/google-java-format-$(GOOGLE_JAVA_FORMATTER_VERSION)/$(@F) > $@ || ($(RM) $@; exit 1)
 
 .PHONY: clean
 clean:
