@@ -47,12 +47,19 @@ $(jflex_output): $(jflex_input) $(jflex_jar)
 cup_input := $(SOURCE_DIR)/cup/jlite.cup
 cup_output_sym    := $(SOURCE_DIR)/jlitec/sym.java
 cup_output_parser := $(SOURCE_DIR)/jlitec/parser.java
-$(cup_output_sym) $(cup_output_parser): $(cup_input) $(cup_jar)
+$(cup_output_sym): $(cup_input) $(cup_jar)
 	$(JVM) -jar $(cup_jar) -destdir $(@D) $<
+$(cup_output_parser): $(cup_output_sym)
 
 .PHONY: compile
 compile: $(all_javas) $(cup_runtime_jar)
 	$(JAVAC) $(JFLAGS) -classpath $(cup_runtime_jar) @$<
+
+.PHONY: compilejflex
+compilejflex: $(jflex_output)
+
+.PHONY: compilecup
+compilecup: $(cup_output_sym) $(cup_output_parser)
 
 # all_javas - Gather source file list
 .INTERMEDIATE: $(all_javas)

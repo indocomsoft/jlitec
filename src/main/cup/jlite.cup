@@ -2,8 +2,111 @@ package jlitec;
 
 import java_cup.runtime.*;
 
-terminal ID; // Identifier
+// Keywords
+terminal CLASS, MAIN, IF, ELSE, WHILE, READLN, PRINTLN, RETURN, THIS, NEW, NULL;
+// Types
+terminal INT, BOOL, STRING, VOID;
+// Punctuations
+terminal LBRACE, RBRACE, LPAREN, RPAREN, SEMICOLON, COMMA, DOT;
+// Operators
+terminal ASSIGN, OR, AND, GT, LT, GEQ, LEQ, EQ, NEQ, NOT, PLUS, MINUS, MULT, DIV;
+// Booleans
+terminal TRUE, FALSE;
 
-non terminal id;
+terminal String ID;
+terminal String CNAME;
+terminal Integer INTEGER_LITERAL;
+terminal String STRING_LITERAL;
 
-id ::= ID;
+non terminal Program;
+non terminal MainClass;
+non terminal ClassDecl, ClassDecl_star;
+non terminal FmlList;
+non terminal MdBody;
+non terminal VarDecl, VarDecl_star;
+non terminal MdDecl, MdDecl_star;
+non terminal Type;
+non terminal FmlRest, FmlRest_star;
+non terminal Stmt, Stmt_plus, Stmt_star;
+non terminal Exp;
+non terminal Atom;
+non terminal ExpList;
+non terminal BExp;
+non terminal AExp;
+non terminal SExp;
+non terminal RExp;
+non terminal Conj;
+non terminal BOp;
+non terminal BGrd;
+non terminal Term;
+non terminal Ftr;
+non terminal ExpRest, ExpRest_star;
+
+Program ::= MainClass ClassDecl_star ;
+
+MainClass ::= CLASS CNAME LBRACE VOID MAIN LPAREN FmlList RPAREN MdBody RBRACE ;
+
+ClassDecl ::= CLASS CNAME LBRACE VarDecl_star MdDecl_star RBRACE ;
+ClassDecl_star ::= ClassDecl_star ClassDecl | ;
+
+VarDecl ::= Type ID SEMICOLON ;
+VarDecl_star ::= VarDecl_star VarDecl | ;
+
+MdDecl ::= Type ID LPAREN FmlList RPAREN MdBody ;
+MdDecl_star ::= MdDecl_star MdDecl | ;
+
+FmlList ::= Type ID FmlRest_star | ;
+
+FmlRest ::= COMMA Type ID ;
+FmlRest_star ::= FmlRest_star FmlRest | ;
+
+Type ::= INT | BOOL | STRING | VOID | CNAME ;
+
+MdBody ::= LBRACE VarDecl_star Stmt_plus RBRACE ;
+
+Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRACE
+       | WHILE LPAREN Exp RPAREN LBRACE Stmt_star RBRACE
+       | READLN LPAREN ID RPAREN SEMICOLON
+       | PRINTLN LPAREN Exp RPAREN SEMICOLON
+       | ID ASSIGN Exp SEMICOLON
+       | Atom DOT ID ASSIGN Exp SEMICOLON
+       | Atom LPAREN ExpList RPAREN SEMICOLON
+       | RETURN Exp SEMICOLON
+       | RETURN SEMICOLON
+       ;
+Stmt_plus ::= Stmt Stmt_star;
+Stmt_star ::= Stmt_star Stmt | ;
+
+Exp ::= BExp | AExp | SExp ;
+
+BExp ::= BExp OR Conj | Conj ;
+
+Conj ::= Conj AND RExp | RExp ;
+
+RExp ::= AExp BOp AExp | BGrd ;
+
+BOp ::= LT | GT | LEQ | GEQ | EQ | NEQ ;
+
+BGrd ::= NOT BGrd | TRUE | FALSE | Atom ;
+
+AExp ::= AExp PLUS Term | AExp MINUS Term | Term ;
+
+Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
+
+Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
+
+SExp ::= SExp PLUS SExp | STRING_LITERAL | Atom ;
+
+Atom ::= Atom DOT ID
+       | Atom LPAREN ExpList RPAREN
+       | THIS
+       | ID
+       | NEW CNAME LPAREN RPAREN
+       | LPAREN Exp RPAREN
+       | NULL
+       ;
+
+ExpList ::= Exp ExpRest_star | ;
+
+ExpRest ::= COMMA Exp ;
+ExpRest_star ::= ExpRest_star ExpRest | ;

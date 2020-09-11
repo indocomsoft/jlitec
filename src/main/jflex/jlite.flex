@@ -1,6 +1,7 @@
 package jlitec;
 
 import java_cup.runtime.Symbol;
+import jlitec.sym;
 
 /** Lexer for JLite **/
 

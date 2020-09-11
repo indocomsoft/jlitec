@@ -186,3 +186,4 @@ classes/
 src/main/jlitec/Lexer.java
 src/main/jlitec/parser.java
 src/main/jlitec/sym.java
+javac.*.args
