@@ -7,7 +7,7 @@ CUP_VERSION   := 20160615
 
 FIND  := /usr/bin/find
 MKDIR := mkdir -p
-CURL  := curl -L
+CURL  := curl -L -s -S
 RM    := rm -rf
 
 JAVAC := JAVAC
@@ -36,7 +36,7 @@ $(DEPS_DIR): jflex cup
 jflex: $(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar
 
 $(DEPS_DIR)/jflex-full-$(JFLEX_VERSION).jar: jflex-$(JFLEX_VERSION).tar.gz
-	tar -zxvf $< -C $(DEPS_DIR) --strip-components=2 jflex-$(JFLEX_VERSION)/lib/$(@F) || ($(RM) $@; exit 1)
+	tar -zxf $< -C $(DEPS_DIR) --strip-components=2 jflex-$(JFLEX_VERSION)/lib/$(@F) || ($(RM) $@; exit 1)
 
 .INTERMEDIATE: jflex-$(JFLEX_VERSION).tar.gz
 jflex-$(JFLEX_VERSION).tar.gz:
@@ -46,7 +46,7 @@ jflex-$(JFLEX_VERSION).tar.gz:
 cup: $(DEPS_DIR)/java-cup-11b.jar $(DEPS_DIR)/java-cup-11b-runtime.jar
 
 $(DEPS_DIR)/java-cup-11b-runtime.jar $(DEPS_DIR)/java-cup-11b.jar: java-cup-bin-11b-$(CUP_VERSION).tar.gz
-	tar -zxvf $< -C $(DEPS_DIR) $(@F) || ($(RM) $@; exit 1)
+	tar -zxf $< -C $(DEPS_DIR) $(@F) || ($(RM) $@; exit 1)
 
 .INTERMEDIATE: java-cup-bin-11b-$(CUP_VERSION).tar.gz
 java-cup-bin-11b-$(CUP_VERSION).tar.gz:
