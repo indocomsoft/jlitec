@@ -23,8 +23,8 @@ non terminal MainClass;
 non terminal ClassDecl, ClassDecl_star;
 non terminal FmlList;
 non terminal MdBody;
-non terminal VarDecl, VarDecl_star;
-non terminal MdDecl, MdDecl_star;
+non terminal VarDecl, VarDecl_plus, VarDecl_star;
+non terminal MdDecl, MdDecl_plus;
 non terminal Type;
 non terminal FmlRest, FmlRest_star;
 non terminal Stmt, Stmt_plus, Stmt_star;
@@ -33,7 +33,7 @@ non terminal Atom;
 non terminal ExpList;
 non terminal BExp;
 non terminal AExp;
-non terminal SExp;
+non terminal SExp, S;
 non terminal RExp;
 non terminal Conj;
 non terminal BOp;
@@ -41,19 +41,25 @@ non terminal BGrd;
 non terminal Term;
 non terminal Ftr;
 non terminal ExpRest, ExpRest_star;
+non terminal ClassBody;
+
+start with Program;
 
 Program ::= MainClass ClassDecl_star ;
 
 MainClass ::= CLASS CNAME LBRACE VOID MAIN LPAREN FmlList RPAREN MdBody RBRACE ;
 
-ClassDecl ::= CLASS CNAME LBRACE VarDecl_star MdDecl_star RBRACE ;
+ClassDecl ::= CLASS CNAME LBRACE ClassBody RBRACE ;
 ClassDecl_star ::= ClassDecl_star ClassDecl | ;
 
+ClassBody ::= VarDecl_plus MdDecl_plus | VarDecl_plus | MdDecl_plus | ;
+
 VarDecl ::= Type ID SEMICOLON ;
-VarDecl_star ::= VarDecl_star VarDecl | ;
+VarDecl_plus ::= VarDecl_plus VarDecl | VarDecl;
+VarDecl_star ::= VarDecl_plus | ;
 
 MdDecl ::= Type ID LPAREN FmlList RPAREN MdBody ;
-MdDecl_star ::= MdDecl_star MdDecl | ;
+MdDecl_plus ::= MdDecl_plus MdDecl | MdDecl;
 
 FmlList ::= Type ID FmlRest_star | ;
 
@@ -77,7 +83,38 @@ Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRA
 Stmt_plus ::= Stmt Stmt_star;
 Stmt_star ::= Stmt_star Stmt | ;
 
-Exp ::= BExp | AExp | SExp ;
+// Exp ::= BExp | AExp | SExp ;
+
+Exp ::=
+// unknown
+        Atom
+// Boolean
+      // BExp
+      | BExp OR Conj
+      // Conj
+      | Conj AND RExp
+      // RExp
+      | AExp BOp AExp
+      // BGrd
+      NOT BGrd
+      | TRUE
+      | FALSE
+// Integer
+      // AExp
+      | AExp PLUS Term
+      | AExp MINUS Term
+      // Term
+      | Term MULT Ftr
+      | Term DIV Ftr
+      // Ftr
+      | INTEGER_LITERAL
+      | MINUS Ftr
+// String
+      // SExp
+      | STRING_LITERAL PLUS SExp // TODO! how to resolve otherwise?
+      // S
+      | STRING_LITERAL
+      ;
 
 BExp ::= BExp OR Conj | Conj ;
 
@@ -95,7 +132,8 @@ Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
-SExp ::= SExp PLUS SExp | STRING_LITERAL | Atom ;
+SExp ::= SExp PLUS S | S ;
+S ::= STRING_LITERAL | Atom ;
 
 Atom ::= Atom DOT ID
        | Atom LPAREN ExpList RPAREN
