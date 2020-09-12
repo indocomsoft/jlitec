@@ -83,12 +83,11 @@ Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRA
 Stmt_plus ::= Stmt Stmt_star;
 Stmt_star ::= Stmt_star Stmt | ;
 
-// Exp ::= BExp | AExp | SExp ;
-
+/* Make Exp type-specific to resolve Reduce/Reduce conflicts */
 Exp ::=
-// unknown
+/* unknown type */
         Atom
-// Boolean
+/* Boolean type */
       // BExp
       | BExp OR Conj
       // Conj
@@ -99,7 +98,7 @@ Exp ::=
       NOT BGrd
       | TRUE
       | FALSE
-// Integer
+/* Integer type */
       // AExp
       | AExp PLUS Term
       | AExp MINUS Term
@@ -109,7 +108,7 @@ Exp ::=
       // Ftr
       | INTEGER_LITERAL
       | MINUS Ftr
-// String
+/* String */
       // SExp
       | STRING_LITERAL PLUS SExp // TODO! how to resolve otherwise?
       // S
@@ -132,6 +131,7 @@ Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
+/* Make SExp PLUS binary operator left-associative */
 SExp ::= SExp PLUS S | S ;
 S ::= STRING_LITERAL | Atom ;
 
