@@ -2,7 +2,7 @@ package jlitec;
 
 import java_cup.runtime.Symbol;
 
-/** Lexer for JLite **/
+/* Lexer for JLite */
 
 %%
 
@@ -121,7 +121,7 @@ HexDigit = [0-9a-fA-F]
   \\x{HexDigit}?{HexDigit} { char val = (char) Integer.parseInt(yytext().substring(2), 16); string.append(val); }
   \\{IntegerLiteral} {
     int intVal = Integer.parseInt(yytext().substring(1));
-    if (val > 255) throw new RuntimeException("Decimal value is outside ASCII range.");
+    if (intVal > 255) throw new RuntimeException("Decimal value is outside ASCII range.");
     char val = (char) intVal;
     string.append(val);
   }

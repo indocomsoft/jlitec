@@ -2,16 +2,18 @@ package jlitec;
 
 import java_cup.runtime.*;
 
-// Keywords
+/* Keywords */
 terminal CLASS, MAIN, IF, ELSE, WHILE, READLN, PRINTLN, RETURN, THIS, NEW, NULL;
-// Types
+/* Types */
 terminal INT, BOOL, STRING, VOID;
-// Punctuations
+/* Punctuations */
 terminal LBRACE, RBRACE, LPAREN, RPAREN, SEMICOLON, COMMA, DOT;
-// Operators
+/* Operators */
 terminal ASSIGN, OR, AND, GT, LT, GEQ, LEQ, EQ, NEQ, NOT, PLUS, MINUS, MULT, DIV;
-// Booleans
+/* Booleans */
 terminal TRUE, FALSE;
+
+terminal CONCAT;
 
 terminal String ID;
 terminal String CNAME;
@@ -52,6 +54,8 @@ MainClass ::= CLASS CNAME LBRACE VOID MAIN LPAREN FmlList RPAREN MdBody RBRACE ;
 ClassDecl ::= CLASS CNAME LBRACE ClassBody RBRACE ;
 ClassDecl_star ::= ClassDecl_star ClassDecl | ;
 
+// Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
+// by enumerating the 4 possible permutations
 ClassBody ::= VarDecl_plus MdDecl_plus | VarDecl_plus | MdDecl_plus | ;
 
 VarDecl ::= Type ID SEMICOLON ;
@@ -110,7 +114,7 @@ Exp ::=
       | MINUS Ftr
 /* String */
       // SExp
-      | STRING_LITERAL PLUS SExp // TODO! how to resolve otherwise?
+      | SExp CONCAT S // TODO! how to resolve otherwise?
       // S
       | STRING_LITERAL
       ;
@@ -132,7 +136,7 @@ Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
 /* Make SExp PLUS binary operator left-associative */
-SExp ::= SExp PLUS S | S ;
+SExp ::= SExp CONCAT S | S ;
 S ::= STRING_LITERAL | Atom ;
 
 Atom ::= Atom DOT ID
