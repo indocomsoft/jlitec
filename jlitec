@@ -1,2 +1,0 @@
-#!/bin/sh
-CLASSPATH=classes java jlitec.Main
