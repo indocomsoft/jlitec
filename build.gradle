@@ -50,14 +50,55 @@ dependencies {
 }
 
 sourceSets {
-  main {
-     jflex {
-       srcDir "src/main/jflex"
-     }
-     java {
-       srcDir "$buildDir/generated-src/jflex"
-     }
-  }
+    main {
+        jflex {
+            srcDir "src/main/jflex"
+        }
+        java {
+            srcDir "$buildDir/generated-src/jflex"
+        }
+    }
+}
+
+jflex {
+    verbose = true
+    no_backup = true
+}
+
+cup {
+    // TODO: Expect 3 conflicts due to Atom ambiguity without typechecking in Exp
+    // The conflicts copied verbatim here:
+    /*
+    Warning : *** Reduce/Reduce conflict found in state #44
+    between SExp ::= Atom (*)
+    and     Ftr ::= Atom (*)
+    under symbols: {RPAREN, SEMICOLON, COMMA, PLUS}
+    Resolved in favor of the second production.
+
+    Warning : *** Reduce/Reduce conflict found in state #44
+    between SExp ::= Atom (*)
+    and     BGrd ::= Atom (*)
+    under symbols: {RPAREN, SEMICOLON, COMMA}
+    Resolved in favor of the second production.
+
+    Warning : *** Reduce/Reduce conflict found in state #44
+    between Ftr ::= Atom (*)
+    and     BGrd ::= Atom (*)
+    under symbols: {RPAREN, SEMICOLON, COMMA}
+    Resolved in favor of the second production.
+
+    ------- CUP v0.11b 20160615 (GIT 4ac7450) Parser Generation Summary -------
+    0 errors and 3 warnings
+    44 terminals, 32 non-terminals, and 84 productions declared,
+    producing 169 unique parse states.
+    0 terminals declared but not used.
+    0 non-terminals declared but not used.
+    0 productions never reduced.
+    3 conflicts detected (3 expected).
+    Code written to "parser.java", and "sym.java".
+    ---------------------------------------------------- (CUP v0.11b 20160615 (GIT 4ac7450))
+    */
+    args = ["-expect", "3"]
 }
 
 application {

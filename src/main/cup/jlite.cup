@@ -13,8 +13,6 @@ terminal ASSIGN, OR, AND, GT, LT, GEQ, LEQ, EQ, NEQ, NOT, PLUS, MINUS, MULT, DIV
 /* Booleans */
 terminal TRUE, FALSE;
 
-terminal CONCAT;
-
 terminal String ID;
 terminal String CNAME;
 terminal Integer INTEGER_LITERAL;
@@ -35,7 +33,7 @@ non terminal Atom;
 non terminal ExpList;
 non terminal BExp;
 non terminal AExp;
-non terminal SExp, S;
+non terminal SExp;
 non terminal RExp;
 non terminal Conj;
 non terminal BOp;
@@ -44,6 +42,8 @@ non terminal Term;
 non terminal Ftr;
 non terminal ExpRest, ExpRest_star;
 non terminal ClassBody;
+
+precedence left PLUS; /* needed for PLUS in SExp */
 
 start with Program;
 
@@ -55,7 +55,7 @@ ClassDecl ::= CLASS CNAME LBRACE ClassBody RBRACE ;
 ClassDecl_star ::= ClassDecl_star ClassDecl | ;
 
 // Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
-// by enumerating the 4 possible permutations
+// by enumerating the 4 possible permutations: (0, 0), (0, +), (+, 0), (+, +)
 ClassBody ::= VarDecl_plus MdDecl_plus | VarDecl_plus | MdDecl_plus | ;
 
 VarDecl ::= Type ID SEMICOLON ;
@@ -87,37 +87,40 @@ Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRA
 Stmt_plus ::= Stmt Stmt_star;
 Stmt_star ::= Stmt_star Stmt | ;
 
-/* Make Exp type-specific to resolve Reduce/Reduce conflicts */
-Exp ::=
-/* unknown type */
-        Atom
-/* Boolean type */
-      // BExp
-      | BExp OR Conj
-      // Conj
-      | Conj AND RExp
-      // RExp
-      | AExp BOp AExp
-      // BGrd
-      NOT BGrd
-      | TRUE
-      | FALSE
-/* Integer type */
-      // AExp
-      | AExp PLUS Term
-      | AExp MINUS Term
-      // Term
-      | Term MULT Ftr
-      | Term DIV Ftr
-      // Ftr
-      | INTEGER_LITERAL
-      | MINUS Ftr
-/* String */
-      // SExp
-      | SExp CONCAT S // TODO! how to resolve otherwise?
-      // S
-      | STRING_LITERAL
-      ;
+Exp ::= BExp | AExp | SExp ;
+
+/* TODO: Pending typecheck to resolve String PLUS */
+// /* Make Exp type-specific to resolve Reduce/Reduce conflicts */
+// Exp ::=
+// /* unknown type */
+//         Atom
+// /* Boolean type */
+//       // BExp
+//       | BExp OR Conj
+//       // Conj
+//       | Conj AND RExp
+//       // RExp
+//       | AExp BOp AExp
+//       // BGrd
+//       NOT BGrd
+//       | TRUE
+//       | FALSE
+// /* Integer type */
+//       // AExp
+//       | AExp PLUS Term
+//       | AExp MINUS Term
+//       // Term
+//       | Term MULT Ftr
+//       | Term DIV Ftr
+//       // Ftr
+//       | INTEGER_LITERAL
+//       | MINUS Ftr
+// /* String */
+//       // SExp
+//       | SExp PLUS SExp // TODO: ambiguous with AExp
+//       // S
+//       | STRING_LITERAL
+//       ;
 
 BExp ::= BExp OR Conj | Conj ;
 
@@ -135,9 +138,7 @@ Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
-/* Make SExp PLUS binary operator left-associative */
-SExp ::= SExp CONCAT S | S ;
-S ::= STRING_LITERAL | Atom ;
+SExp ::= SExp PLUS SExp | STRING_LITERAL | Atom ;
 
 Atom ::= Atom DOT ID
        | Atom LPAREN ExpList RPAREN
