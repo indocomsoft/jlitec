@@ -1,5 +1,6 @@
-package jlitec;
+package jlitec.lexer;
 
+import jlitec.parser.sym;
 import java_cup.runtime.Symbol;
 
 /* Lexer for JLite */

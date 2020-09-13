@@ -22,6 +22,8 @@ plugins {
 
     // google-java-format plugin
     id 'com.github.sherter.google-java-format' version '0.9'
+
+    id "com.github.spotbugs" version "4.5.0"
 }
 
 repositories {
@@ -65,10 +67,6 @@ jflex {
     no_backup = true
 }
 
-cup {
-    args = []
-}
-
 application {
     // Define the main class for the application.
     mainClassName = 'jlitec.App'
@@ -84,4 +82,28 @@ checkstyle {
     toolVersion = "${versions.checkstyle}"
     config = resources.text.fromArchiveEntry(configurations.checkstyleConfig, 'google_checks.xml')
     checkstyleMain.source = "src/main/java"
+}
+
+spotbugs {
+    onlyAnalyze = ["jlitec.App", "jlitec.code.*"]
+}
+
+spotbugsMain {
+    reports {
+        html {
+            enabled = true
+            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
+}
+
+spotbugsTest {
+    reports {
+        html {
+            enabled = true
+            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+            stylesheet = 'fancy-hist.xsl'
+        }
+    }
 }
