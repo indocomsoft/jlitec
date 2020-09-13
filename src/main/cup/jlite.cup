@@ -33,7 +33,9 @@ non terminal Atom;
 non terminal ExpList;
 non terminal BExp;
 non terminal AExp;
-non terminal SExp;
+
+non terminal LiteralSExp;
+
 non terminal RExp;
 non terminal Conj;
 non terminal BOp;
@@ -43,7 +45,7 @@ non terminal Ftr;
 non terminal ExpRest, ExpRest_star;
 non terminal ClassBody;
 
-precedence left PLUS; /* needed for PLUS in SExp */
+precedence left PLUS;
 
 start with Program;
 
@@ -87,40 +89,36 @@ Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRA
 Stmt_plus ::= Stmt Stmt_star;
 Stmt_star ::= Stmt_star Stmt | ;
 
-Exp ::= BExp | AExp | SExp ;
+// Exp ::= BExp | AExp | SExp ;
 
-/* TODO: Pending typecheck to resolve String PLUS */
-// /* Make Exp type-specific to resolve Reduce/Reduce conflicts */
-// Exp ::=
-// /* unknown type */
-//         Atom
-// /* Boolean type */
-//       // BExp
-//       | BExp OR Conj
-//       // Conj
-//       | Conj AND RExp
-//       // RExp
-//       | AExp BOp AExp
-//       // BGrd
-//       NOT BGrd
-//       | TRUE
-//       | FALSE
-// /* Integer type */
-//       // AExp
-//       | AExp PLUS Term
-//       | AExp MINUS Term
-//       // Term
-//       | Term MULT Ftr
-//       | Term DIV Ftr
-//       // Ftr
-//       | INTEGER_LITERAL
-//       | MINUS Ftr
-// /* String */
-//       // SExp
-//       | SExp PLUS SExp // TODO: ambiguous with AExp
-//       // S
-//       | STRING_LITERAL
-//       ;
+/* Make Exp type-specific to resolve Reduce/Reduce conflicts */
+Exp ::=
+/* unknown type */
+        Atom
+      | Exp PLUS Exp // just give up on PLUS because this requires further typechecking
+/* Boolean type */
+      // BExp
+      | BExp OR Conj
+      // Conj
+      | Conj AND RExp
+      // RExp
+      | AExp BOp AExp
+      // BGrd
+      NOT BGrd
+      | TRUE
+      | FALSE
+/* Integer type */
+      // AExp
+      | AExp MINUS Term
+      // Term
+      | Term MULT Ftr
+      | Term DIV Ftr
+      // Ftr
+      | INTEGER_LITERAL
+      | MINUS Ftr
+/* String */
+      | LiteralSExp
+      ;
 
 BExp ::= BExp OR Conj | Conj ;
 
@@ -132,13 +130,17 @@ BOp ::= LT | GT | LEQ | GEQ | EQ | NEQ ;
 
 BGrd ::= NOT BGrd | TRUE | FALSE | Atom ;
 
-AExp ::= AExp PLUS Term | AExp MINUS Term | Term ;
+AExp ::= AExp MINUS Term | Term ;
 
 Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
-SExp ::= SExp PLUS SExp | STRING_LITERAL | Atom ;
+// /* Make SExp PLUS SExp left-associative */
+// SExp ::= SExp PLUS S | S ;
+// S ::= STRING_LITERAL | Atom ;
+
+LiteralSExp ::= LiteralSExp PLUS STRING_LITERAL | STRING_LITERAL ;
 
 Atom ::= Atom DOT ID
        | Atom LPAREN ExpList RPAREN
