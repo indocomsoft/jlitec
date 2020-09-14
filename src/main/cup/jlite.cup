@@ -1,4 +1,4 @@
-package jlitec.parser;
+package jlitec.generated;
 
 import java_cup.runtime.*;
 

@@ -9,6 +9,6 @@ import org.junit.Test;
 public class AppTest {
   @Test
   public void testApp() {
-    App classUnderTest = new App();
+    App.main(new String[0]);
   }
 }

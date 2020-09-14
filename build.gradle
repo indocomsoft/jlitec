@@ -100,7 +100,7 @@ checkstyle {
 }
 
 spotbugs {
-    onlyAnalyze = ["jlitec.App", "jlitec.code.*"]
+    excludeFilter = file("config/spotbugs_exclude.xml")
 }
 
 spotbugsMain {

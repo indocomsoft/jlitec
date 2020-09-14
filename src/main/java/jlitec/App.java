@@ -4,24 +4,8 @@
 
 package jlitec;
 
-import java_cup.runtime.Symbol;
-import jlitec.lexer.Lexer;
-import jlitec.parser.Parser;
-
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-
 public class App {
   public static void main(String[] args) {
-      String filename = args.length == 1 ? args[0] : "test/e.j";
-    try {
-      Parser p = new Parser(new Lexer(new FileReader(filename)));
-      Symbol a = p.parse();
-      System.out.println(a);
-    } catch (FileNotFoundException e) {
-      System.err.println("Unable to find file " + args[0]);
-    } catch (Exception e) {
-        throw new RuntimeException(e);
-    }
+    System.out.println("Hello, world!");
   }
 }
