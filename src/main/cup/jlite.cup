@@ -1,6 +1,11 @@
 package jlitec.generated;
 
 import java_cup.runtime.*;
+import com.google.common.collect.Lists;
+import jlitec.ast.*;
+import jlitec.ast.expr.*;
+import jlitec.ast.stmt.*;
+import java.util.List;
 
 /* Keywords */
 terminal CLASS, MAIN, IF, ELSE, WHILE, READLN, PRINTLN, RETURN, THIS, NEW, NULL;
@@ -18,136 +23,306 @@ terminal String CNAME;
 terminal Integer INTEGER_LITERAL;
 terminal String STRING_LITERAL;
 
-non terminal Program;
-non terminal MainClass;
-non terminal ClassDecl, ClassDecl_star;
-non terminal FmlList;
-non terminal MdBody;
-non terminal VarDecl, VarDecl_plus, VarDecl_star;
-non terminal MdDecl, MdDecl_plus;
-non terminal Type;
-non terminal FmlRest, FmlRest_star;
-non terminal Stmt, Stmt_plus, Stmt_star;
-non terminal Exp;
-non terminal Atom;
-non terminal ExpList;
-non terminal BExp;
-non terminal AExp;
-non terminal RExp;
-non terminal Conj;
-non terminal BOp;
-non terminal BGrd;
-non terminal Term;
-non terminal Ftr;
-non terminal SExp, S;
-non terminal ExpRest, ExpRest_star;
-non terminal ClassBody;
+non terminal Program Program;
+non terminal Klass MainClass;
+non terminal Klass ClassDecl;
+non terminal List<Klass> ClassDecl_star;
+non terminal List<Var> FmlList, FmlList_opt;
+non terminal Var VarDecl;
+non terminal List<Var> VarDecl_plus, VarDecl_star;
+non terminal Method MdDecl;
+non terminal List<Method> MdDecl_plus;
+non terminal Type Type;
+non terminal Stmt Stmt;
+non terminal List<Stmt> Stmt_plus, Stmt_star;
+non terminal Expr Exp;
+non terminal Expr Atom;
+non terminal List<Expr> ExpList;
+non terminal Expr BExp;
+non terminal Expr AExp;
+non terminal Expr RExp;
+non terminal Expr Conj;
+non terminal BinaryOp BOp;
+non terminal Expr BGrd;
+non terminal Expr Term;
+non terminal Expr Ftr;
+non terminal Expr SExp, S;
 
 start with Program;
 
-Program ::= MainClass ClassDecl_star ;
+Program ::= MainClass:main ClassDecl_star:lst
+          {: lst.add(0, main); RESULT = new Program(lst); :}
+          ;
 
-MainClass ::= CLASS CNAME LBRACE VOID MAIN LPAREN FmlList RPAREN MdBody RBRACE ;
-
-ClassDecl ::= CLASS CNAME LBRACE ClassBody RBRACE ;
-ClassDecl_star ::= ClassDecl_star ClassDecl | ;
+MainClass ::= CLASS CNAME:cname LBRACE VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
+            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new Type(JliteType.VOID), "main", args, vars, stmtlist))); :}
+            ;
 
 // Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
 // by enumerating the 4 possible permutations: (0, 0), (0, +), (+, 0), (+, +)
-ClassBody ::= VarDecl_plus MdDecl_plus | VarDecl_plus | MdDecl_plus | ;
+ClassDecl ::=
+            CLASS CNAME:cname LBRACE VarDecl_plus:vars MdDecl_plus:methods RBRACE
+            {: RESULT = new Klass(cname, vars, methods); :}
+            | CLASS CNAME:cname LBRACE VarDecl_plus:vars RBRACE
+            {: RESULT = new Klass(cname, vars, Lists.newArrayList()); :}
+            | CLASS CNAME:cname LBRACE MdDecl_plus:methods RBRACE
+            {: RESULT = new Klass(cname, Lists.newArrayList(), methods); :}
+            | CLASS CNAME:cname LBRACE RBRACE
+            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList()); :}
+            ;
+ClassDecl_star ::=
+                 ClassDecl_star:lst ClassDecl:klass
+                 {: lst.add(klass); RESULT = lst; :}
+                 |
+                 {: RESULT = Lists.newArrayList(); :}
+                 ;
 
-VarDecl ::= Type ID SEMICOLON ;
-VarDecl_plus ::= VarDecl_plus VarDecl | VarDecl;
-VarDecl_star ::= VarDecl_plus | ;
+VarDecl ::= Type:type ID:id SEMICOLON
+          {: RESULT = new Var(type, id); :}
+          ;
 
-MdDecl ::= Type ID LPAREN FmlList RPAREN MdBody ;
-MdDecl_plus ::= MdDecl_plus MdDecl | MdDecl;
+VarDecl_plus ::=
+               VarDecl_plus:lst VarDecl:var
+               {: lst.add(var); RESULT = lst; :}
+               | VarDecl:var
+               {: RESULT = Lists.newArrayList(var); :}
+               ;
 
-FmlList ::= Type ID FmlRest_star | ;
+VarDecl_star ::=
+               VarDecl_plus:lst
+               {: RESULT = lst; :}
+               |
+               {: RESULT = Lists.newArrayList(); :}
+               ;
 
-FmlRest ::= COMMA Type ID ;
-FmlRest_star ::= FmlRest_star FmlRest | ;
+MdDecl ::= Type:type ID:id LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE
+         {: new Method(type, id, args, vars, stmtlist); :}
+         ;
 
-Type ::= INT | BOOL | STRING | VOID | CNAME ;
+MdDecl_plus ::=
+              MdDecl_plus:lst MdDecl:method
+              {: lst.add(method); RESULT = lst; :}
+              | MdDecl:method
+              {: RESULT = Lists.newArrayList(method); :}
+              ;
 
-MdBody ::= LBRACE VarDecl_star Stmt_plus RBRACE ;
+FmlList_opt ::=
+              FmlList:lst
+              {: RESULT = lst; :}
+              |
+              {: RESULT = Lists.newArrayList(); :}
+              ;
 
-Stmt ::= IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE Stmt_plus RBRACE
-       | WHILE LPAREN Exp RPAREN LBRACE Stmt_star RBRACE
-       | READLN LPAREN ID RPAREN SEMICOLON
-       | PRINTLN LPAREN Exp RPAREN SEMICOLON
-       | ID ASSIGN Exp SEMICOLON
-       | Atom DOT ID ASSIGN Exp SEMICOLON
-       | Atom LPAREN ExpList RPAREN SEMICOLON
-       | RETURN Exp SEMICOLON
-       | RETURN SEMICOLON
+FmlList ::=
+          Type:type ID:id
+          {: RESULT = Lists.newArrayList(new Var(type, id)); :}
+          | FmlList:lst COMMA Type:type ID:id
+          {: lst.add(new Var(type, id)); RESULT = lst; :}
+          ;
+
+Type ::=
+       INT
+       {: RESULT = new Type(JliteType.INT); :}
+       | BOOL
+       {: RESULT = new Type(JliteType.BOOL); :}
+       | STRING
+       {: RESULT = new Type(JliteType.STRING); :}
+       | VOID
+       {: RESULT = new Type(JliteType.VOID); :}
+       | CNAME:cname
+       {: RESULT = new Type(cname); :}
        ;
-Stmt_plus ::= Stmt Stmt_star;
-Stmt_star ::= Stmt_star Stmt | ;
+
+Stmt ::=
+       IF LPAREN Exp:cond RPAREN LBRACE Stmt_plus:thenlist RBRACE ELSE LBRACE Stmt_plus:elselist RBRACE
+       {: RESULT = new IfStmt(cond, thenlist, elselist); :}
+       | WHILE LPAREN Exp:cond RPAREN LBRACE Stmt_star:lst RBRACE
+       {: RESULT = new WhileStmt(cond, lst); :}
+       | READLN LPAREN ID:id RPAREN SEMICOLON
+       {: RESULT = new ReadlnStmt(id); :}
+       | PRINTLN LPAREN Exp:e RPAREN SEMICOLON
+       {: RESULT = new PrintlnStmt(e); :}
+       | ID:id ASSIGN Exp:e SEMICOLON
+       {: RESULT = new VarAssignStmt(id, e); :}
+       | Atom:target DOT ID:id ASSIGN Exp:e SEMICOLON
+       {: RESULT = new FieldAssignStmt(target, id, e); :}
+       | Atom:target LPAREN ExpList:args RPAREN SEMICOLON
+       {: RESULT = new CallStmt(target, args); :}
+       | RETURN Exp:e SEMICOLON
+       {: RESULT = new ReturnStmt(e); :}
+       | RETURN SEMICOLON
+       {: RESULT = new ReturnStmt(null); :}
+       ;
+Stmt_plus ::=
+            Stmt:stmt
+            {: RESULT = Lists.newArrayList(stmt); :}
+            | Stmt_plus:lst Stmt:stmt
+            {: lst.add(stmt); RESULT = lst; :}
+            ;
+Stmt_star ::=
+            Stmt_plus:lst
+            {: RESULT = lst; :}
+            |
+            {: RESULT = Lists.newArrayList(); :}
+            ;
 
 // Exp ::= BExp | AExp | SExp ;
 
 /* Make Exp type-specific to resolve Reduce/Reduce conflicts */
 Exp ::=
 /* unknown type */
-        Atom
+        Atom:e
+        {: RESULT = e; :}
 /* Boolean type */
       // BExp
-      | BExp OR Conj
+      | BExp:lhs OR Conj:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); :}
       // Conj
-      | Conj AND RExp
+      | Conj:lhs AND RExp:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); :}
       // RExp
-      | AExp BOp AExp
+      | AExp:lhs BOp:op AExp:rhs
+      {: RESULT = new BinaryExpr(op, lhs, rhs); :}
       // BGrd
-      NOT BGrd
+      | NOT BGrd:e
+      {: RESULT = new UnaryExpr(UnaryOp.NOT, e); :}
       | TRUE
+      {: RESULT = new BoolLiteralExpr(true); :}
       | FALSE
+      {: RESULT = new BoolLiteralExpr(false); :}
 /* Integer type */
       // AExp
-      | AExp MINUS Term
+      | AExp:lhs PLUS Term:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
+      | AExp:lhs MINUS Term:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); :}
       // Term
-      | Term MULT Ftr
-      | Term DIV Ftr
+      | Term:lhs MULT Ftr:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); :}
+      | Term:lhs DIV Ftr:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
       // Ftr
-      | INTEGER_LITERAL
-      | MINUS Ftr
+      | INTEGER_LITERAL:i
+      {: RESULT = new IntLiteralExpr(i); :}
+      | MINUS Ftr:e
+      {: RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); :}
 /* String */
       // SExp
-      | SExp PLUS S
+      | SExp:lhs PLUS S:rhs
+      {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
       // S
-      | STRING_LITERAL
+      | STRING_LITERAL:s
+      {: RESULT = new StringLiteralExpr(s); :}
       ;
 
-BExp ::= BExp OR Conj | Conj ;
-
-Conj ::= Conj AND RExp | RExp ;
-
-RExp ::= AExp BOp AExp | BGrd ;
-
-BOp ::= LT | GT | LEQ | GEQ | EQ | NEQ ;
-
-BGrd ::= NOT BGrd | TRUE | FALSE | Atom ;
-
-AExp ::= AExp PLUS Term | AExp MINUS Term | Term ;
-
-Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
-
-Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
-
-/* Make SExp PLUS SExp left-associative */
-SExp ::= SExp PLUS S | S ;
-S ::= STRING_LITERAL | Atom ;
-
-Atom ::= Atom DOT ID
-       | Atom LPAREN ExpList RPAREN
-       | THIS
-       | ID
-       | NEW CNAME LPAREN RPAREN
-       | LPAREN Exp RPAREN
-       | NULL
+BExp ::=
+       BExp:lhs OR Conj:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); :}
+       | Conj:e
+       {: RESULT = e; :}
        ;
 
-ExpList ::= Exp ExpRest_star | ;
+Conj ::=
+       Conj:lhs AND RExp:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); :}
+       | RExp:e
+       {: RESULT = e; :}
+       ;
 
-ExpRest ::= COMMA Exp ;
-ExpRest_star ::= ExpRest_star ExpRest | ;
+RExp ::=
+       AExp:lhs BOp:op AExp:rhs
+       {: RESULT = new BinaryExpr(op, lhs, rhs); :}
+       | BGrd:e
+       {: RESULT = e; :}
+       ;
+
+BOp ::=
+      LT
+      {: RESULT = BinaryOp.LT; :}
+      | GT
+      {: RESULT = BinaryOp.GT; :}
+      | LEQ
+      {: RESULT = BinaryOp.LEQ; :}
+      | GEQ
+      {: RESULT = BinaryOp.GEQ; :}
+      | EQ
+      {: RESULT = BinaryOp.EQ; :}
+      | NEQ
+      {: RESULT = BinaryOp.NEQ; :}
+      ;
+
+BGrd ::=
+       NOT BGrd:e
+       {: RESULT = new UnaryExpr(UnaryOp.NOT, e); :}
+       | TRUE
+       {: RESULT = new BoolLiteralExpr(true); :}
+       | FALSE
+       {: RESULT = new BoolLiteralExpr(false); :}
+       | Atom:e
+       {: RESULT = e; :}
+       ;
+
+AExp ::=
+       AExp:lhs PLUS Term:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
+       | AExp:lhs MINUS Term:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); :}
+       | Term:e
+       {: RESULT = e; :}
+       ;
+
+Term ::=
+       Term:lhs MULT Ftr:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); :}
+       | Term:lhs DIV Ftr:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
+       | Ftr:e
+       {: RESULT = e; :}
+       ;
+
+Ftr ::=
+      INTEGER_LITERAL:i
+      {: RESULT = new IntLiteralExpr(i); :}
+      | MINUS Ftr:e
+      {: RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); :}
+      | Atom:e
+      {: RESULT = e; :}
+      ;
+
+/* Make SExp PLUS SExp left-associative */
+SExp ::=
+       SExp:lhs PLUS S:rhs
+       {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
+       | S: e
+       {: RESULT = e; :}
+       ;
+S ::=
+    STRING_LITERAL:s
+    {: RESULT = new StringLiteralExpr(s); :}
+    | Atom:e
+    {: RESULT = e; :}
+    ;
+
+Atom ::=
+         Atom:target DOT ID:id
+       {: RESULT = new DotExpr(target, id); :}
+       | Atom:target LPAREN ExpList:args RPAREN
+       {: RESULT = new CallExpr(target, args); :}
+       | THIS
+       {: RESULT = new ThisExpr(); :}
+       | ID:id
+       {: RESULT = new IdExpr(id); :}
+       | NEW CNAME:cname LPAREN RPAREN
+       {: RESULT = new NewExpr(cname); :}
+       | LPAREN Exp:e RPAREN
+       {: RESULT = e; :}
+       | NULL
+       {: RESULT = new NullExpr(); :}
+       ;
+
+ExpList ::=
+          Exp:e
+          {: RESULT = Lists.newArrayList(e); :}
+          | ExpList:lst COMMA Exp:e
+          {: lst.add(e); RESULT = lst; :}
+          ;
