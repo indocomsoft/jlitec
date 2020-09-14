@@ -1,6 +1,6 @@
 package jlitec.generated;
 
-import jlitec.generated.Sym;
+import jlitec.generated.sym;
 import jlitec.lexer.LexException;
 import java_cup.runtime.Symbol;
 
@@ -13,9 +13,9 @@ import java_cup.runtime.Symbol;
 %class Lexer
 %unicode
 %cup
+%cupdebug
 %line
 %column
-%implements Sym
 
 
 %{
@@ -55,63 +55,63 @@ HexDigit = [0-9a-fA-F]
   \" { yybegin(STRING); string.setLength(0); }
 
   /* Keywords */
-  "class" { return symbol(CLASS); }
-  "main" { return symbol(MAIN); }
-  "if" { return symbol(IF); }
-  "else" { return symbol(ELSE); }
-  "while" { return symbol(WHILE); }
-  "readln" { return symbol(READLN); }
-  "println" { return symbol(PRINTLN); }
-  "return" { return symbol(RETURN); }
-  "this" { return symbol(THIS); }
-  "new" { return symbol(NEW); }
-  "null" { return symbol(NULL); }
+  "class" { return symbol(sym.CLASS); }
+  "main" { return symbol(sym.MAIN); }
+  "if" { return symbol(sym.IF); }
+  "else" { return symbol(sym.ELSE); }
+  "while" { return symbol(sym.WHILE); }
+  "readln" { return symbol(sym.READLN); }
+  "println" { return symbol(sym.PRINTLN); }
+  "return" { return symbol(sym.RETURN); }
+  "this" { return symbol(sym.THIS); }
+  "new" { return symbol(sym.NEW); }
+  "null" { return symbol(sym.NULL); }
 
   /* Types */
-  "Int" { return symbol(INT); }
-  "Bool" { return symbol(BOOL); }
-  "String" { return symbol(STRING); }
-  "Void" { return symbol(VOID); }
+  "Int" { return symbol(sym.INT); }
+  "Bool" { return symbol(sym.BOOL); }
+  "String" { return symbol(sym.STRING); }
+  "Void" { return symbol(sym.VOID); }
 
   /* Punctuations */
-  "{" { return symbol(LBRACE); }
-  "}" { return symbol(RBRACE); }
-  "(" { return symbol(LPAREN); }
-  ")" { return symbol(RPAREN); }
-  ";" { return symbol(SEMICOLON); }
-  "," { return symbol(COMMA); }
-  "." { return symbol(DOT); }
+  "{" { return symbol(sym.LBRACE); }
+  "}" { return symbol(sym.RBRACE); }
+  "(" { return symbol(sym.LPAREN); }
+  ")" { return symbol(sym.RPAREN); }
+  ";" { return symbol(sym.SEMICOLON); }
+  "," { return symbol(sym.COMMA); }
+  "." { return symbol(sym.DOT); }
 
   /* Operators */
-  "=" { return symbol(ASSIGN); }
-  "||" { return symbol(OR); }
-  "&&" { return symbol(AND); }
-  ">" { return symbol(GT); }
-  "<" { return symbol(LT); }
-  ">=" { return symbol(GEQ); }
-  "<=" { return symbol(LEQ); }
-  "==" { return symbol(EQ); }
-  "!=" { return symbol(NEQ); }
-  "!" { return symbol(NOT); }
-  "+" { return symbol(PLUS); }
-  "-" { return symbol(MINUS); }
-  "*" { return symbol(MULT); }
-  "/" { return symbol(DIV); }
+  "=" { return symbol(sym.ASSIGN); }
+  "||" { return symbol(sym.OR); }
+  "&&" { return symbol(sym.AND); }
+  ">" { return symbol(sym.GT); }
+  "<" { return symbol(sym.LT); }
+  ">=" { return symbol(sym.GEQ); }
+  "<=" { return symbol(sym.LEQ); }
+  "==" { return symbol(sym.EQ); }
+  "!=" { return symbol(sym.NEQ); }
+  "!" { return symbol(sym.NOT); }
+  "+" { return symbol(sym.PLUS); }
+  "-" { return symbol(sym.MINUS); }
+  "*" { return symbol(sym.MULT); }
+  "/" { return symbol(sym.DIV); }
 
   /* Booleans */
-  "true" { return symbol(TRUE); }
-  "false" { return symbol(FALSE); }
+  "true" { return symbol(sym.TRUE); }
+  "false" { return symbol(sym.FALSE); }
 
-  {Identifier} { return symbol(ID, yytext()); }
-  {ClassName} { return symbol(CNAME, yytext()); }
-  {IntegerLiteral} { return symbol(INTEGER_LITERAL, Integer.valueOf(Integer.parseInt(yytext()))); }
+  {Identifier} { return symbol(sym.ID, yytext()); }
+  {ClassName} { return symbol(sym.CNAME, yytext()); }
+  {IntegerLiteral} { return symbol(sym.INTEGER_LITERAL, Integer.valueOf(Integer.parseInt(yytext()))); }
 
   {Comment} { /* Ignore */ }
   {WhiteSpace} { /* Ignore */ }
 }
 
 <STRING> {
-  \" { yybegin(YYINITIAL); return symbol(STRING_LITERAL, string.toString()); }
+  \" { yybegin(YYINITIAL); return symbol(sym.STRING_LITERAL, string.toString()); }
   [^\n\r\"\\] { string.append(yytext()); }
 
   /* escape sequences */
@@ -132,5 +132,3 @@ HexDigit = [0-9a-fA-F]
   \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn); }
   {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn); }
 }
-
-<<EOF>> { return symbol(EOF); }

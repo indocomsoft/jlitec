@@ -9,9 +9,9 @@ public class LexException extends RuntimeException {
   /**
    * The only constructor.
    *
-   * @param message
-   * @param line
-   * @param column
+   * @param message message.
+   * @param line line number.
+   * @param column column number.
    */
   public LexException(String message, int line, int column) {
     super(String.format("(%d:%d) %s", line, column, message));
