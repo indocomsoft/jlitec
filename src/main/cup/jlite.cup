@@ -33,19 +33,15 @@ non terminal Atom;
 non terminal ExpList;
 non terminal BExp;
 non terminal AExp;
-
-non terminal LiteralSExp;
-
 non terminal RExp;
 non terminal Conj;
 non terminal BOp;
 non terminal BGrd;
 non terminal Term;
 non terminal Ftr;
+non terminal SExp, S;
 non terminal ExpRest, ExpRest_star;
 non terminal ClassBody;
-
-precedence left PLUS;
 
 start with Program;
 
@@ -95,7 +91,6 @@ Stmt_star ::= Stmt_star Stmt | ;
 Exp ::=
 /* unknown type */
         Atom
-      | Exp PLUS Exp // just give up on PLUS because this requires further typechecking
 /* Boolean type */
       // BExp
       | BExp OR Conj
@@ -117,7 +112,10 @@ Exp ::=
       | INTEGER_LITERAL
       | MINUS Ftr
 /* String */
-      | LiteralSExp
+      // SExp
+      | SExp PLUS S
+      // S
+      | STRING_LITERAL
       ;
 
 BExp ::= BExp OR Conj | Conj ;
@@ -130,17 +128,15 @@ BOp ::= LT | GT | LEQ | GEQ | EQ | NEQ ;
 
 BGrd ::= NOT BGrd | TRUE | FALSE | Atom ;
 
-AExp ::= AExp MINUS Term | Term ;
+AExp ::= AExp PLUS Term | AExp MINUS Term | Term ;
 
 Term ::= Term MULT Ftr | Term DIV Ftr | Ftr ;
 
 Ftr ::= INTEGER_LITERAL | MINUS Ftr | Atom ;
 
-// /* Make SExp PLUS SExp left-associative */
-// SExp ::= SExp PLUS S | S ;
-// S ::= STRING_LITERAL | Atom ;
-
-LiteralSExp ::= LiteralSExp PLUS STRING_LITERAL | STRING_LITERAL ;
+/* Make SExp PLUS SExp left-associative */
+SExp ::= SExp PLUS S | S ;
+S ::= STRING_LITERAL | Atom ;
 
 Atom ::= Atom DOT ID
        | Atom LPAREN ExpList RPAREN

@@ -67,6 +67,21 @@ jflex {
     no_backup = true
 }
 
+cup {
+    args = [
+        "-interface", "-symbols", "Sym", "-parser", "Parser",
+        /*
+        Expect 1 conflict due to ambiguity of PLUS:
+        *** Reduce/Reduce conflict found in state #45
+        between S ::= Atom (*)
+        and     Ftr ::= Atom (*)
+        under symbols: {PLUS}
+        Resolved in favor of the second production.
+        */
+        "-expect", "1"
+    ]
+}
+
 application {
     // Define the main class for the application.
     mainClassName = 'jlitec.App'
