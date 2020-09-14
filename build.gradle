@@ -82,6 +82,10 @@ cup {
     ]
 }
 
+compileJava {
+    options.compilerArgs << '-Xlint:all'
+}
+
 application {
     // Define the main class for the application.
     mainClassName = 'jlitec.App'

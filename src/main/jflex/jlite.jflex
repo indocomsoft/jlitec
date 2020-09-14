@@ -1,6 +1,7 @@
 package jlitec.generated;
 
 import jlitec.generated.Sym;
+import jlitec.lexer.LexException;
 import java_cup.runtime.Symbol;
 
 /* Lexer for JLite */
@@ -103,7 +104,7 @@ HexDigit = [0-9a-fA-F]
 
   {Identifier} { return symbol(ID, yytext()); }
   {ClassName} { return symbol(CNAME, yytext()); }
-  {IntegerLiteral} { return symbol(INTEGER_LITERAL, new Integer(Integer.parseInt(yytext()))); }
+  {IntegerLiteral} { return symbol(INTEGER_LITERAL, Integer.valueOf(Integer.parseInt(yytext()))); }
 
   {Comment} { /* Ignore */ }
   {WhiteSpace} { /* Ignore */ }
@@ -123,13 +124,13 @@ HexDigit = [0-9a-fA-F]
   \\x{HexDigit}?{HexDigit} { char val = (char) Integer.parseInt(yytext().substring(2), 16); string.append(val); }
   \\{IntegerLiteral} {
     int intVal = Integer.parseInt(yytext().substring(1));
-    if (intVal > 255) throw new RuntimeException("Decimal value is outside ASCII range.");
+    if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn);
     char val = (char) intVal;
     string.append(val);
   }
 
-  \\. { throw new RuntimeException("Illegal escape sequence \"" + yytext() + "\""); }
-  {LineTerminator} { throw new RuntimeException("Unterminated string at end of line"); }
+  \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn); }
+  {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn); }
 }
 
 <<EOF>> { return symbol(EOF); }
