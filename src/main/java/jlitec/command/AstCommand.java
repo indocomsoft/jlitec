@@ -18,7 +18,7 @@ import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
 public class AstCommand implements Command {
-  private Gson gson =
+  private final Gson gson =
       new GsonBuilder()
           .setPrettyPrinting()
           .registerTypeAdapter(Expr.class, new ExprSerializer())
