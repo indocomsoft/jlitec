@@ -1,11 +1,12 @@
-package jlitec;
+package jlitec.parser;
 
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java_cup.runtime.DefaultSymbolFactory;
+
+import java_cup.runtime.ComplexSymbolFactory;
 import jlitec.ast.Program;
 import jlitec.generated.Lexer;
 import jlitec.generated.parser;
@@ -14,11 +15,9 @@ import jlitec.lexer.LexException;
 public class ParserWrapper {
   private static final int PAD = 2;
 
-  private final String filename;
   private final List<String> lines;
 
   public ParserWrapper(String filename) throws IOException {
-    this.filename = filename;
     this.lines = Files.readAllLines(Paths.get(filename));
   }
 
@@ -31,7 +30,7 @@ public class ParserWrapper {
     try {
       return (Program)
           new parser(
-                  new Lexer(new StringReader(String.join("\n", lines))), new DefaultSymbolFactory())
+                  new Lexer(new StringReader(String.join("\n", lines))), new ComplexSymbolFactory())
               .parse()
               .value;
     } catch (LexException e) {

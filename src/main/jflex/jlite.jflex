@@ -3,6 +3,8 @@ package jlitec.generated;
 import jlitec.generated.sym;
 import jlitec.lexer.LexException;
 import java_cup.runtime.Symbol;
+import java_cup.runtime.ComplexSymbolFactory;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
 /* Lexer for JLite */
 
@@ -20,13 +22,24 @@ import java_cup.runtime.Symbol;
 
 %{
   StringBuilder string = new StringBuilder();
+  ComplexSymbolFactory symbolFactory = new ComplexSymbolFactory();
 
-  private Symbol symbol(int type) {
-    return new Symbol(type, yyline, yycolumn);
+  private Symbol symbol(String name, int sym) {
+      Location left = new Location(yyline + 1, yycolumn + 1, (int)yychar);
+      Location right = new Location(yyline + 1, yycolumn + yylength(), (int)(yychar + yylength()));
+      return symbolFactory.newSymbol(name, sym, left, right);
   }
 
-  private Symbol symbol(int type, Object value) {
-    return new Symbol(type, yyline, yycolumn, value);
+  private Symbol symbol(String name, int sym, Object val) {
+      Location left = new Location(yyline + 1, yycolumn + 1, (int)yychar);
+      Location right = new Location(yyline + 1, yycolumn + yylength(), (int)(yychar + yylength()));
+      return symbolFactory.newSymbol(name, sym, left, right, val);
+  }
+
+  private Symbol symbol(String name, int sym, Object val, int buflength) {
+      Location left = new Location(yyline + 1, yycolumn + yylength() - buflength, (int) (yychar + yylength() - buflength));
+      Location right = new Location(yyline + 1, yycolumn + yylength(), (int) (yychar + yylength()));
+      return symbolFactory.newSymbol(name, sym, left, right, val);
   }
 %}
 
@@ -55,63 +68,63 @@ HexDigit = [0-9a-fA-F]
   \" { yybegin(STRING); string.setLength(0); }
 
   /* Keywords */
-  "class" { return symbol(sym.CLASS); }
-  "main" { return symbol(sym.MAIN); }
-  "if" { return symbol(sym.IF); }
-  "else" { return symbol(sym.ELSE); }
-  "while" { return symbol(sym.WHILE); }
-  "readln" { return symbol(sym.READLN); }
-  "println" { return symbol(sym.PRINTLN); }
-  "return" { return symbol(sym.RETURN); }
-  "this" { return symbol(sym.THIS); }
-  "new" { return symbol(sym.NEW); }
-  "null" { return symbol(sym.NULL); }
+  "class" { return symbol("class", sym.CLASS); }
+  "main" { return symbol("main", sym.MAIN); }
+  "if" { return symbol("if", sym.IF); }
+  "else" { return symbol("else", sym.ELSE); }
+  "while" { return symbol("while", sym.WHILE); }
+  "readln" { return symbol("readln", sym.READLN); }
+  "println" { return symbol("println", sym.PRINTLN); }
+  "return" { return symbol("return", sym.RETURN); }
+  "this" { return symbol("this", sym.THIS); }
+  "new" { return symbol("new", sym.NEW); }
+  "null" { return symbol("null", sym.NULL); }
 
   /* Types */
-  "Int" { return symbol(sym.INT); }
-  "Bool" { return symbol(sym.BOOL); }
-  "String" { return symbol(sym.STRING); }
-  "Void" { return symbol(sym.VOID); }
+  "Int" { return symbol("Int", sym.INT); }
+  "Bool" { return symbol("Bool", sym.BOOL); }
+  "String" { return symbol("String", sym.STRING); }
+  "Void" { return symbol("Void", sym.VOID); }
 
   /* Punctuations */
-  "{" { return symbol(sym.LBRACE); }
-  "}" { return symbol(sym.RBRACE); }
-  "(" { return symbol(sym.LPAREN); }
-  ")" { return symbol(sym.RPAREN); }
-  ";" { return symbol(sym.SEMICOLON); }
-  "," { return symbol(sym.COMMA); }
-  "." { return symbol(sym.DOT); }
+  "{" { return symbol("{", sym.LBRACE); }
+  "}" { return symbol("}", sym.RBRACE); }
+  "(" { return symbol("(", sym.LPAREN); }
+  ")" { return symbol(")", sym.RPAREN); }
+  ";" { return symbol(";", sym.SEMICOLON); }
+  "," { return symbol(",", sym.COMMA); }
+  "." { return symbol(".", sym.DOT); }
 
   /* Operators */
-  "=" { return symbol(sym.ASSIGN); }
-  "||" { return symbol(sym.OR); }
-  "&&" { return symbol(sym.AND); }
-  ">" { return symbol(sym.GT); }
-  "<" { return symbol(sym.LT); }
-  ">=" { return symbol(sym.GEQ); }
-  "<=" { return symbol(sym.LEQ); }
-  "==" { return symbol(sym.EQ); }
-  "!=" { return symbol(sym.NEQ); }
-  "!" { return symbol(sym.NOT); }
-  "+" { return symbol(sym.PLUS); }
-  "-" { return symbol(sym.MINUS); }
-  "*" { return symbol(sym.MULT); }
-  "/" { return symbol(sym.DIV); }
+  "=" { return symbol("=", sym.ASSIGN); }
+  "||" { return symbol("||", sym.OR); }
+  "&&" { return symbol("&&", sym.AND); }
+  ">" { return symbol(">", sym.GT); }
+  "<" { return symbol("<", sym.LT); }
+  ">=" { return symbol(">=", sym.GEQ); }
+  "<=" { return symbol("<=", sym.LEQ); }
+  "==" { return symbol("==", sym.EQ); }
+  "!=" { return symbol("!=", sym.NEQ); }
+  "!" { return symbol("!", sym.NOT); }
+  "+" { return symbol("+", sym.PLUS); }
+  "-" { return symbol("-", sym.MINUS); }
+  "*" { return symbol("*", sym.MULT); }
+  "/" { return symbol("/", sym.DIV); }
 
   /* Booleans */
-  "true" { return symbol(sym.TRUE); }
-  "false" { return symbol(sym.FALSE); }
+  "true" { return symbol("true", sym.TRUE); }
+  "false" { return symbol("false", sym.FALSE); }
 
-  {Identifier} { return symbol(sym.ID, yytext()); }
-  {ClassName} { return symbol(sym.CNAME, yytext()); }
-  {IntegerLiteral} { return symbol(sym.INTEGER_LITERAL, Integer.valueOf(Integer.parseInt(yytext()))); }
+  {Identifier} { return symbol("identifier", sym.ID, yytext()); }
+  {ClassName} { return symbol("cname", sym.CNAME, yytext()); }
+  {IntegerLiteral} { return symbol("INTEGER_LITERAL", sym.INTEGER_LITERAL, Integer.valueOf(Integer.parseInt(yytext()))); }
 
   {Comment} { /* Ignore */ }
   {WhiteSpace} { /* Ignore */ }
 }
 
 <STRING> {
-  \" { yybegin(YYINITIAL); return symbol(sym.STRING_LITERAL, string.toString()); }
+  \" { yybegin(YYINITIAL); return symbol("STRING_LITERAL", sym.STRING_LITERAL, string.toString(), string.length()); }
   [^\n\r\"\\] { string.append(yytext()); }
 
   /* escape sequences */
@@ -132,3 +145,7 @@ HexDigit = [0-9a-fA-F]
   \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn); }
   {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn); }
 }
+
+/* error fallback */
+[^] { throw new LexException("Illegal character \"" + yytext() + "\"", yyline, yycolumn); }
+<<EOF>> {return symbol("EOF",sym.EOF); }

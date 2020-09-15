@@ -3,7 +3,7 @@ package jlitec.command;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
-import jlitec.ParserWrapper;
+import jlitec.parser.ParserWrapper;
 import jlitec.ast.Program;
 import jlitec.ast.expr.Expr;
 import jlitec.ast.expr.ExprExclusionStrategy;
