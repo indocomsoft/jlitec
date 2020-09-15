@@ -69,7 +69,6 @@ non terminal BinaryOp BOp;
 non terminal Expr BGrd;
 non terminal Expr Term;
 non terminal Expr Ftr;
-non terminal Expr SExp, S;
 
 start with Program;
 
@@ -213,7 +212,7 @@ Exp ::=
       {: RESULT = new BoolLiteralExpr(true); :}
       | FALSE
       {: RESULT = new BoolLiteralExpr(false); :}
-/* Integer type */
+/* Integer/String type */
       // AExp
       | AExp:lhs PLUS Term:rhs
       {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
@@ -224,18 +223,13 @@ Exp ::=
       {: RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); :}
       | Term:lhs DIV Ftr:rhs
       {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
+      | STRING_LITERAL:s
+      {: RESULT = new StringLiteralExpr(s); :}
       // Ftr
       | INTEGER_LITERAL:i
       {: RESULT = new IntLiteralExpr(i); :}
       | MINUS Ftr:e
       {: RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); :}
-/* String */
-      // SExp
-      | SExp:lhs PLUS S:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
-      // S
-      | STRING_LITERAL:s
-      {: RESULT = new StringLiteralExpr(s); :}
       ;
 
 BExp ::=
@@ -301,6 +295,8 @@ Term ::=
        {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
        | Ftr:e
        {: RESULT = e; :}
+       | STRING_LITERAL:s
+       {: RESULT = new StringLiteralExpr(s); :}
        ;
 
 Ftr ::=
@@ -312,19 +308,6 @@ Ftr ::=
       {: RESULT = e; :}
       ;
 
-/* Make SExp PLUS SExp left-associative */
-SExp ::=
-       SExp:lhs PLUS S:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
-       | S: e
-       {: RESULT = e; :}
-       ;
-S ::=
-    STRING_LITERAL:s
-    {: RESULT = new StringLiteralExpr(s); :}
-    | Atom:e
-    {: RESULT = e; :}
-    ;
 
 Atom ::=
          Atom:target DOT ID:id

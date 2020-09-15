@@ -2,6 +2,7 @@ package jlitec.ast.expr;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public record CallExpr(Expr target, List<Expr> args) implements Expr {
@@ -12,6 +13,11 @@ public record CallExpr(Expr target, List<Expr> args) implements Expr {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_CALL;
+  }
+
+  @Override
+  public Optional<Type> getType() {
+    return Optional.empty();
   }
 
   @Override
