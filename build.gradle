@@ -71,17 +71,7 @@ jflex {
 }
 
 cup {
-    args = [
-        /*
-        Expect 1 conflict due to ambiguity of PLUS:
-        *** Reduce/Reduce conflict found in state #45
-        between S ::= Atom (*)
-        and     Ftr ::= Atom (*)
-        under symbols: {PLUS}
-        Resolved in favor of the second production.
-        */
-        "-expect", "1"
-    ]
+    args = []
 }
 
 tasks.withType(JavaCompile) {
