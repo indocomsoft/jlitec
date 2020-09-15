@@ -37,7 +37,7 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
   }
 
   private Symbol symbol(String name, int sym, Object val, int buflength) {
-      Location left = new Location(yyline, yycolumn + yylength() - buflength);
+      Location left = new Location(yyline, yycolumn - buflength - 1);
       Location right = new Location(yyline, yycolumn + yylength());
       return symbolFactory.newSymbol(name, sym, left, right, val);
   }

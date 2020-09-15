@@ -71,7 +71,7 @@ jflex {
 }
 
 cup {
-    args = []
+    args = ["-locations"]
 }
 
 tasks.withType(JavaCompile) {

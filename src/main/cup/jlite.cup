@@ -35,6 +35,15 @@ parser code {:
           super.syntax_error(cur_token);
       }
     }
+
+    /* HAX WARNING! This method uses some internal states of lr_parser */
+    private void typecheckError(IncompatibleTypeException e) throws Exception {
+        final var act = get_action(((Symbol)stack.peek()).parse_state, cur_token.sym);
+        final var handleSize = production_tab[(-act)-1][1];
+        final var startSymbol = (ComplexSymbol) stack.get(stack.size() - handleSize);
+        final var endSymbol = (ComplexSymbol) stack.get(stack.size() - 1);
+        report_fatal_error(e.getMessage(), ((ComplexSymbolFactory) getSymbolFactory()).newSymbol("EXPR", startSymbol.sym, startSymbol.xleft, endSymbol.xright));
+    }
 :}
 
 /* Keywords */
@@ -205,16 +214,16 @@ Exp ::=
 /* Boolean type */
       // BExp
       | BExp:lhs OR Conj:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       // Conj
       | Conj:lhs AND RExp:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       // RExp
       | AExp:lhs BOp:op AExp:rhs
-      {: RESULT = new BinaryExpr(op, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(op, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       // BGrd
       | NOT BGrd:e
-      {: RESULT = new UnaryExpr(UnaryOp.NOT, e); :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
       | TRUE
       {: RESULT = new BoolLiteralExpr(true); :}
       | FALSE
@@ -222,40 +231,40 @@ Exp ::=
 /* Integer/String type */
       // AExp
       | AExp:lhs PLUS Term:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       | AExp:lhs MINUS Term:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       // Term
       | Term:lhs MULT Ftr:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       | Term:lhs DIV Ftr:rhs
-      {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
       | STRING_LITERAL:s
       {: RESULT = new StringLiteralExpr(s); :}
       // Ftr
       | INTEGER_LITERAL:i
       {: RESULT = new IntLiteralExpr(i); :}
       | MINUS Ftr:e
-      {: RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
       ;
 
 BExp ::=
        BExp:lhs OR Conj:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | Conj:e
        {: RESULT = e; :}
        ;
 
 Conj ::=
        Conj:lhs AND RExp:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | RExp:e
        {: RESULT = e; :}
        ;
 
 RExp ::=
        AExp:lhs BOp:op AExp:rhs
-       {: RESULT = new BinaryExpr(op, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(op, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | BGrd:e
        {: RESULT = e; :}
        ;
@@ -277,7 +286,7 @@ BOp ::=
 
 BGrd ::=
        NOT BGrd:e
-       {: RESULT = new UnaryExpr(UnaryOp.NOT, e); :}
+       {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
        | TRUE
        {: RESULT = new BoolLiteralExpr(true); :}
        | FALSE
@@ -288,18 +297,18 @@ BGrd ::=
 
 AExp ::=
        AExp:lhs PLUS Term:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | AExp:lhs MINUS Term:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | Term:e
        {: RESULT = e; :}
        ;
 
 Term ::=
        Term:lhs MULT Ftr:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | Term:lhs DIV Ftr:rhs
-       {: RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
        | Ftr:e
        {: RESULT = e; :}
        | STRING_LITERAL:s
@@ -310,7 +319,7 @@ Ftr ::=
       INTEGER_LITERAL:i
       {: RESULT = new IntLiteralExpr(i); :}
       | MINUS Ftr:e
-      {: RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
       | Atom:e
       {: RESULT = e; :}
       ;
