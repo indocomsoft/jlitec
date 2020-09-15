@@ -343,7 +343,8 @@ Atom ::=
        ;
 
 ExpList ::=
-          Exp:e
+          {: RESULT = Lists.newArrayList(); :}
+          | Exp:e
           {: RESULT = Lists.newArrayList(e); :}
           | ExpList:lst COMMA Exp:e
           {: lst.add(e); RESULT = lst; :}
