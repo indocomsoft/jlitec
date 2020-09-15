@@ -89,9 +89,9 @@ public class ParserWrapper {
     final var left = cs.xleft;
     final var right = cs.xright;
     sb.append('(')
-        .append(left.getLine())
+        .append(left.getLine() + 1)
         .append(':')
-        .append(left.getColumn())
+        .append(left.getColumn() + 1)
         .append(") parse error:\n")
         .append(message);
     sb.append("\n");
