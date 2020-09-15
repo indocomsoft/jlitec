@@ -5,4 +5,9 @@ public record ThisExpr() implements Expr {
   public ExprType getExprType() {
     return ExprType.EXPR_THIS;
   }
+
+  @Override
+  public String print(int indent) {
+    return "this";
+  }
 }

@@ -1,7 +1,9 @@
 package jlitec.ast.expr;
 
+import jlitec.ast.Printable;
+
 /** An interface for all the different kinds of expressions in JLite. */
-public interface Expr {
+public interface Expr extends Printable {
   /**
    * This is non-nullable.
    *

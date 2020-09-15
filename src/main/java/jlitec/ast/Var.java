@@ -1,3 +1,3 @@
 package jlitec.ast;
 
-public record Var(Type type, String id) { }
+public record Var(Type type, String id) {}

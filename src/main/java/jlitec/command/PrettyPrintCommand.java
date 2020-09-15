@@ -1,32 +1,19 @@
 package jlitec.command;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.charset.StandardCharsets;
 import java_cup.runtime.DefaultSymbolFactory;
 import jlitec.ast.Program;
-import jlitec.ast.expr.Expr;
-import jlitec.ast.expr.ExprSerializer;
-import jlitec.ast.stmt.Stmt;
-import jlitec.ast.stmt.StmtSerializer;
 import jlitec.generated.Lexer;
 import jlitec.generated.parser;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class AstCommand implements Command {
-  private final Gson gson =
-      new GsonBuilder()
-          .setPrettyPrinting()
-          .registerTypeAdapter(Expr.class, new ExprSerializer())
-          .registerTypeAdapter(Stmt.class, new StmtSerializer())
-          .create();
-
+public class PrettyPrintCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Show the AST in JSON";
+    return "pretty print the source code";
   }
 
   @Override
@@ -51,6 +38,6 @@ public class AstCommand implements Command {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    System.out.println(this.gson.toJson(program));
+    System.out.println(program.print(0));
   }
 }

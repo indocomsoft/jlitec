@@ -5,4 +5,9 @@ public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
   public ExprType getExprType() {
     return ExprType.EXPR_UNARY;
   }
+
+  @Override
+  public String print(int indent) {
+    return new StringBuilder().append(op.toString()).append(expr.print(indent)).toString();
+  }
 }

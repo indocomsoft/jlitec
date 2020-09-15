@@ -24,4 +24,9 @@ public class Type {
     this.cname = null;
     this.type = type;
   }
+
+  @Override
+  public String toString() {
+    return this.cname == null ? this.type.toString() : this.cname;
+  }
 }

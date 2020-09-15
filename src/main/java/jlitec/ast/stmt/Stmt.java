@@ -1,7 +1,9 @@
 package jlitec.ast.stmt;
 
+import jlitec.ast.Printable;
+
 /** An interface for all the different kinds of Statements in JLite. */
-public interface Stmt {
+public interface Stmt extends Printable {
   /**
    * This is non-nullable.
    *
