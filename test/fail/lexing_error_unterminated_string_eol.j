@@ -1,4 +1,4 @@
 class A {
-  Void main() { return "
+  Void main() { return "aaaaaaaa
     "; }
 }

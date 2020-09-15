@@ -143,7 +143,7 @@ HexDigit = [0-9a-fA-F]
   }
 
   \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn, yylength() - this.string.length()); }
-  {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn, 1); }
+  {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn, yylength()); }
 }
 
 /* error fallback */
