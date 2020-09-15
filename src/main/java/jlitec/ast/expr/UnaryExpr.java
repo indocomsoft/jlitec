@@ -3,6 +3,7 @@ package jlitec.ast.expr;
 import java.util.Optional;
 
 public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
+  /** Constructor that checks the type validity. */
   public UnaryExpr {
     switch (op) {
       case NOT -> {

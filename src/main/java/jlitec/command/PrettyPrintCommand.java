@@ -1,11 +1,10 @@
 package jlitec.command;
 
+import java.io.IOException;
 import jlitec.ParserWrapper;
 import jlitec.ast.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-
-import java.io.IOException;
 
 public class PrettyPrintCommand implements Command {
   @Override

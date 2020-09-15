@@ -2,6 +2,7 @@ package jlitec.command;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import java.io.IOException;
 import jlitec.ParserWrapper;
 import jlitec.ast.Program;
 import jlitec.ast.expr.Expr;
@@ -12,16 +13,14 @@ import jlitec.ast.stmt.StmtSerializer;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-import java.io.IOException;
-
 public class AstCommand implements Command {
   private final Gson gson =
-          new GsonBuilder()
-                  .setPrettyPrinting()
-                  .registerTypeAdapter(Expr.class, new ExprSerializer())
-                  .registerTypeAdapter(Stmt.class, new StmtSerializer())
-                  .setExclusionStrategies(new ExprExclusionStrategy())
-                  .create();
+      new GsonBuilder()
+          .setPrettyPrinting()
+          .registerTypeAdapter(Expr.class, new ExprSerializer())
+          .registerTypeAdapter(Stmt.class, new StmtSerializer())
+          .setExclusionStrategies(new ExprExclusionStrategy())
+          .create();
 
   @Override
   public String helpMessage() {

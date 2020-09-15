@@ -1,19 +1,15 @@
 package jlitec;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.List;
 import java_cup.runtime.DefaultSymbolFactory;
 import jlitec.ast.Program;
 import jlitec.generated.Lexer;
 import jlitec.generated.parser;
 import jlitec.lexer.LexException;
-
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.StringReader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.List;
 
 public class ParserWrapper {
   private static final int PAD = 2;
@@ -26,14 +22,18 @@ public class ParserWrapper {
     this.lines = Files.readAllLines(Paths.get(filename));
   }
 
+  /**
+   * Parse the file.
+   *
+   * @return the Program AST.
+   */
   public Program parse() {
     try {
       return (Program)
-              new parser(
-                      new Lexer(new StringReader(String.join("\n", lines))),
-                      new DefaultSymbolFactory())
-                      .parse()
-                      .value;
+          new parser(
+                  new Lexer(new StringReader(String.join("\n", lines))), new DefaultSymbolFactory())
+              .parse()
+              .value;
     } catch (LexException e) {
       System.err.println("Lexing error:");
       System.err.println(e.getLocalizedMessage());

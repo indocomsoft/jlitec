@@ -7,6 +7,7 @@ import jlitec.ast.stmt.Stmt;
 
 public record Method(Type type, String id, List<Var> args, List<Var> vars, List<Stmt> stmtList)
     implements Printable {
+  /** Construct a Method in the AST. */
   public Method {
     this.args = Collections.unmodifiableList(args);
     this.vars = Collections.unmodifiableList(vars);
