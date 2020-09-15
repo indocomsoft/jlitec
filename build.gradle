@@ -32,7 +32,7 @@ repositories {
     jcenter()
 }
 
-def versions = [checkstyle: '8.36']
+def versions = [checkstyle: '8.36', googleJavaFormat: '1.9']
 
 configurations {
     checkstyleConfig
@@ -41,6 +41,7 @@ configurations {
 dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:29.0-jre'
+    implementation 'net.sourceforge.argparse4j:argparse4j:0.8.1'
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.13'
@@ -100,6 +101,10 @@ jar {
     }
 }
 
+googleJavaFormat {
+    toolVersion = "${versions.googleJavaFormat}"
+}
+
 checkstyle {
     toolVersion = "${versions.checkstyle}"
     config = resources.text.fromArchiveEntry(configurations.checkstyleConfig, 'google_checks.xml')
@@ -128,9 +133,4 @@ spotbugsTest {
             stylesheet = 'fancy-hist.xsl'
         }
     }
-}
-
-task lexer(type: JavaExec) {
-    classpath = sourceSets.main.runtimeClasspath
-    main = "jlitec.generated.Lexer"
 }
