@@ -8,12 +8,12 @@ public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
     switch (op) {
       case NOT -> {
         if (expr.getType().filter(t -> t != Type.BOOL).isPresent()) {
-          throw new IncompatibleTypeException(op, expr);
+          throw new IncompatibleTypeException(op, expr, Type.BOOL);
         }
       }
       case NEGATIVE -> {
         if (expr.getType().filter(t -> t != Type.INT).isPresent()) {
-          throw new IncompatibleTypeException(op, expr);
+          throw new IncompatibleTypeException(op, expr, Type.INT);
         }
       }
     }
