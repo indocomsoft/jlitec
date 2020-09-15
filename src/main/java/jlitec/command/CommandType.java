@@ -3,9 +3,10 @@ package jlitec.command;
 import net.sourceforge.argparse4j.inf.Namespace;
 
 public enum CommandType {
-  LEXER(new LexerCommand());
+  LEXER(new LexerCommand()),
+  AST(new AstCommand());
 
-  private Command command;
+  public final Command command;
 
   CommandType(Command command) {
     this.command = command;

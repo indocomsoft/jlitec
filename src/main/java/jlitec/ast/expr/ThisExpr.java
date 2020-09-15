@@ -1,6 +1,6 @@
 package jlitec.ast.expr;
 
-public class ThisExpr implements Expr {
+public record ThisExpr() implements Expr {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_THIS;

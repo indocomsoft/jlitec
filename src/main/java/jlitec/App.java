@@ -15,22 +15,22 @@ public class App {
    * @param args command-line arguments
    */
   public static void main(String[] args) {
-    var parser =
+    final var parser =
         ArgumentParsers.newFor("jlitec")
             .build()
             .defaultHelp(true)
             .description("Compiler for the JLite language.");
 
-    var subparsers = parser.addSubparsers().help("sub-command help").dest("subcommand");
+    final var subparsers = parser.addSubparsers().help("sub-command help").dest("subcommand");
 
-    var lexerParser =
-        subparsers
-            .addParser(CommandType.LEXER.name().toLowerCase())
-            .help("Show the result of lexing the source code for debugging.");
-    lexerParser.addArgument("filename").type(String.class).help("input filename");
+    for (final var type : CommandType.values()) {
+      final var subparser =
+          subparsers.addParser(type.name().toLowerCase()).help(type.command.helpMessage());
+      type.command.setUpArguments(subparser);
+    }
 
     try {
-      var parsed = parser.parseArgs(args);
+      final var parsed = parser.parseArgs(args);
       CommandType.run(parsed);
     } catch (ArgumentParserException e) {
       parser.handleError(e);

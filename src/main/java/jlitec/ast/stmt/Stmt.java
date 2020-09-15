@@ -7,5 +7,5 @@ public interface Stmt {
    *
    * @return StmtType of the current Statement.
    */
-  StmtType getType();
+  StmtType getStmtType();
 }

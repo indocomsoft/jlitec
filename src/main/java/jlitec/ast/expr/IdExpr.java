@@ -1,12 +1,6 @@
 package jlitec.ast.expr;
 
-public class IdExpr implements Expr {
-  public final String id;
-
-  public IdExpr(String id) {
-    this.id = id;
-  }
-
+public record IdExpr(String id) implements Expr {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_ID;

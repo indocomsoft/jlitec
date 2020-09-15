@@ -3,17 +3,9 @@ package jlitec.ast.stmt;
 import java.util.List;
 import jlitec.ast.expr.Expr;
 
-public class CallStmt implements Stmt {
-  public final Expr target;
-  public final List<Expr> args;
-
-  public CallStmt(Expr target, List<Expr> args) {
-    this.target = target;
-    this.args = args;
-  }
-
+public record CallStmt(Expr target, List<Expr> args) implements Stmt {
   @Override
-  public StmtType getType() {
+  public StmtType getStmtType() {
     return StmtType.STMT_CALL;
   }
 }

@@ -23,7 +23,8 @@ plugins {
     // google-java-format plugin
     id 'com.github.sherter.google-java-format' version '0.9'
 
-    id "com.github.spotbugs" version "4.5.0"
+    // TODO: re-enable after https://github.com/spotbugs/spotbugs/pull/1277 is released
+    // id "com.github.spotbugs" version "4.5.0"
 }
 
 repositories {
@@ -32,7 +33,7 @@ repositories {
     jcenter()
 }
 
-def versions = [checkstyle: '8.36', googleJavaFormat: '1.9']
+def versions = [checkstyle: '8.36', googleJavaFormat: '1.9', spotbugs: '4.1.2']
 
 configurations {
     checkstyleConfig
@@ -42,6 +43,7 @@ dependencies {
     // This dependency is used by the application.
     implementation 'com.google.guava:guava:29.0-jre'
     implementation 'net.sourceforge.argparse4j:argparse4j:0.8.1'
+    implementation 'com.google.code.gson:gson:2.8.6'
 
     // Use JUnit test framework
     testImplementation 'junit:junit:4.13'
@@ -82,8 +84,16 @@ cup {
     ]
 }
 
-compileJava {
-    options.compilerArgs << '-Xlint:all'
+tasks.withType(JavaCompile) {
+    options.compilerArgs << '--enable-preview' << '-Xlint:all'
+}
+
+tasks.withType(Test) {
+    jvmArgs('--enable-preview')
+}
+
+tasks.withType(JavaExec) {
+    jvmArgs('--enable-preview')
 }
 
 application {
@@ -111,26 +121,28 @@ checkstyle {
     checkstyleMain.source = "src/main/java"
 }
 
-spotbugs {
-    excludeFilter = file("config/spotbugs_exclude.xml")
-}
-
-spotbugsMain {
-    reports {
-        html {
-            enabled = true
-            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
-            stylesheet = 'fancy-hist.xsl'
-        }
-    }
-}
-
-spotbugsTest {
-    reports {
-        html {
-            enabled = true
-            destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
-            stylesheet = 'fancy-hist.xsl'
-        }
-    }
-}
+// TODO: re-enable after https://github.com/spotbugs/spotbugs/pull/1277 is released
+// spotbugs {
+//     excludeFilter = file("config/spotbugs_exclude.xml")
+//     toolVersion = "${versions.spotbugs}"
+// }
+//
+// spotbugsMain {
+//     reports {
+//         html {
+//             enabled = true
+//             destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+//             stylesheet = 'fancy-hist.xsl'
+//         }
+//     }
+// }
+//
+// spotbugsTest {
+//     reports {
+//         html {
+//             enabled = true
+//             destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+//             stylesheet = 'fancy-hist.xsl'
+//         }
+//     }
+// }

@@ -2,17 +2,9 @@ package jlitec.ast.stmt;
 
 import jlitec.ast.expr.Expr;
 
-public class VarAssignStmt implements Stmt {
-  public final String lhsId;
-  public final Expr rhs;
-
-  public VarAssignStmt(String lhsId, Expr rhs) {
-    this.lhsId = lhsId;
-    this.rhs = rhs;
-  }
-
+public record VarAssignStmt(String lhsId, Expr rhs) implements Stmt {
   @Override
-  public StmtType getType() {
+  public StmtType getStmtType() {
     return StmtType.STMT_VAR_ASSIGN;
   }
 }

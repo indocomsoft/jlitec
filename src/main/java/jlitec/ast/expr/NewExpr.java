@@ -1,12 +1,6 @@
 package jlitec.ast.expr;
 
-public class NewExpr implements Expr {
-  public final String cname;
-
-  public NewExpr(String cname) {
-    this.cname = cname;
-  }
-
+public record NewExpr(String cname) implements Expr {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_NEW;

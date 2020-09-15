@@ -1,14 +1,8 @@
 package jlitec.ast.stmt;
 
-public class ReadlnStmt implements Stmt {
-  public final String id;
-
-  public ReadlnStmt(String id) {
-    this.id = id;
-  }
-
+public record ReadlnStmt(String id) implements Stmt {
   @Override
-  public StmtType getType() {
+  public StmtType getStmtType() {
     return StmtType.STMT_READLN;
   }
 }
