@@ -4,6 +4,7 @@
 
 package jlitec;
 
+import jlitec.command.CommandType;
 import net.sourceforge.argparse4j.ArgumentParsers;
 import net.sourceforge.argparse4j.inf.ArgumentParserException;
 
@@ -19,18 +20,18 @@ public class App {
             .build()
             .defaultHelp(true)
             .description("Compiler for the JLite language.");
+
     var subparsers = parser.addSubparsers().help("sub-command help").dest("subcommand");
+
     var lexerParser =
         subparsers
-            .addParser("lexer")
+            .addParser(CommandType.LEXER.name().toLowerCase())
             .help("Show the result of lexing the source code for debugging.");
     lexerParser.addArgument("filename").type(String.class).help("input filename");
+
     try {
       var parsed = parser.parseArgs(args);
-      switch (parsed.<String>get("subcommand")) {
-        case "lexer" -> jlitec.generated.Lexer.main(new String[] {parsed.get("filename")});
-        default -> throw new RuntimeException("Unrecognized subcommand");
-      }
+      CommandType.run(parsed);
     } catch (ArgumentParserException e) {
       parser.handleError(e);
     }
