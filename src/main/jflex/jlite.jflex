@@ -16,6 +16,7 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
 %unicode
 %cup
 %cupdebug
+%char
 %line
 %column
 
@@ -137,15 +138,15 @@ HexDigit = [0-9a-fA-F]
   \\x{HexDigit}?{HexDigit} { char val = (char) Integer.parseInt(yytext().substring(2), 16); string.append(val); }
   \\{IntegerLiteral} {
     int intVal = Integer.parseInt(yytext().substring(1));
-    if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn);
+    if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn, (int)(yylength() - this.string.length()));
     char val = (char) intVal;
     string.append(val);
   }
 
-  \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn); }
-  {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn); }
+  \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn, (int)(yylength() - this.string.length())); }
+  {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn, 1); }
 }
 
 /* error fallback */
-[^] { throw new LexException("Illegal character \"" + yytext() + "\"", yyline, yycolumn); }
+[^] { throw new LexException("Illegal character \"" + yytext() + "\"", yyline, yycolumn, (int)yylength()); }
 <<EOF>> {return symbol("EOF",sym.EOF); }

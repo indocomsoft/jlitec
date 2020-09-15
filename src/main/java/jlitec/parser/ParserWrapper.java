@@ -37,21 +37,21 @@ public class ParserWrapper {
       System.err.println("Lexing error:");
       System.err.println(e.getLocalizedMessage());
       System.err.println();
-      System.err.println(formErrorString(e.line, e.column));
+      System.err.println(formErrorString(e.line, e.column, e.length));
       throw new RuntimeException(e);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  private String formErrorString(int lineNumber, int column) {
+  private String formErrorString(int lineNumber, int column, int length) {
     final var sb = new StringBuilder();
 
     int start = Math.max(lineNumber - PAD, 0);
     int end = Math.min(lineNumber + PAD + 1, this.lines.size());
 
     lines.subList(start, lineNumber + 1).forEach(line -> sb.append(line).append("\n"));
-    sb.append("~".repeat(column)).append("^\n");
+    sb.append(" ".repeat(column)).append("^".repeat(length)).append("\n");
     lines.subList(lineNumber + 1, end).forEach(line -> sb.append(line).append("\n"));
 
     return sb.toString();
