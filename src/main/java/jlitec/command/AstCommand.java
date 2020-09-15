@@ -4,7 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 import java_cup.runtime.DefaultSymbolFactory;
 import jlitec.ast.Program;
 import jlitec.ast.expr.Expr;
@@ -42,7 +43,7 @@ public class AstCommand implements Command {
       program =
           (Program)
               new parser(
-                      new Lexer(new FileReader(filename, Charset.forName("UTF-8"))),
+                      new Lexer(new FileReader(filename, StandardCharsets.UTF_8)),
                       new DefaultSymbolFactory())
                   .parse()
                   .value;
