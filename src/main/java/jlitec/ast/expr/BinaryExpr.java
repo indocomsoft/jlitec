@@ -26,7 +26,7 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<Type> type)
             }
             yield Optional.of(Type.BOOL);
           }
-          case MULT, DIV, MINUS, GT, LT, GEQ, LEQ, EQ, NEQ-> {
+          case MULT, DIV, MINUS, GT, LT, GEQ, LEQ, EQ, NEQ -> {
             if (lhs.getType().filter(t -> t != Type.INT).isPresent()
                 || rhs.getType().filter(t -> t != Type.INT).isPresent()) {
               throw new IncompatibleTypeException(op, lhs, rhs, Type.INT, Type.INT);

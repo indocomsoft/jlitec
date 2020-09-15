@@ -1,11 +1,12 @@
 package jlitec.parser;
 
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-
+import java.util.Map;
 import java_cup.runtime.ComplexSymbolFactory;
 import jlitec.ast.Program;
 import jlitec.generated.Lexer;
@@ -14,6 +15,48 @@ import jlitec.lexer.LexException;
 
 public class ParserWrapper {
   private static final int PAD = 2;
+  private static final Map<String, String> FRIENDLY_SYMBOL_ID =
+      Map.ofEntries(
+          Map.entry("CLASS", "class"),
+          Map.entry("MAIN", "main"),
+          Map.entry("IF", "if"),
+          Map.entry("ELSE", "else"),
+          Map.entry("WHILE", "while"),
+          Map.entry("READLN", "readln"),
+          Map.entry("PRINTLN", "println"),
+          Map.entry("RETURN", "return"),
+          Map.entry("THIS", "this"),
+          Map.entry("NEW", "new"),
+          Map.entry("NULL", "null"),
+          Map.entry("INT", "Int"),
+          Map.entry("BOOL", "Bool"),
+          Map.entry("STRING", "String"),
+          Map.entry("VOID", "Void"),
+          Map.entry("LBRACE", "{"),
+          Map.entry("RBRACE", "}"),
+          Map.entry("LPAREN", "("),
+          Map.entry("RPAREN", ")"),
+          Map.entry("SEMICOLON", ";"),
+          Map.entry("COMMA", ","),
+          Map.entry("DOT", "."),
+          Map.entry("ASSIGN", "="),
+          Map.entry("OR", "||"),
+          Map.entry("AND", "&&"),
+          Map.entry("GT", ">"),
+          Map.entry("LT", "<"),
+          Map.entry("GEQ", ">="),
+          Map.entry("LEQ", "<="),
+          Map.entry("EQ", "=="),
+          Map.entry("NEQ", "!="),
+          Map.entry("NOT", "!"),
+          Map.entry("PLUS", "+"),
+          Map.entry("MINUS", "-"),
+          Map.entry("MULT", "*"),
+          Map.entry("DIV", "/"),
+          Map.entry("TRUE", "true"),
+          Map.entry("FALSE", "false"),
+          Map.entry("ID", "identifier"),
+          Map.entry("CNAME", "Cname"));
 
   private final List<String> lines;
 
@@ -29,10 +72,7 @@ public class ParserWrapper {
   public Program parse() {
     try {
       return (Program)
-          new parser(
-                  new Lexer(new StringReader(String.join("\n", lines))), new ComplexSymbolFactory())
-              .parse()
-              .value;
+          new parser(new Lexer(new StringReader(String.join("\n", lines))), this).parse().value;
     } catch (LexException e) {
       System.err.println("Lexing error:");
       System.err.println(e.getLocalizedMessage());
@@ -42,6 +82,32 @@ public class ParserWrapper {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public void handleCUPError(String message, ComplexSymbolFactory.ComplexSymbol cs) {
+    final var sb = new StringBuilder();
+    final var left = cs.xleft;
+    final var right = cs.xright;
+    sb.append('(')
+        .append(left.getLine())
+        .append(':')
+        .append(left.getColumn())
+        .append(") parse error:\n")
+        .append(message);
+    sb.append("\n");
+    sb.append(
+        formErrorString(left.getLine(), left.getColumn(), right.getColumn() - left.getColumn()));
+    System.err.println(sb.toString());
+  }
+
+  public void handleSyntaxError(
+      ComplexSymbolFactory.ComplexSymbol curToken, List<String> expectedTokens) {
+    handleCUPError("Syntax error", curToken);
+    final var translatedTokens =
+        expectedTokens.stream()
+            .map(token -> FRIENDLY_SYMBOL_ID.getOrDefault(token, token))
+            .collect(ImmutableList.toImmutableList());
+    System.err.println("instead expected token classes are " + translatedTokens);
   }
 
   private String formErrorString(int lineNumber, int column, int length) {

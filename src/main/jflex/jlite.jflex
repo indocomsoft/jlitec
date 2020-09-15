@@ -16,7 +16,6 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
 %unicode
 %cup
 %cupdebug
-%char
 %line
 %column
 
@@ -26,20 +25,20 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
   ComplexSymbolFactory symbolFactory = new ComplexSymbolFactory();
 
   private Symbol symbol(String name, int sym) {
-      Location left = new Location(yyline + 1, yycolumn + 1, (int)yychar);
-      Location right = new Location(yyline + 1, yycolumn + yylength(), (int)(yychar + yylength()));
+      Location left = new Location(yyline, yycolumn, (int)yychar);
+      Location right = new Location(yyline, yycolumn + yylength());
       return symbolFactory.newSymbol(name, sym, left, right);
   }
 
   private Symbol symbol(String name, int sym, Object val) {
-      Location left = new Location(yyline + 1, yycolumn + 1, (int)yychar);
-      Location right = new Location(yyline + 1, yycolumn + yylength(), (int)(yychar + yylength()));
+      Location left = new Location(yyline, yycolumn, (int)yychar);
+      Location right = new Location(yyline, yycolumn + yylength());
       return symbolFactory.newSymbol(name, sym, left, right, val);
   }
 
   private Symbol symbol(String name, int sym, Object val, int buflength) {
-      Location left = new Location(yyline + 1, yycolumn + yylength() - buflength, (int) (yychar + yylength() - buflength));
-      Location right = new Location(yyline + 1, yycolumn + yylength(), (int) (yychar + yylength()));
+      Location left = new Location(yyline, yycolumn + yylength() - buflength);
+      Location right = new Location(yyline, yycolumn + yylength());
       return symbolFactory.newSymbol(name, sym, left, right, val);
   }
 %}
@@ -138,15 +137,15 @@ HexDigit = [0-9a-fA-F]
   \\x{HexDigit}?{HexDigit} { char val = (char) Integer.parseInt(yytext().substring(2), 16); string.append(val); }
   \\{IntegerLiteral} {
     int intVal = Integer.parseInt(yytext().substring(1));
-    if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn, (int)(yylength() - this.string.length()));
+    if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn, yylength() - this.string.length());
     char val = (char) intVal;
     string.append(val);
   }
 
-  \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn, (int)(yylength() - this.string.length())); }
+  \\. { throw new LexException(String.format("Illegal escape sequence \"%s\"", yytext()), yyline, yycolumn, yylength() - this.string.length()); }
   {LineTerminator} { throw new LexException("Unterminated string at end of line", yyline, yycolumn, 1); }
 }
 
 /* error fallback */
-[^] { throw new LexException("Illegal character \"" + yytext() + "\"", yyline, yycolumn, (int)yylength()); }
+[^] { throw new LexException("Illegal character \"" + yytext() + "\"", yyline, yycolumn, yylength()); }
 <<EOF>> {return symbol("EOF",sym.EOF); }

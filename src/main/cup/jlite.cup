@@ -2,31 +2,38 @@ package jlitec.generated;
 
 import java_cup.runtime.*;
 import com.google.common.collect.Lists;
+import jlitec.parser.ParserWrapper;
 import jlitec.ast.*;
 import jlitec.ast.expr.*;
 import jlitec.ast.stmt.*;
 import java.util.List;
+import com.google.common.collect.ImmutableList;
 
 import java_cup.runtime.ComplexSymbolFactory.ComplexSymbol;
 parser code {:
+    private ParserWrapper pw;
+
+    public parser(Scanner s, ParserWrapper pw) {
+        super(s, new ComplexSymbolFactory());
+        this.pw = pw;
+    }
+
     @Override
-      public void report_error(String message, Object info) {
-        if (info instanceof ComplexSymbol) {
-          ComplexSymbol cs = (ComplexSymbol)info;
-          System.err.println(message+" for input symbol \""+cs.getName()+"\" spanning from "+cs.getLeft() +" to "+cs.getRight());
-          return;
-        }
+    public void report_error(String message, Object info) {
+      if (pw != null && info instanceof ComplexSymbol cs) {
+          pw.handleCUPError(message, cs);
+      } else {
+          super.report_error(message, info);
+      }
+    }
 
-        System.err.print(message);
-        System.err.flush();
-
-        if (info instanceof Symbol) {
-            if (((Symbol)info).left != -1) {
-                System.err.println(" at character " + ((Symbol)info).left + " of input");
-            } else {
-                System.err.println("");
-            }
-        }
+    @Override
+    public void syntax_error(Symbol cur_token) {
+      if (pw != null && cur_token instanceof ComplexSymbol cs) {
+          this.pw.handleSyntaxError(cs, expected_token_ids().stream().map(id -> symbl_name_from_id(id)).collect(ImmutableList.toImmutableList()));
+      } else {
+          super.syntax_error(cur_token);
+      }
     }
 :}
 
