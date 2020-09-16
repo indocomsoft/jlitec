@@ -111,7 +111,9 @@ Program ::= MainClass:main ClassDecl_star:lst
 MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
             {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new Type(JliteType.VOID), "main", args, vars, stmtlist))); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE RBRACE
-            {: report_fatal_error("Method body must contain at least 1 statement.", spanSymbols(3, 1)); :}
+            {: report_fatal_error("Method body of main must contain at least 1 statement.", spanSymbols(3, 1)); :}
+            | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE MdDecl_plus RBRACE
+            {: report_fatal_error("Main class can only have 1 method, namely main.", stack.get(stack.size() - 2)); :}
             ;
 
 // Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
@@ -224,6 +226,12 @@ Stmt ::=
        {: RESULT = new ReturnStmt(e); :}
        | RETURN SEMICOLON
        {: RESULT = new ReturnStmt(null); :}
+       | IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE
+       {: report_fatal_error("Missing else in the if-else statement.", stack.peek()); :}
+       | IF LPAREN Exp RPAREN LBRACE RBRACE ELSE LBRACE Stmt_plus RBRACE
+       {: report_fatal_error("Consequent / then statement(s) cannot be empty.", spanSymbols(6, 5)); :}
+       | IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE RBRACE
+       {: report_fatal_error("Alternative / else statement(s) cannot be empty.", spanSymbols(2, 1)); :}
        ;
 Stmt_plus ::=
             Stmt:stmt
