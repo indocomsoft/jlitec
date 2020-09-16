@@ -17,4 +17,7 @@ public enum ExprType {
   EXPR_ID,
   EXPR_NEW,
   EXPR_NULL,
+
+  // Wrapper
+  EXPR_PAREN,
 }

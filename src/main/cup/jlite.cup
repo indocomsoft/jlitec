@@ -371,7 +371,7 @@ Atom ::=
        | NEW CNAME:cname LPAREN RPAREN
        {: RESULT = new NewExpr(cname); :}
        | LPAREN Exp:e RPAREN
-       {: RESULT = e; :}
+       {: RESULT = new ParenExpr(e); :}
        | NULL
        {: RESULT = new NullExpr(); :}
        ;
