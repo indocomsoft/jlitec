@@ -51,13 +51,15 @@ Identifier = [a-z][a-zA-Z0-9_]*
 
 ClassName = [A-Z][a-zA-Z0-9]*
 
-IntegerLiteral = [0-9]+
+HexDigit = [0-9a-fA-F]
+DecDigit = [0-9]
+
+IntegerLiteral = {DecDigit}+
 
 Comment = {MultiLineComment} | {EndOfLineComment}
 MultiLineComment = "/*" ~"*/"
 EndOfLineComment = "//" {InputCharacter}* {LineTerminator}
 
-HexDigit = [0-9a-fA-F]
 
 %state STRING
 
@@ -135,7 +137,7 @@ HexDigit = [0-9a-fA-F]
   "\\t" { string.append('\t'); }
   "\\b" { string.append('\b'); }
   \\x{HexDigit}?{HexDigit} { char val = (char) Integer.parseInt(yytext().substring(2), 16); string.append(val); }
-  \\{IntegerLiteral} {
+  \\[0-2]?{DecDigit}?{DecDigit} {
     int intVal = Integer.parseInt(yytext().substring(1));
     if (intVal > 255) throw new LexException(String.format("Decimal value is outside ASCII range: %s", yytext()), yyline, yycolumn, yylength() - this.string.length());
     char val = (char) intVal;
