@@ -50,6 +50,7 @@ parser code {:
         report_fatal_error(e.getMessage(), spanSymbols(handleSize, 1));
     }
 
+    /* HAX WARNING! This method uses some internal states of lr_parser */
     private ComplexSymbol spanSymbols(int left, int right) {
         final var leftSymbol = (ComplexSymbol) stack.get(stack.size() - Math.max(left, right));
         final var rightSymbol = (ComplexSymbol) stack.get(stack.size() - Math.min(left, right));
@@ -103,6 +104,8 @@ start with Program;
 
 Program ::= MainClass:main ClassDecl_star:lst
           {: lst.add(0, main); RESULT = new Program(lst); :}
+          | ClassDecl ClassDecl_star
+          {: report_fatal_error("Missing main class.", stack.get(stack.size() - 2)); :}
           ;
 
 MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
