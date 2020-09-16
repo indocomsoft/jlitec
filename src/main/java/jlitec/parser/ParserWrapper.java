@@ -108,6 +108,9 @@ public class ParserWrapper {
             .map(token -> FRIENDLY_SYMBOL_ID.getOrDefault(token, token))
             .collect(ImmutableList.toImmutableList());
     System.err.println("instead expected token classes are " + translatedTokens);
+    System.err.println("Note: not all token classes will end up being accepted.");
+    System.err.println("The JLite grammar is more restrictive than the LALR parser used, so we perform some parse tree checks later on.");
+    System.err.println();
   }
 
   private String formErrorString(int lineNumber, int column, int length) {
@@ -117,7 +120,12 @@ public class ParserWrapper {
     int end = Math.min(lineNumber + PAD + 1, this.lines.size());
 
     lines.subList(start, lineNumber + 1).forEach(line -> sb.append(line).append("\n"));
-    sb.append(" ".repeat(column)).append("^".repeat(length)).append("\n");
+    if (column >= 0) {
+      sb.append("~".repeat(column)).append("^".repeat(Math.max(length, 1)));
+    } else {
+      sb.append("~".repeat(lines.get(lineNumber).length()));
+    }
+    sb.append("\n");
     lines.subList(lineNumber + 1, end).forEach(line -> sb.append(line).append("\n"));
 
     return sb.toString();

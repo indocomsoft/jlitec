@@ -30,7 +30,14 @@ parser code {:
     @Override
     public void syntax_error(Symbol cur_token) {
       if (pw != null && cur_token instanceof ComplexSymbol cs) {
-          this.pw.handleSyntaxError(cs, expected_token_ids().stream().map(id -> symbl_name_from_id(id)).collect(ImmutableList.toImmutableList()));
+          List<String> tokens = expected_token_ids().stream().map(id -> symbl_name_from_id(id)).collect(ImmutableList.toImmutableList());
+          List<String> newTokens;
+          for(;;) {
+            newTokens = expected_token_ids().stream().map(id -> symbl_name_from_id(id)).collect(ImmutableList.toImmutableList());
+            if (newTokens.size() == tokens.size()) break;
+            tokens = newTokens;
+          }
+          this.pw.handleSyntaxError(cs, tokens);
       } else {
           super.syntax_error(cur_token);
       }
@@ -40,9 +47,13 @@ parser code {:
     private void typecheckError(IncompatibleTypeException e) throws Exception {
         final var act = get_action(((Symbol)stack.peek()).parse_state, cur_token.sym);
         final var handleSize = production_tab[(-act)-1][1];
-        final var startSymbol = (ComplexSymbol) stack.get(stack.size() - handleSize);
-        final var endSymbol = (ComplexSymbol) stack.get(stack.size() - 1);
-        report_fatal_error(e.getMessage(), ((ComplexSymbolFactory) getSymbolFactory()).newSymbol("EXPR", startSymbol.sym, startSymbol.xleft, endSymbol.xright));
+        report_fatal_error(e.getMessage(), spanSymbols(handleSize, 1));
+    }
+
+    private ComplexSymbol spanSymbols(int left, int right) {
+        final var leftSymbol = (ComplexSymbol) stack.get(stack.size() - Math.max(left, right));
+        final var rightSymbol = (ComplexSymbol) stack.get(stack.size() - Math.min(left, right));
+        return (ComplexSymbol)((ComplexSymbolFactory) getSymbolFactory()).newSymbol("EXPR", leftSymbol.sym, leftSymbol.xleft, rightSymbol.xright);
     }
 :}
 
@@ -86,26 +97,30 @@ non terminal Expr BGrd;
 non terminal Expr Term;
 non terminal Expr Ftr;
 
+non terminal String CnameDecl;
+
 start with Program;
 
 Program ::= MainClass:main ClassDecl_star:lst
           {: lst.add(0, main); RESULT = new Program(lst); :}
           ;
 
-MainClass ::= CLASS CNAME:cname LBRACE VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
+MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
             {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new Type(JliteType.VOID), "main", args, vars, stmtlist))); :}
+            | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE RBRACE
+            {: report_fatal_error("Method body must contain at least 1 statement.", spanSymbols(3, 1)); :}
             ;
 
 // Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
 // by enumerating the 4 possible permutations: (0, 0), (0, +), (+, 0), (+, +)
 ClassDecl ::=
-            CLASS CNAME:cname LBRACE VarDecl_plus:vars MdDecl_plus:methods RBRACE
+            CnameDecl:cname VarDecl_plus:vars MdDecl_plus:methods RBRACE
             {: RESULT = new Klass(cname, vars, methods); :}
-            | CLASS CNAME:cname LBRACE VarDecl_plus:vars RBRACE
+            | CnameDecl:cname VarDecl_plus:vars RBRACE
             {: RESULT = new Klass(cname, vars, Lists.newArrayList()); :}
-            | CLASS CNAME:cname LBRACE MdDecl_plus:methods RBRACE
+            | CnameDecl:cname MdDecl_plus:methods RBRACE
             {: RESULT = new Klass(cname, Lists.newArrayList(), methods); :}
-            | CLASS CNAME:cname LBRACE RBRACE
+            | CnameDecl:cname RBRACE
             {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList()); :}
             ;
 ClassDecl_star ::=
@@ -115,8 +130,16 @@ ClassDecl_star ::=
                  {: RESULT = Lists.newArrayList(); :}
                  ;
 
+CnameDecl ::= CLASS CNAME:cname LBRACE
+            {: RESULT = cname; :}
+            | CLASS ID:e LBRACE
+            {: report_fatal_error("Class name must begin with an uppercased letter.", stack.get(stack.size() - 2)); :}
+            ;
+
 VarDecl ::= Type:type ID:id SEMICOLON
           {: RESULT = new Var(type, id); :}
+          | Type CNAME SEMICOLON
+          {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 2)); :}
           ;
 
 VarDecl_plus ::=
@@ -135,6 +158,10 @@ VarDecl_star ::=
 
 MdDecl ::= Type:type ID:id LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE
          {: RESULT = new Method(type, id, args, vars, stmtlist); :}
+         | Type CNAME LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE
+         {: report_fatal_error("Method name must begin with a lowercased letter.", stack.get(stack.size() - 8)); :}
+         | Type ID LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE
+         {: report_fatal_error("Method body must contain at least 1 statement.", spanSymbols(3, 1)); :}
          ;
 
 MdDecl_plus ::=
@@ -156,6 +183,10 @@ FmlList ::=
           {: RESULT = Lists.newArrayList(new Var(type, id)); :}
           | FmlList:lst COMMA Type:type ID:id
           {: lst.add(new Var(type, id)); RESULT = lst; :}
+          | Type CNAME
+          {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 1)); :}
+          | FmlList COMMA Type CNAME
+          {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 1)); :}
           ;
 
 Type ::=
