@@ -16,7 +16,7 @@ public class LexException extends RuntimeException {
    * @param length length of the token.
    */
   public LexException(String message, int line, int column, int length) {
-    super(String.format("(%d:%d, %d) %s", line, column, length, message));
+    super(String.format("(%d:%d) %s", line, column, message));
     this.message = message;
     this.line = line;
     this.column = column;

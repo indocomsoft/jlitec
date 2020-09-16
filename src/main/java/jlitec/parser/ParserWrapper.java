@@ -74,8 +74,8 @@ public class ParserWrapper {
       return (Program)
           new parser(new Lexer(new StringReader(String.join("\n", lines))), this).parse().value;
     } catch (LexException e) {
-      System.err.println("Lexing error:");
-      System.err.println(e.getLocalizedMessage());
+      System.err.println(String.format("(%d:%d) lex error:", e.line, e.column));
+      System.err.println(e.message);
       System.err.println();
       System.err.println(formErrorString(e.line, e.column, e.length));
       throw new RuntimeException(e);
@@ -94,7 +94,7 @@ public class ParserWrapper {
         .append(left.getColumn() + 1)
         .append(") parse error:\n")
         .append(message);
-    sb.append("\n");
+    sb.append("\n\n");
     sb.append(
         formErrorString(left.getLine(), left.getColumn(), right.getColumn() - left.getColumn()));
     System.err.println(sb.toString());
