@@ -1,8 +1,7 @@
 package jlitec.ast.expr;
 
-import jlitec.ast.Printable;
-
 import java.util.Optional;
+import jlitec.ast.Printable;
 
 public record ParenExpr(Expr expr) implements Expr, Printable {
   @Override
