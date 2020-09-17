@@ -1,15 +1,46 @@
 package jlitec.generated;
 
-import java_cup.runtime.*;
-import com.google.common.collect.Lists;
-import jlitec.parser.ParserWrapper;
-import jlitec.ast.*;
-import jlitec.ast.expr.*;
-import jlitec.ast.stmt.*;
-import java.util.List;
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.collect.Lists;
+import java.util.List;
+import java.util.Optional;
 import java_cup.runtime.ComplexSymbolFactory.ComplexSymbol;
+import java_cup.runtime.ComplexSymbolFactory;
+import java_cup.runtime.Scanner;
+import java_cup.runtime.Symbol;
+import jlitec.ast.JliteType;
+import jlitec.ast.Klass;
+import jlitec.ast.Method;
+import jlitec.ast.Program;
+import jlitec.ast.Type;
+import jlitec.ast.Var;
+import jlitec.ast.expr.BinaryExpr;
+import jlitec.ast.expr.BinaryOp;
+import jlitec.ast.expr.BoolLiteralExpr;
+import jlitec.ast.expr.CallExpr;
+import jlitec.ast.expr.DotExpr;
+import jlitec.ast.expr.Expr;
+import jlitec.ast.expr.IdExpr;
+import jlitec.ast.expr.IncompatibleTypeException;
+import jlitec.ast.expr.IntLiteralExpr;
+import jlitec.ast.expr.NewExpr;
+import jlitec.ast.expr.NullExpr;
+import jlitec.ast.expr.ParenExpr;
+import jlitec.ast.expr.StringLiteralExpr;
+import jlitec.ast.expr.ThisExpr;
+import jlitec.ast.expr.UnaryExpr;
+import jlitec.ast.expr.UnaryOp;
+import jlitec.ast.stmt.CallStmt;
+import jlitec.ast.stmt.FieldAssignStmt;
+import jlitec.ast.stmt.IfStmt;
+import jlitec.ast.stmt.PrintlnStmt;
+import jlitec.ast.stmt.ReadlnStmt;
+import jlitec.ast.stmt.ReturnStmt;
+import jlitec.ast.stmt.Stmt;
+import jlitec.ast.stmt.VarAssignStmt;
+import jlitec.ast.stmt.WhileStmt;
+import jlitec.parser.ParserWrapper;
+
 parser code {:
     private ParserWrapper pw;
 
@@ -223,9 +254,9 @@ Stmt ::=
        | Atom:target LPAREN ExpList:args RPAREN SEMICOLON
        {: RESULT = new CallStmt(target, args); :}
        | RETURN Exp:e SEMICOLON
-       {: RESULT = new ReturnStmt(e); :}
+       {: RESULT = new ReturnStmt(Optional.of(e)); :}
        | RETURN SEMICOLON
-       {: RESULT = new ReturnStmt(null); :}
+       {: RESULT = new ReturnStmt(Optional.empty()); :}
        | IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE
        {: report_fatal_error("Missing else in the if-else statement.", stack.peek()); :}
        | IF LPAREN Exp RPAREN LBRACE RBRACE ELSE LBRACE Stmt_plus RBRACE
