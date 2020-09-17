@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
+
 import java_cup.runtime.ComplexSymbolFactory;
 import jlitec.ast.Program;
 import jlitec.generated.Lexer;
@@ -59,8 +61,10 @@ public class ParserWrapper {
           Map.entry("CNAME", "Cname"));
 
   private final List<String> lines;
+  private final String filename;
 
   public ParserWrapper(String filename) throws IOException {
+    this.filename = filename;
     this.lines = Files.readAllLines(Paths.get(filename));
   }
 
@@ -69,34 +73,37 @@ public class ParserWrapper {
    *
    * @return the Program AST.
    */
-  public Program parse() {
+  public Program parse() throws Exception {
     try {
       return (Program)
           new parser(new Lexer(new StringReader(String.join("\n", lines))), this).parse().value;
     } catch (LexException e) {
-      System.err.println(String.format("(%d:%d) lex error:", e.line, e.column));
+      System.err.println(String.format(" --> %s:%d:%d", this.filename, e.line, e.column));
+      System.err.println("lex error:");
       System.err.println(e.message);
-      System.err.println();
-      System.err.println(formErrorString(e.line, e.column, e.length));
-      throw new RuntimeException(e);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+      System.err.println(formErrorString(e.line, e.column, e.length, e.message));
+      throw e;
     }
   }
 
   public void handleCUPError(String message, ComplexSymbolFactory.ComplexSymbol cs) {
+    // Skip the end of parse message
+    if (message.equals("Couldn't repair and continue parse")) {
+      return;
+    }
     final var sb = new StringBuilder();
     final var left = cs.xleft;
     final var right = cs.xright;
-    sb.append('(')
+    sb.append(" --> ").append(this.filename)
+            .append(':')
         .append(left.getLine() + 1)
         .append(':')
         .append(left.getColumn() + 1)
-        .append(") parse error:\n")
+        .append("\nParse error: \n")
         .append(message);
-    sb.append("\n\n");
+    sb.append("\n");
     sb.append(
-        formErrorString(left.getLine(), left.getColumn(), right.getColumn() - left.getColumn()));
+        formErrorString(left.getLine(), left.getColumn(), right.getColumn() - left.getColumn(), message));
     System.err.println(sb.toString());
   }
 
@@ -114,20 +121,26 @@ public class ParserWrapper {
     System.err.println();
   }
 
-  private String formErrorString(int lineNumber, int column, int length) {
+  private String formErrorString(int lineNumber, int column, int length, String message) {
     final var sb = new StringBuilder();
 
     final int start = Math.max(lineNumber - PAD, 0);
     final int end = Math.min(lineNumber + PAD + 1, this.lines.size());
 
-    lines.subList(start, lineNumber + 1).forEach(line -> sb.append(line).append("\n"));
+    final int lineNumberLength = Integer.toString(end).length();
+    final var formatString = String.format("%%%dd | %%s\n", lineNumberLength);
+
+    IntStream.range(start, lineNumber).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))).append(" ".repeat(lineNumberLength)).append(" |\n"));
+    sb.append(String.format(formatString, lineNumber + 1, lines.get(lineNumber)));
+    sb.append(" ".repeat(lineNumberLength)).append(" | ");
     if (column >= 0) {
       sb.append("~".repeat(column)).append("^".repeat(Math.max(length, 1)));
     } else {
       sb.append("~".repeat(lines.get(lineNumber).length()));
     }
+    sb.append(" ").append(message);
     sb.append("\n");
-    lines.subList(lineNumber + 1, end).forEach(line -> sb.append(line).append("\n"));
+    IntStream.range(lineNumber + 1, end).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))).append(" ".repeat(lineNumberLength)).append(" |\n"));
 
     return sb.toString();
   }

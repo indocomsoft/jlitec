@@ -18,13 +18,13 @@ public record Method(Type type, String id, List<Var> args, List<Var> vars, List<
   public String print(int indent) {
     final var sb = new StringBuilder();
     indent(sb, indent);
-    sb.append(type.toString()).append(' ').append(id).append('(');
+    sb.append(type.print(indent)).append(' ').append(id).append('(');
     final var argListString =
         args.stream()
             .map(
                 arg ->
                     new StringBuilder()
-                        .append(arg.type().toString())
+                        .append(arg.type().print(indent))
                         .append(' ')
                         .append(arg.id())
                         .toString())
@@ -35,7 +35,7 @@ public record Method(Type type, String id, List<Var> args, List<Var> vars, List<
 
     for (final var variable : vars) {
       indent(sb, indent + 1);
-      sb.append(variable.type().toString()).append(' ').append(variable.id()).append(";\n");
+      sb.append(variable.type().print(indent)).append(' ').append(variable.id()).append(";\n");
     }
 
     for (final var stmt : stmtList) {

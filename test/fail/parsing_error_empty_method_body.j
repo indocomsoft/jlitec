@@ -5,5 +5,6 @@ class A {
 class Dummy {
   Void asd() {
     Int i;
+    Int j;
   }
 }

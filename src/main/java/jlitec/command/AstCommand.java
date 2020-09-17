@@ -9,6 +9,7 @@ import jlitec.ast.expr.ExprExclusionStrategy;
 import jlitec.ast.expr.ExprSerializer;
 import jlitec.ast.stmt.Stmt;
 import jlitec.ast.stmt.StmtSerializer;
+import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -40,6 +41,10 @@ public class AstCommand implements Command {
       System.out.println(this.gson.toJson(program));
     } catch (IOException e) {
       System.err.println("Unable to read file.");
+    } catch (LexException e) {
+      System.err.println("Lexing failed.");
+    } catch (Exception e) {
+      System.err.println("Parsing failed: " + e.getMessage());
     }
   }
 }

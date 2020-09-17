@@ -1,0 +1,3 @@
+#!/bin/sh
+make
+CLASSPATH=build/libs/jlitec.jar jshell --enable-preview

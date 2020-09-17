@@ -2,6 +2,7 @@ package jlitec.command;
 
 import java.io.IOException;
 import jlitec.ast.Program;
+import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -25,6 +26,10 @@ public class PrettyPrintCommand implements Command {
       System.out.println(program.print(0));
     } catch (IOException e) {
       System.err.println("Unable to read file.");
+    } catch (LexException e) {
+      System.err.println("Lexing failed.");
+    } catch (Exception e) {
+      System.err.println("Parsing failed: " + e.getMessage());
     }
   }
 }
