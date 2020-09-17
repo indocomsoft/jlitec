@@ -18,14 +18,20 @@ public record WhileStmt(Expr condition, List<Stmt> stmtList) implements Stmt {
   public String print(int indent) {
     final var sb = new StringBuilder();
     indent(sb, indent);
-    sb.append("while (").append(condition.print(indent)).append(") {\n");
+    sb.append("while (").append(condition.print(indent)).append(") {");
 
-    for (final var stmt : stmtList) {
-      sb.append(stmt.print(indent + 1));
+    if (stmtList.isEmpty()) {
+      sb.append(" }\n");
+    } else {
+      sb.append("\n");
+      for (final var stmt : stmtList) {
+        sb.append(stmt.print(indent + 1));
+      }
+      indent(sb, indent);
+      sb.append("}\n");
     }
 
-    indent(sb, indent);
-    sb.append("}\n");
+
     return sb.toString();
   }
 }
