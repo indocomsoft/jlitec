@@ -1,7 +1,7 @@
 package jlitec.ast;
 
 /** Represents the possible types in JLite. */
-public enum JliteType {
+public enum JliteType implements Printable {
   INT("Int"),
   BOOL("Bool"),
   STRING("String"),
@@ -15,7 +15,7 @@ public enum JliteType {
   }
 
   @Override
-  public String toString() {
+  public String print(int indent) {
     assert representation != null;
     return representation;
   }

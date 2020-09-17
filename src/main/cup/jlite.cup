@@ -10,7 +10,9 @@ import java_cup.runtime.Scanner;
 import java_cup.runtime.Symbol;
 import jlitec.ast.JliteType;
 import jlitec.ast.Klass;
+import jlitec.ast.KlassType;
 import jlitec.ast.Method;
+import jlitec.ast.PrimitiveType;
 import jlitec.ast.Program;
 import jlitec.ast.Type;
 import jlitec.ast.Var;
@@ -140,7 +142,7 @@ Program ::= MainClass:main ClassDecl_star:lst
           ;
 
 MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
-            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new Type(JliteType.VOID), "main", args, vars, stmtlist))); :}
+            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new PrimitiveType(JliteType.VOID), "main", args, vars, stmtlist))); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE RBRACE
             {: report_fatal_error("Method body of main must contain at least 1 statement.", stack.get(stack.size() - 2)); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE MdDecl_plus RBRACE
@@ -227,15 +229,15 @@ FmlList ::=
 
 Type ::=
        INT
-       {: RESULT = new Type(JliteType.INT); :}
+       {: RESULT = new PrimitiveType(JliteType.INT); :}
        | BOOL
-       {: RESULT = new Type(JliteType.BOOL); :}
+       {: RESULT = new PrimitiveType(JliteType.BOOL); :}
        | STRING
-       {: RESULT = new Type(JliteType.STRING); :}
+       {: RESULT = new PrimitiveType(JliteType.STRING); :}
        | VOID
-       {: RESULT = new Type(JliteType.VOID); :}
+       {: RESULT = new PrimitiveType(JliteType.VOID); :}
        | CNAME:cname
-       {: RESULT = new Type(cname); :}
+       {: RESULT = new KlassType(cname); :}
        ;
 
 Stmt ::=
