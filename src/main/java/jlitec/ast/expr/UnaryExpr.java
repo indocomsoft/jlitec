@@ -5,18 +5,21 @@ import java.util.Optional;
 public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
   /** Constructor that checks the type validity. */
   public UnaryExpr {
-    switch (op) {
+    // Force this line to be an expression such that exhaustiveness is enforced.
+    this.op = switch (op) {
       case NOT -> {
         if (expr.getType().filter(t -> t != Type.BOOL).isPresent()) {
           throw new IncompatibleTypeException(op, expr, Type.BOOL);
         }
+        yield op;
       }
       case NEGATIVE -> {
         if (expr.getType().filter(t -> t != Type.INT).isPresent()) {
           throw new IncompatibleTypeException(op, expr, Type.INT);
         }
+        yield op;
       }
-    }
+    };
   }
 
   @Override
