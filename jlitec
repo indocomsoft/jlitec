@@ -1,2 +1,2 @@
 #!/bin/sh
-java --enable-preview -jar build/libs/jlitec.jar "$@"
+java --enable-preview -jar "$(dirname "$0")"/build/libs/jlitec.jar "$@"
