@@ -24,13 +24,10 @@ public record WhileStmt(Expr condition, List<Stmt> stmtList) implements Stmt {
       sb.append(" }\n");
     } else {
       sb.append("\n");
-      for (final var stmt : stmtList) {
-        sb.append(stmt.print(indent + 1));
-      }
+      stmtList.forEach(stmt -> sb.append(stmt.print(indent + 1)));
       indent(sb, indent);
       sb.append("}\n");
     }
-
 
     return sb.toString();
   }

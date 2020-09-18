@@ -15,6 +15,6 @@ public record NewExpr(String cname) implements Expr {
 
   @Override
   public String print(int indent) {
-    return new StringBuilder().append("new ").append(cname).append("()").toString();
+    return "new " + cname + "()";
   }
 }

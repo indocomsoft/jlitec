@@ -34,6 +34,6 @@ public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
 
   @Override
   public String print(int indent) {
-    return new StringBuilder().append(op.toString()).append(expr.print(indent)).toString();
+    return op.toString() + expr.print(indent);
   }
 }

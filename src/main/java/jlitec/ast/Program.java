@@ -11,10 +11,7 @@ public record Program(List<Klass> klassList) implements Printable {
   @Override
   public String print(int indent) {
     final var sb = new StringBuilder();
-    for (final var klass : klassList) {
-      sb.append(klass.print(indent));
-      sb.append('\n');
-    }
+    klassList.forEach(klass -> sb.append(klass.print(indent)).append('\n'));
     return sb.toString();
   }
 }

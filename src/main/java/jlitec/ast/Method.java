@@ -19,28 +19,19 @@ public record Method(Type type, String id, List<Var> args, List<Var> vars, List<
     final var sb = new StringBuilder();
     indent(sb, indent);
     sb.append(type.print(indent)).append(' ').append(id).append('(');
-    final var argListString =
+    sb.append(
         args.stream()
-            .map(
-                arg ->
-                    new StringBuilder()
-                        .append(arg.type().print(indent))
-                        .append(' ')
-                        .append(arg.id())
-                        .toString())
-            .collect(Collectors.joining(", "));
-    ;
-    sb.append(argListString);
+            .map(arg -> arg.type().print(indent) + ' ' + arg.id())
+            .collect(Collectors.joining(", ")));
     sb.append(") {\n");
 
-    for (final var variable : vars) {
-      indent(sb, indent + 1);
-      sb.append(variable.type().print(indent)).append(' ').append(variable.id()).append(";\n");
-    }
+    vars.forEach(
+        variable -> {
+          indent(sb, indent + 1);
+          sb.append(variable.type().print(indent)).append(' ').append(variable.id()).append(";\n");
+        });
 
-    for (final var stmt : stmtList) {
-      sb.append(stmt.print(indent + 1));
-    }
+    stmtList.forEach(stmt -> sb.append(stmt.print(indent + 1)));
 
     indent(sb, indent);
     sb.append("}\n");

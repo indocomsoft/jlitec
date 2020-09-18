@@ -1,8 +1,7 @@
 package jlitec.ast.stmt;
 
-import jlitec.ast.expr.Expr;
-
 import java.util.Optional;
+import jlitec.ast.expr.Expr;
 
 public record ReturnStmt(Optional<Expr> maybeExpr) implements Stmt {
   @Override

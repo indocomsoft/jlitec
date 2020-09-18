@@ -25,16 +25,12 @@ public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStm
     sb.append(condition.print(indent));
     sb.append(") {\n");
 
-    for (final var stmt : thenStmtList) {
-      sb.append(stmt.print(indent + 1));
-    }
+    thenStmtList.forEach(stmt -> sb.append(stmt.print(indent + 1)));
 
     indent(sb, indent);
     sb.append("} else {\n");
 
-    for (final var stmt : elseStmtList) {
-      sb.append(stmt.print(indent + 1));
-    }
+    elseStmtList.forEach(stmt -> sb.append(stmt.print(indent + 1)));
 
     indent(sb, indent);
     sb.append("}\n");

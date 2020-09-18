@@ -15,6 +15,6 @@ public record StringLiteralExpr(String value) implements Expr {
 
   @Override
   public String print(int indent) {
-    return new StringBuilder().append('"').append(value).append('"').toString();
+    return '"' + value + '"';
   }
 }

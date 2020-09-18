@@ -68,12 +68,6 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<Type> type)
 
   @Override
   public String print(int indent) {
-    return new StringBuilder()
-        .append(lhs.print(indent))
-        .append(' ')
-        .append(op.toString())
-        .append(' ')
-        .append(rhs.print(indent))
-        .toString();
+    return lhs.print(indent) + ' ' + op.toString() + ' ' + rhs.print(indent);
   }
 }

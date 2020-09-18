@@ -54,7 +54,7 @@ parser code {:
     @Override
     public void report_error(String message, Object info) {
       if (pw != null && info instanceof ComplexSymbol cs) {
-          pw.handleCUPError(message, cs);
+          pw.handleError(message, cs);
       } else {
           super.report_error(message, info);
       }
