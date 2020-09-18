@@ -130,7 +130,7 @@ public class ParserWrapper {
     final int lineNumberLength = Integer.toString(end).length();
     final var formatString = String.format("%%%dd | %%s\n", lineNumberLength);
 
-    IntStream.range(start, lineNumber).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))).append(" ".repeat(lineNumberLength)).append(" |\n"));
+    IntStream.range(start, lineNumber).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))));
     sb.append(String.format(formatString, lineNumber + 1, lines.get(lineNumber)));
     sb.append(" ".repeat(lineNumberLength)).append(" | ");
     if (column >= 0) {
@@ -140,7 +140,7 @@ public class ParserWrapper {
     }
     sb.append(" ").append(message);
     sb.append("\n");
-    IntStream.range(lineNumber + 1, end).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))).append(" ".repeat(lineNumberLength)).append(" |\n"));
+    IntStream.range(lineNumber + 1, end).forEachOrdered(num -> sb.append(String.format(formatString, num + 1, lines.get(num))));
 
     return sb.toString();
   }
