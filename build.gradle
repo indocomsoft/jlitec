@@ -46,11 +46,19 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.8.6'
 
     // Use JUnit test framework
-    testImplementation 'junit:junit:4.13'
+    testImplementation platform('org.junit:junit-bom:5.7.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
 
     // Use the default Google style checkstyle
     checkstyleConfig("com.puppycrawl.tools:checkstyle:${versions.checkstyle}") {
         transitive = false
+    }
+}
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed"
     }
 }
 
