@@ -1,9 +1,11 @@
 package jlitec.ast.expr;
 
 import java.util.Optional;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.Printable;
 
-public record ParenExpr(Expr expr) implements Expr, Printable {
+public record ParenExpr(Expr expr, Location leftLocation, Location rightLocation)
+    implements Expr, Printable {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_PAREN;

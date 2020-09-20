@@ -4,8 +4,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record CallExpr(Expr target, List<Expr> args) implements Expr {
+public record CallExpr(Expr target, List<Expr> args, Location leftLocation, Location rightLocation)
+    implements Expr {
   public CallExpr {
     this.args = Collections.unmodifiableList(args);
   }

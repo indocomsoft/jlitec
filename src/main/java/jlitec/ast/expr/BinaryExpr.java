@@ -1,9 +1,16 @@
 package jlitec.ast.expr;
 
 import java.util.Optional;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.Printable;
 
-public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<TypeHint> typeHint)
+public record BinaryExpr(
+    BinaryOp op,
+    Expr lhs,
+    Expr rhs,
+    Optional<TypeHint> typeHint,
+    Location leftLocation,
+    Location rightLocation)
     implements Expr, Printable {
   /**
    * A constructor that will check the type validity, and synthesise the required type for the newly
@@ -13,7 +20,7 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<TypeHint> typ
    * @param lhs the left operand.
    * @param rhs the right operand.
    */
-  public BinaryExpr(BinaryOp op, Expr lhs, Expr rhs) {
+  public BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Location left, Location right) {
     this(
         op,
         lhs,
@@ -53,7 +60,9 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<TypeHint> typ
               throw new IncompatibleTypeException(op, lhs, rhs);
             }
           }
-        });
+        },
+        left,
+        right);
   }
 
   @Override

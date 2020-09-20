@@ -109,7 +109,13 @@ public class ParserWrapper {
             + message
             + "\n"
             + formErrorString(
-                left.getLine(), left.getColumn(), right.getColumn() - left.getColumn(), message);
+                left.getLine(),
+                left.getColumn(),
+                (left.getLine() == right.getLine()
+                        ? right.getColumn()
+                        : lines.get(left.getLine()).length())
+                    - left.getColumn(),
+                message);
     System.err.println(errorMessage);
   }
 

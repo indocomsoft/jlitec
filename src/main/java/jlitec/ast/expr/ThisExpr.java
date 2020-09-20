@@ -1,8 +1,9 @@
 package jlitec.ast.expr;
 
 import java.util.Optional;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record ThisExpr() implements Expr {
+public record ThisExpr(Location leftLocation, Location rightLocation) implements Expr {
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_THIS;

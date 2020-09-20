@@ -1,8 +1,10 @@
 package jlitec.ast.expr;
 
 import java.util.Optional;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
+public record UnaryExpr(UnaryOp op, Expr expr, Location leftLocation, Location rightLocation)
+    implements Expr {
   /** Constructor that checks the type validity. */
   public UnaryExpr {
     // Force this line to be an expression such that exhaustiveness is enforced.
