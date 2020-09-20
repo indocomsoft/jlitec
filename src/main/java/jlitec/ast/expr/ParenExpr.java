@@ -10,7 +10,7 @@ public record ParenExpr(Expr expr) implements Expr, Printable {
   }
 
   @Override
-  public Optional<Type> getType() {
+  public Optional<TypeHint> getTypeHint() {
     return Optional.empty();
   }
 

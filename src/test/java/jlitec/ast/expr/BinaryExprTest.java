@@ -32,12 +32,12 @@ public class BinaryExprTest {
       assertDoesNotThrow(
           () -> {
             final var bexpr = new BinaryExpr(BinaryOp.OR, arg.lhs(), arg.rhs());
-            assertEquals(bexpr.getType(), Optional.of(Expr.Type.BOOL));
+            assertEquals(bexpr.getTypeHint(), Optional.of(Expr.TypeHint.BOOL));
           });
       assertDoesNotThrow(
           () -> {
             final var bexpr = new BinaryExpr(BinaryOp.AND, arg.lhs(), arg.rhs());
-            assertEquals(bexpr.getType(), Optional.of(Expr.Type.BOOL));
+            assertEquals(bexpr.getTypeHint(), Optional.of(Expr.TypeHint.BOOL));
           });
     }
   }

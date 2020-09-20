@@ -9,8 +9,8 @@ public record IntLiteralExpr(int value) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
-    return Optional.of(Type.INT);
+  public Optional<TypeHint> getTypeHint() {
+    return Optional.of(TypeHint.INT);
   }
 
   @Override

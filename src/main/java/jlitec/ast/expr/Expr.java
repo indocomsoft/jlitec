@@ -12,9 +12,9 @@ public interface Expr extends Printable {
    */
   ExprType getExprType();
 
-  Optional<Type> getType();
+  Optional<TypeHint> getTypeHint();
 
-  public enum Type {
+  enum TypeHint {
     INT,
     STRING,
     BOOL;

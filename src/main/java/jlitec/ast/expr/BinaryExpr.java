@@ -3,7 +3,7 @@ package jlitec.ast.expr;
 import java.util.Optional;
 import jlitec.ast.Printable;
 
-public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<Type> type)
+public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<TypeHint> typeHint)
     implements Expr, Printable {
   /**
    * A constructor that will check the type validity, and synthesise the required type for the newly
@@ -20,35 +20,35 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<Type> type)
         rhs,
         switch (op) {
           case OR, AND -> {
-            if (lhs.getType().filter(t -> t != Type.BOOL).isPresent()
-                || rhs.getType().filter(t -> t != Type.BOOL).isPresent()) {
-              throw new IncompatibleTypeException(op, lhs, rhs, Type.BOOL, Type.BOOL);
+            if (lhs.getTypeHint().filter(t -> t != TypeHint.BOOL).isPresent()
+                || rhs.getTypeHint().filter(t -> t != TypeHint.BOOL).isPresent()) {
+              throw new IncompatibleTypeException(op, lhs, rhs, TypeHint.BOOL, TypeHint.BOOL);
             }
-            yield Optional.of(Type.BOOL);
+            yield Optional.of(TypeHint.BOOL);
           }
           case GT, LT, GEQ, LEQ, EQ, NEQ -> {
-            if (lhs.getType().filter(t -> t != Type.INT).isPresent()
-                || rhs.getType().filter(t -> t != Type.INT).isPresent()) {
-              throw new IncompatibleTypeException(op, lhs, rhs, Type.INT, Type.INT);
+            if (lhs.getTypeHint().filter(t -> t != TypeHint.INT).isPresent()
+                || rhs.getTypeHint().filter(t -> t != TypeHint.INT).isPresent()) {
+              throw new IncompatibleTypeException(op, lhs, rhs, TypeHint.INT, TypeHint.INT);
             }
-            yield Optional.of(Type.BOOL);
+            yield Optional.of(TypeHint.BOOL);
           }
           case MULT, DIV, MINUS -> {
-            if (lhs.getType().filter(t -> t != Type.INT).isPresent()
-                || rhs.getType().filter(t -> t != Type.INT).isPresent()) {
-              throw new IncompatibleTypeException(op, lhs, rhs, Type.INT, Type.INT);
+            if (lhs.getTypeHint().filter(t -> t != TypeHint.INT).isPresent()
+                || rhs.getTypeHint().filter(t -> t != TypeHint.INT).isPresent()) {
+              throw new IncompatibleTypeException(op, lhs, rhs, TypeHint.INT, TypeHint.INT);
             }
-            yield Optional.of(Type.INT);
+            yield Optional.of(TypeHint.INT);
           }
           case PLUS -> {
-            if (lhs.getType().isEmpty() && rhs.getType().isEmpty()) {
+            if (lhs.getTypeHint().isEmpty() && rhs.getTypeHint().isEmpty()) {
               yield Optional.empty();
-            } else if (lhs.getType().filter(t -> t != Type.INT).isEmpty()
-                && rhs.getType().filter(t -> t != Type.INT).isEmpty()) {
-              yield Optional.of(Type.INT);
-            } else if (lhs.getType().filter(t -> t != Type.STRING).isEmpty()
-                && rhs.getType().filter(t -> t != Type.STRING).isEmpty()) {
-              yield Optional.of(Type.STRING);
+            } else if (lhs.getTypeHint().filter(t -> t != TypeHint.INT).isEmpty()
+                && rhs.getTypeHint().filter(t -> t != TypeHint.INT).isEmpty()) {
+              yield Optional.of(TypeHint.INT);
+            } else if (lhs.getTypeHint().filter(t -> t != TypeHint.STRING).isEmpty()
+                && rhs.getTypeHint().filter(t -> t != TypeHint.STRING).isEmpty()) {
+              yield Optional.of(TypeHint.STRING);
             } else {
               throw new IncompatibleTypeException(op, lhs, rhs);
             }
@@ -62,8 +62,8 @@ public record BinaryExpr(BinaryOp op, Expr lhs, Expr rhs, Optional<Type> type)
   }
 
   @Override
-  public Optional<Type> getType() {
-    return type;
+  public Optional<TypeHint> getTypeHint() {
+    return typeHint;
   }
 
   @Override

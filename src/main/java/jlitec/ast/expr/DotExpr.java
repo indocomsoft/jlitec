@@ -9,7 +9,7 @@ public record DotExpr(Expr target, String id) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
+  public Optional<TypeHint> getTypeHint() {
     return Optional.empty();
   }
 

@@ -16,7 +16,7 @@ public record CallExpr(Expr target, List<Expr> args) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
+  public Optional<TypeHint> getTypeHint() {
     return Optional.empty();
   }
 

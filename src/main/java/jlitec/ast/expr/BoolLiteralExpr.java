@@ -9,8 +9,8 @@ public record BoolLiteralExpr(boolean value) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
-    return Optional.of(Type.BOOL);
+  public Optional<TypeHint> getTypeHint() {
+    return Optional.of(TypeHint.BOOL);
   }
 
   @Override

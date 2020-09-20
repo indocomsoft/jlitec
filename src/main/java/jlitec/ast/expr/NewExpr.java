@@ -9,7 +9,7 @@ public record NewExpr(String cname) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
+  public Optional<TypeHint> getTypeHint() {
     return Optional.empty();
   }
 

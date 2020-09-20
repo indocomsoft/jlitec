@@ -9,14 +9,14 @@ public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
     this.op =
         switch (op) {
           case NOT -> {
-            if (expr.getType().filter(t -> t != Type.BOOL).isPresent()) {
-              throw new IncompatibleTypeException(op, expr, Type.BOOL);
+            if (expr.getTypeHint().filter(t -> t != TypeHint.BOOL).isPresent()) {
+              throw new IncompatibleTypeException(op, expr, TypeHint.BOOL);
             }
             yield op;
           }
           case NEGATIVE -> {
-            if (expr.getType().filter(t -> t != Type.INT).isPresent()) {
-              throw new IncompatibleTypeException(op, expr, Type.INT);
+            if (expr.getTypeHint().filter(t -> t != TypeHint.INT).isPresent()) {
+              throw new IncompatibleTypeException(op, expr, TypeHint.INT);
             }
             yield op;
           }
@@ -29,10 +29,10 @@ public record UnaryExpr(UnaryOp op, Expr expr) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
+  public Optional<TypeHint> getTypeHint() {
     return switch (op) {
-      case NOT -> Optional.of(Type.BOOL);
-      case NEGATIVE -> Optional.of(Type.INT);
+      case NOT -> Optional.of(TypeHint.BOOL);
+      case NEGATIVE -> Optional.of(TypeHint.INT);
     };
   }
 

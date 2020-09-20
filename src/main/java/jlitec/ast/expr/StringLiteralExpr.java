@@ -9,8 +9,8 @@ public record StringLiteralExpr(String value) implements Expr {
   }
 
   @Override
-  public Optional<Type> getType() {
-    return Optional.of(Type.STRING);
+  public Optional<TypeHint> getTypeHint() {
+    return Optional.of(TypeHint.STRING);
   }
 
   @Override
