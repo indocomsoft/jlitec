@@ -66,6 +66,10 @@ EndOfLineComment = "//" {InputCharacter}* {LineTerminator}
 %%
 
 <YYINITIAL> {
+  /* invalid empty string literal */
+  // Supposed to use `null` instead
+  \"\" { throw new LexException("Illegal empty quoted string literal. Empty string is represented by null", yyline, yycolumn, yylength()); }
+
   /* string literal */
   \" { yybegin(STRING); string.setLength(0); }
 

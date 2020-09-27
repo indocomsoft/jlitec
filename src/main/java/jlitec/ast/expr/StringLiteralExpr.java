@@ -5,6 +5,12 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
 
 public record StringLiteralExpr(String value, Location leftLocation, Location rightLocation)
     implements Expr {
+  public StringLiteralExpr {
+    if (value.isEmpty()) {
+      throw new RuntimeException("String Literal cannot be \"\"");
+    }
+  }
+
   @Override
   public ExprType getExprType() {
     return ExprType.EXPR_STRING_LITERAL;

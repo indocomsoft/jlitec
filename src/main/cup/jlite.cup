@@ -77,7 +77,7 @@ parser code {:
     }
 
     /* HAX WARNING! This method uses some internal states of lr_parser */
-    private void typecheckError(IncompatibleTypeException e) throws Exception {
+    private void runtimeError(RuntimeException e) throws Exception {
         final var act = get_action(((Symbol)stack.peek()).parse_state, cur_token.sym);
         final var handleSize = production_tab[(-act)-1][1];
         report_fatal_error(e.getMessage(), spanSymbols(handleSize, 1));
@@ -299,16 +299,16 @@ Exp ::=
 /* Boolean type */
       // BExp
       | BExp:lhs OR Conj:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       // Conj
       | Conj:lhs AND RExp:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       // RExp
       | AExp:lhs BOp:op AExp:rhs
-      {: try { RESULT = new BinaryExpr(op, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(op, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       // BGrd
       | NOT BGrd:e
-      {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { runtimeError(err); } :}
       | TRUE
       {: RESULT = new BoolLiteralExpr(true, getLeftLocation(), getRightLocation()); :}
       | FALSE
@@ -316,40 +316,40 @@ Exp ::=
 /* Integer/String type */
       // AExp
       | AExp:lhs PLUS Term:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       | AExp:lhs MINUS Term:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       // Term
       | Term:lhs MULT Ftr:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       | Term:lhs DIV Ftr:rhs
-      {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+      {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
       | STRING_LITERAL:s
-      {: RESULT = new StringLiteralExpr(s, getLeftLocation(), getRightLocation()); :}
+      {: try { RESULT = new StringLiteralExpr(s, getLeftLocation(), getRightLocation()); } catch (RuntimeException e) { runtimeError(e); } :}
       // Ftr
       | INTEGER_LITERAL:i
       {: RESULT = new IntLiteralExpr(i, getLeftLocation(), getRightLocation()); :}
       | MINUS Ftr:e
-      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { runtimeError(err); } :}
       ;
 
 BExp ::=
        BExp:lhs OR Conj:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.OR, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | Conj:e
        {: RESULT = e; :}
        ;
 
 Conj ::=
        Conj:lhs AND RExp:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.AND, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | RExp:e
        {: RESULT = e; :}
        ;
 
 RExp ::=
        AExp:lhs BOp:op AExp:rhs
-       {: try { RESULT = new BinaryExpr(op, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(op, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | BGrd:e
        {: RESULT = e; :}
        ;
@@ -371,7 +371,7 @@ BOp ::=
 
 BGrd ::=
        NOT BGrd:e
-       {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
+       {: try { RESULT = new UnaryExpr(UnaryOp.NOT, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { runtimeError(err); } :}
        | TRUE
        {: RESULT = new BoolLiteralExpr(true, getLeftLocation(), getRightLocation()); :}
        | FALSE
@@ -382,29 +382,29 @@ BGrd ::=
 
 AExp ::=
        AExp:lhs PLUS Term:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.PLUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | AExp:lhs MINUS Term:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.MINUS, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | Term:e
        {: RESULT = e; :}
        ;
 
 Term ::=
        Term:lhs MULT Ftr:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.MULT, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | Term:lhs DIV Ftr:rhs
-       {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { typecheckError(e); } :}
+       {: try { RESULT = new BinaryExpr(BinaryOp.DIV, lhs, rhs, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException e) { runtimeError(e); } :}
        | Ftr:e
        {: RESULT = e; :}
        | STRING_LITERAL:s
-       {: RESULT = new StringLiteralExpr(s, getLeftLocation(), getRightLocation()); :}
+       {: try { RESULT = new StringLiteralExpr(s, getLeftLocation(), getRightLocation()); } catch (RuntimeException e) { runtimeError(e); } :}
        ;
 
 Ftr ::=
       INTEGER_LITERAL:i
       {: RESULT = new IntLiteralExpr(i, getLeftLocation(), getRightLocation()); :}
       | MINUS Ftr:e
-      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { typecheckError(err); } :}
+      {: try { RESULT = new UnaryExpr(UnaryOp.NEGATIVE, e, getLeftLocation(), getRightLocation()); } catch (IncompatibleTypeException err) { runtimeError(err); } :}
       | Atom:e
       {: RESULT = e; :}
       ;
