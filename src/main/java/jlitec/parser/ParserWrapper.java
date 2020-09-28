@@ -78,7 +78,7 @@ public class ParserWrapper {
           new parser(new Lexer(new StringReader(String.join("\n", lines))), this).parse().value;
     } catch (LexException e) {
       System.err.println(String.format(" --> %s:%d:%d", this.filename, e.line, e.column));
-      System.err.println("lex error:");
+      System.err.println("Lex error:");
       System.err.println(e.message);
       System.err.println(formErrorString(e.line, e.column, e.length, e.message));
       throw e;
