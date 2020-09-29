@@ -1,12 +1,17 @@
-package jlitec.ast.expr;
+package jlitec.ast;
 
 import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
+import java_cup.runtime.ComplexSymbolFactory;
+import jlitec.ast.expr.BinaryExpr;
 
-public class ExprExclusionStrategy implements ExclusionStrategy {
+public class GsonExclusionStrategy implements ExclusionStrategy {
   @Override
   public boolean shouldSkipField(FieldAttributes f) {
     if (f.getDeclaringClass() == BinaryExpr.class && f.getName().equals("type")) {
+      return true;
+    }
+    if (f.getDeclaredType() == ComplexSymbolFactory.Location.class) {
       return true;
     }
     return false;

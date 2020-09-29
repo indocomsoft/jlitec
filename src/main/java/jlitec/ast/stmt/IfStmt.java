@@ -3,8 +3,9 @@ package jlitec.ast.stmt;
 import java.util.Collections;
 import java.util.List;
 import jlitec.ast.expr.Expr;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStmtList)
+public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStmtList, Location leftLocation, Location rightLocation)
     implements Stmt {
   public IfStmt {
     this.thenStmtList = Collections.unmodifiableList(thenStmtList);

@@ -1,6 +1,8 @@
 package jlitec.ast.stmt;
 
-public record ReadlnStmt(String id) implements Stmt {
+import java_cup.runtime.ComplexSymbolFactory.Location;
+
+public record ReadlnStmt(String id, Location leftLocation, Location rightLocation) implements Stmt {
   @Override
   public StmtType getStmtType() {
     return StmtType.STMT_READLN;

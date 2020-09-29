@@ -252,29 +252,31 @@ Type ::=
 
 Stmt ::=
        IF LPAREN Exp:cond RPAREN LBRACE Stmt_plus:thenlist RBRACE ELSE LBRACE Stmt_plus:elselist RBRACE
-       {: RESULT = new IfStmt(cond, thenlist, elselist); :}
+       {: RESULT = new IfStmt(cond, thenlist, elselist, getLeftLocation(), getRightLocation()); :}
        | WHILE LPAREN Exp:cond RPAREN LBRACE Stmt_star:lst RBRACE
-       {: RESULT = new WhileStmt(cond, lst); :}
+       {: RESULT = new WhileStmt(cond, lst, getLeftLocation(), getRightLocation()); :}
        | READLN LPAREN ID:id RPAREN SEMICOLON
-       {: RESULT = new ReadlnStmt(id); :}
+       {: RESULT = new ReadlnStmt(id, getLeftLocation(), getRightLocation()); :}
        | PRINTLN LPAREN Exp:e RPAREN SEMICOLON
-       {: RESULT = new PrintlnStmt(e); :}
+       {: RESULT = new PrintlnStmt(e, getLeftLocation(), getRightLocation()); :}
        | ID:id ASSIGN Exp:e SEMICOLON
-       {: RESULT = new VarAssignStmt(id, e); :}
+       {: RESULT = new VarAssignStmt(id, e, getLeftLocation(), getRightLocation()); :}
        | Atom:target DOT ID:id ASSIGN Exp:e SEMICOLON
-       {: RESULT = new FieldAssignStmt(target, id, e); :}
+       {: RESULT = new FieldAssignStmt(target, id, e, getLeftLocation(), getRightLocation()); :}
        | Atom:target LPAREN ExpList:args RPAREN SEMICOLON
-       {: RESULT = new CallStmt(target, args); :}
+       {: RESULT = new CallStmt(target, args, getLeftLocation(), getRightLocation()); :}
        | RETURN Exp:e SEMICOLON
-       {: RESULT = new ReturnStmt(Optional.of(e)); :}
+       {: RESULT = new ReturnStmt(Optional.of(e), getLeftLocation(), getRightLocation()); :}
        | RETURN SEMICOLON
-       {: RESULT = new ReturnStmt(Optional.empty()); :}
+       {: RESULT = new ReturnStmt(Optional.empty(), getLeftLocation(), getRightLocation()); :}
        | IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE
        {: report_fatal_error("Missing else in the if-else statement.", stack.peek()); :}
        | IF LPAREN Exp RPAREN LBRACE RBRACE ELSE LBRACE Stmt_plus RBRACE
        {: report_fatal_error("Consequent / then statement(s) cannot be empty.", spanSymbols(6, 5)); :}
        | IF LPAREN Exp RPAREN LBRACE Stmt_plus RBRACE ELSE LBRACE RBRACE
        {: report_fatal_error("Alternative / else statement(s) cannot be empty.", spanSymbols(2, 1)); :}
+       | IF LPAREN Exp RPAREN LBRACE RBRACE ELSE LBRACE RBRACE
+       {: report_fatal_error("Both consequence / then statement(s) and alternative / else statement(s) cannot be empty.", spanSymbols(9, 1)); :}
        ;
 Stmt_plus ::=
             Stmt:stmt

@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import jlitec.ast.Program;
 import jlitec.ast.expr.Expr;
-import jlitec.ast.expr.ExprExclusionStrategy;
+import jlitec.ast.GsonExclusionStrategy;
 import jlitec.ast.expr.ExprSerializer;
 import jlitec.ast.stmt.Stmt;
 import jlitec.ast.stmt.StmtSerializer;
@@ -20,7 +20,7 @@ public class AstCommand implements Command {
           .setPrettyPrinting()
           .registerTypeAdapter(Expr.class, new ExprSerializer())
           .registerTypeAdapter(Stmt.class, new StmtSerializer())
-          .setExclusionStrategies(new ExprExclusionStrategy())
+          .setExclusionStrategies(new GsonExclusionStrategy())
           .create();
 
   @Override

@@ -1,8 +1,9 @@
 package jlitec.ast.stmt;
 
 import jlitec.ast.expr.Expr;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record PrintlnStmt(Expr expr) implements Stmt {
+public record PrintlnStmt(Expr expr, Location leftLocation, Location rightLocation) implements Stmt {
   @Override
   public StmtType getStmtType() {
     return StmtType.STMT_PRINTLN;

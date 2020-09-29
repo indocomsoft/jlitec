@@ -3,8 +3,9 @@ package jlitec.ast.stmt;
 import java.util.Collections;
 import java.util.List;
 import jlitec.ast.expr.Expr;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record WhileStmt(Expr condition, List<Stmt> stmtList) implements Stmt {
+public record WhileStmt(Expr condition, List<Stmt> stmtList, Location leftLocation, Location rightLocation) implements Stmt {
   public WhileStmt {
     this.stmtList = Collections.unmodifiableList(stmtList);
   }

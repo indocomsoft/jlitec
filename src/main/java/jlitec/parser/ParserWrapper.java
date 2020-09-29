@@ -56,8 +56,8 @@ public class ParserWrapper {
           Map.entry("DIV", "/"),
           Map.entry("TRUE", "true"),
           Map.entry("FALSE", "false"),
-          Map.entry("ID", "identifier"),
-          Map.entry("CNAME", "Cname"));
+          Map.entry("ID", "IDENTIFIER"),
+          Map.entry("CNAME", "CNAME"));
 
   private final List<String> lines;
   private final String filename;

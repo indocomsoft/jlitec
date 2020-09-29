@@ -2,8 +2,9 @@ package jlitec.ast.stmt;
 
 import java.util.Optional;
 import jlitec.ast.expr.Expr;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record ReturnStmt(Optional<Expr> maybeExpr) implements Stmt {
+public record ReturnStmt(Optional<Expr> maybeExpr, Location leftLocation, Location rightLocation) implements Stmt {
   @Override
   public StmtType getStmtType() {
     return StmtType.STMT_RETURN;
