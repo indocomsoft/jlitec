@@ -52,10 +52,11 @@ public class StaticChecker {
   private static void distinctClassNameCheck(Program program) throws SemanticException {
     final var grouped =
         program.klassList().stream().collect(Collectors.groupingBy(k -> k.name().id()));
-    for (final var klassList : grouped.values()) {
+    for (final var entry : grouped.entrySet()) {
+      final var klassList = entry.getValue();
       if (klassList.size() > 1) {
         throw new SemanticException(
-            "Names of classes in a program must be distinct.",
+            "Names of classes in a program must be distinct: class `" + entry.getKey() + "'.",
             "duplicate class name",
             klassList.stream().map(Klass::name).collect(Collectors.toUnmodifiableList()));
       }
@@ -64,10 +65,15 @@ public class StaticChecker {
 
   private static void distinctFieldNameCheck(Klass klass) throws SemanticException {
     final var grouped = klass.fields().stream().collect(Collectors.groupingBy(v -> v.name().id()));
-    for (final var fieldList : grouped.values()) {
+    for (final var entry : grouped.entrySet()) {
+      final var fieldList = entry.getValue();
       if (fieldList.size() > 1) {
         throw new SemanticException(
-            "Names of fields in a class must be distinct.",
+            "Names of fields in a class must be distinct: field `"
+                + entry.getKey()
+                + "', in class `"
+                + klass.name().id()
+                + "'.",
             "duplicate field name",
             fieldList.stream().map(Var::name).collect(Collectors.toUnmodifiableList()));
       }
@@ -76,7 +82,8 @@ public class StaticChecker {
 
   private static void distinctMethodNameCheck(Klass klass) throws SemanticException {
     final var grouped = klass.methods().stream().collect(Collectors.groupingBy(m -> m.name().id()));
-    for (final var methodList : grouped.values()) {
+    for (final var entry : grouped.entrySet()) {
+      final var methodList = entry.getValue();
       if (methodList.size() > 1) {
         final var signatureGroupedMethods =
             methodList.stream()
@@ -84,13 +91,19 @@ public class StaticChecker {
                     Collectors.groupingBy(
                         e ->
                             e.args().stream()
-                                .map(Var::type)
+                                .map(v -> v.type().print(0)) // the printed form should uniquely identify
                                 .collect(Collectors.toUnmodifiableList())));
-        for (final var signatureMethodList : signatureGroupedMethods.values()) {
+        for (final var signatureEntry : signatureGroupedMethods.entrySet()) {
+          final var signatureMethodList = signatureEntry.getValue();
           if (signatureMethodList.size() > 1) {
+            final var signature = entry.getKey() + "(" + String.join(", ", signatureEntry.getKey()) + ")";
             throw new SemanticException(
-                "Names of methods with the same signature in a class must be distinct.",
-                "duplicate method name with same signature",
+                "Names of methods with the same signature in a class must be distinct: method `"
+                    + signature
+                    + "', in class `"
+                    + klass.name().id()
+                    + "'.",
+                "duplicate method name with same signature: " + signature,
                 signatureMethodList.stream()
                     .map(Method::name)
                     .collect(Collectors.toUnmodifiableList()));
