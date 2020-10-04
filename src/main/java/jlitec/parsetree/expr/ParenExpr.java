@@ -1,8 +1,8 @@
-package jlitec.ast.expr;
+package jlitec.parsetree.expr;
 
 import java.util.Optional;
 import java_cup.runtime.ComplexSymbolFactory.Location;
-import jlitec.ast.Printable;
+import jlitec.parsetree.Printable;
 
 public record ParenExpr(Expr expr, Location leftLocation, Location rightLocation)
     implements Expr, Printable {

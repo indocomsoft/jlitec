@@ -1,4 +1,4 @@
-package jlitec.ast;
+package jlitec.parsetree;
 
 import java_cup.runtime.ComplexSymbolFactory.Location;
 

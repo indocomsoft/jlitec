@@ -1,17 +1,13 @@
 package jlitec.ast.expr;
 
 public enum UnaryOp {
-  NOT("!"),
-  NEGATIVE("-");
+  NOT,
+  NEGATIVE;
 
-  private String representation;
-
-  UnaryOp(String representation) {
-    this.representation = representation;
-  }
-
-  @Override
-  public String toString() {
-    return representation;
+  public static UnaryOp fromParseTree(jlitec.parsetree.expr.UnaryOp op) {
+    return switch (op) {
+      case NEGATIVE -> NEGATIVE;
+      case NOT -> NOT;
+    };
   }
 }

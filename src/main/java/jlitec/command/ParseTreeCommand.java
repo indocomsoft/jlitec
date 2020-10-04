@@ -3,18 +3,18 @@ package jlitec.command;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
-import jlitec.ast.GsonExclusionStrategy;
-import jlitec.ast.Program;
-import jlitec.ast.expr.Expr;
-import jlitec.ast.expr.ExprSerializer;
-import jlitec.ast.stmt.Stmt;
-import jlitec.ast.stmt.StmtSerializer;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
+import jlitec.parsetree.GsonExclusionStrategy;
+import jlitec.parsetree.Program;
+import jlitec.parsetree.expr.Expr;
+import jlitec.parsetree.expr.ExprSerializer;
+import jlitec.parsetree.stmt.Stmt;
+import jlitec.parsetree.stmt.StmtSerializer;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class AstCommand implements Command {
+public class ParseTreeCommand implements Command {
   private final Gson gson =
       new GsonBuilder()
           .setPrettyPrinting()

@@ -1,9 +1,9 @@
-package jlitec.ast;
+package jlitec.parsetree;
 
 import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
 import java_cup.runtime.ComplexSymbolFactory;
-import jlitec.ast.expr.BinaryExpr;
+import jlitec.parsetree.expr.BinaryExpr;
 
 public class GsonExclusionStrategy implements ExclusionStrategy {
   @Override

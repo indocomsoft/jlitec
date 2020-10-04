@@ -9,11 +9,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 import java_cup.runtime.ComplexSymbolFactory;
-import jlitec.ast.Locatable;
-import jlitec.ast.Program;
 import jlitec.generated.Lexer;
 import jlitec.generated.parser;
 import jlitec.lexer.LexException;
+import jlitec.parsetree.Locatable;
+import jlitec.parsetree.Program;
 
 public class ParserWrapper {
   private static final int PAD = 2;

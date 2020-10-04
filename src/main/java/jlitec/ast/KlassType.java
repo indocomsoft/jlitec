@@ -1,16 +1,8 @@
 package jlitec.ast;
 
-import java_cup.runtime.ComplexSymbolFactory.Location;
-
-public record KlassType(String cname, Location leftLocation, Location rightLocation)
-    implements Type {
+public record KlassType(String cname) implements Type {
   @Override
-  public JliteType type() {
+  public JliteType jliteType() {
     return JliteType.CLASS;
-  }
-
-  @Override
-  public String print(int indent) {
-    return this.cname;
   }
 }

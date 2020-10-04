@@ -2,7 +2,7 @@ package jlitec.checker;
 
 import com.google.common.collect.Multimap;
 import java.util.Map;
-import jlitec.ast.Type;
+import jlitec.parsetree.Type;
 
 public record KlassDescriptor(
     Map<String, Type> fields, Map<String, Multimap<Integer, MethodDescriptor>> methods) {

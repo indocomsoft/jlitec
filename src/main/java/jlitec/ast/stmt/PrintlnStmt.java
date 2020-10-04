@@ -1,20 +1,14 @@
 package jlitec.ast.stmt;
 
-import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.expr.Expr;
 
-public record PrintlnStmt(Expr expr, Location leftLocation, Location rightLocation)
-    implements Stmt {
-  @Override
-  public StmtType getStmtType() {
-    return StmtType.STMT_PRINTLN;
+public record PrintlnStmt(Expr expr) implements Stmt {
+  public PrintlnStmt(jlitec.parsetree.stmt.PrintlnStmt ps) {
+    this(Expr.fromParseTree(ps.expr()));
   }
 
   @Override
-  public String print(int indent) {
-    final var sb = new StringBuilder();
-    indent(sb, indent);
-    sb.append("println(").append(expr.print(indent)).append(");\n");
-    return sb.toString();
+  public StmtType getStmtType() {
+    return StmtType.STMT_PRINTLN;
   }
 }

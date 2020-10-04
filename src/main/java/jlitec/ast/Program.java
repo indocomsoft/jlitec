@@ -2,18 +2,14 @@ package jlitec.ast;
 
 import java.util.Collections;
 import java.util.List;
-import java_cup.runtime.ComplexSymbolFactory.Location;
+import java.util.stream.Collectors;
 
-public record Program(List<Klass> klassList, Location leftLocation, Location rightLocation)
-    implements Printable, Locatable {
+public record Program(List<Klass> klassList) {
   public Program {
     this.klassList = Collections.unmodifiableList(klassList);
   }
 
-  @Override
-  public String print(int indent) {
-    final var sb = new StringBuilder();
-    klassList.forEach(klass -> sb.append(klass.print(indent)).append('\n'));
-    return sb.toString();
+  public Program(jlitec.parsetree.Program program) {
+    this(program.klassList().stream().map(Klass::new).collect(Collectors.toUnmodifiableList()));
   }
 }

@@ -1,4 +1,4 @@
-package jlitec.ast.stmt;
+package jlitec.parsetree.stmt;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonSerializationContext;

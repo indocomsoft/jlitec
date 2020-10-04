@@ -1,9 +1,9 @@
 package jlitec.command;
 
 import java.io.IOException;
-import jlitec.ast.Program;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
+import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 

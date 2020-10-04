@@ -2,7 +2,7 @@ package jlitec.checker;
 
 import java.util.Collections;
 import java.util.List;
-import jlitec.ast.Locatable;
+import jlitec.parsetree.Locatable;
 
 public class SemanticException extends Exception {
   public final List<? extends Locatable> locatableList;

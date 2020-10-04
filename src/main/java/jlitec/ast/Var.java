@@ -1,6 +1,7 @@
 package jlitec.ast;
 
-import java_cup.runtime.ComplexSymbolFactory.Location;
-
-public record Var(Type type, Name name, Location leftLocation, Location rightLocation)
-    implements Locatable {}
+public record Var(Type type, String id) {
+  public Var(jlitec.parsetree.Var var) {
+    this(Type.fromParseTree(var.type()), var.name().id());
+  }
+}

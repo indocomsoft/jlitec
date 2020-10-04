@@ -1,4 +1,4 @@
-package jlitec.ast.expr;
+package jlitec.parsetree.expr;
 
 public class IncompatibleTypeException extends RuntimeException {
   /**

@@ -4,7 +4,7 @@ import net.sourceforge.argparse4j.inf.Namespace;
 
 public enum CommandType {
   LEXER(new LexerCommand()),
-  AST(new AstCommand()),
+  PARSE_TREE(new ParseTreeCommand()),
   PRETTY_PRINT(new PrettyPrintCommand()),
   CHECK(new CheckCommand());
 

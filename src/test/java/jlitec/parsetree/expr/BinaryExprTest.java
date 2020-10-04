@@ -1,4 +1,4 @@
-package jlitec.ast.expr;
+package jlitec.parsetree.expr;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;

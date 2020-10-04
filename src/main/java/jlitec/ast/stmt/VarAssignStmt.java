@@ -1,20 +1,14 @@
 package jlitec.ast.stmt;
 
-import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.expr.Expr;
 
-public record VarAssignStmt(String lhsId, Expr rhs, Location leftLocation, Location rightLocation)
-    implements Stmt {
-  @Override
-  public StmtType getStmtType() {
-    return StmtType.STMT_VAR_ASSIGN;
+public record VarAssignStmt(String lhsId, Expr rhs) implements Stmt {
+  public VarAssignStmt(jlitec.parsetree.stmt.VarAssignStmt vas) {
+    this(vas.lhsId(), Expr.fromParseTree(vas.rhs()));
   }
 
   @Override
-  public String print(int indent) {
-    final var sb = new StringBuilder();
-    indent(sb, indent);
-    sb.append(lhsId).append(" = ").append(rhs.print(indent)).append(";\n");
-    return sb.toString();
+  public StmtType getStmtType() {
+    return StmtType.STMT_VAR_ASSIGN;
   }
 }

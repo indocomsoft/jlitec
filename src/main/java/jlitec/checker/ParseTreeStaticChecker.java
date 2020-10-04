@@ -3,21 +3,15 @@ package jlitec.checker;
 import com.google.common.collect.Multimaps;
 import java.util.Map;
 import java.util.stream.Collectors;
-import jlitec.ast.Klass;
-import jlitec.ast.Method;
-import jlitec.ast.Program;
-import jlitec.ast.Var;
+import jlitec.parsetree.Klass;
+import jlitec.parsetree.Method;
+import jlitec.parsetree.Program;
+import jlitec.parsetree.Var;
 
-public class StaticChecker {
-  private StaticChecker() {}
+public class ParseTreeStaticChecker {
+  private ParseTreeStaticChecker() {}
 
-  public static Map<String, KlassDescriptor> produceClassDescriptor(Program program)
-      throws SemanticException {
-    distinctClassNameCheck(program);
-    for (final var klass : program.klassList()) {
-      distinctFieldNameCheck(klass);
-      distinctMethodNameCheck(klass);
-    }
+  public static Map<String, KlassDescriptor> produceClassDescriptor(Program program) {
     return program.klassList().stream()
         .collect(
             Collectors.toMap(
@@ -47,6 +41,14 @@ public class StaticChecker {
                                                             m.type()))
                                                 .collect(Collectors.toUnmodifiableList()),
                                             md -> md.argTypes().size()))))));
+  }
+
+  public static void distinctNameCheck(Program program) throws SemanticException {
+    distinctClassNameCheck(program);
+    for (final var klass : program.klassList()) {
+      distinctFieldNameCheck(klass);
+      distinctMethodNameCheck(klass);
+    }
   }
 
   private static void distinctClassNameCheck(Program program) throws SemanticException {
@@ -91,12 +93,16 @@ public class StaticChecker {
                     Collectors.groupingBy(
                         e ->
                             e.args().stream()
-                                .map(v -> v.type().print(0)) // the printed form should uniquely identify
+                                .map(
+                                    v ->
+                                        v.type()
+                                            .print(0)) // the printed form should uniquely identify
                                 .collect(Collectors.toUnmodifiableList())));
         for (final var signatureEntry : signatureGroupedMethods.entrySet()) {
           final var signatureMethodList = signatureEntry.getValue();
           if (signatureMethodList.size() > 1) {
-            final var signature = entry.getKey() + "(" + String.join(", ", signatureEntry.getKey()) + ")";
+            final var signature =
+                entry.getKey() + "(" + String.join(", ", signatureEntry.getKey()) + ")";
             throw new SemanticException(
                 "Names of methods with the same signature in a class must be distinct: method `"
                     + signature

@@ -2,11 +2,11 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.stream.Collectors;
-import jlitec.ast.Program;
+import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
-import jlitec.checker.StaticChecker;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
+import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
@@ -34,7 +34,8 @@ public class CheckCommand implements Command {
 
     try {
       final Program program = parser.parse();
-      System.out.println(StaticChecker.produceClassDescriptor(program));
+      ParseTreeStaticChecker.distinctNameCheck(program);
+      System.out.println(ParseTreeStaticChecker.produceClassDescriptor(program));
     } catch (SemanticException e) {
       final var lines =
           e.locatableList.stream()
