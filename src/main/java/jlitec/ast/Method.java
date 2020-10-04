@@ -36,7 +36,10 @@ public record Method(
     vars.forEach(
         variable -> {
           indent(sb, indent + 1);
-          sb.append(variable.type().print(indent)).append(' ').append(variable.name().id()).append(";\n");
+          sb.append(variable.type().print(indent))
+              .append(' ')
+              .append(variable.name().id())
+              .append(";\n");
         });
 
     stmtList.forEach(stmt -> sb.append(stmt.print(indent + 1)));

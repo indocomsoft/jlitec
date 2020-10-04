@@ -144,13 +144,11 @@ public class ParserWrapper {
     final var left = locatable.leftLocation();
     final var right = locatable.rightLocation();
     return formErrorString(
-            left.getLine(),
-            left.getColumn(),
-            (left.getLine() == right.getLine()
-                    ? right.getColumn()
-                    : lines.get(left.getLine()).length())
-                    - left.getColumn(),
-            message);
+        left.getLine(),
+        left.getColumn(),
+        (left.getLine() == right.getLine() ? right.getColumn() : lines.get(left.getLine()).length())
+            - left.getColumn(),
+        message);
   }
 
   private String formErrorString(int lineNumber, int column, int length, String message) {

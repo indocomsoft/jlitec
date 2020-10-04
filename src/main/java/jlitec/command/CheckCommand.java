@@ -1,5 +1,6 @@
 package jlitec.command;
 
+import java.io.IOException;
 import jlitec.ast.Program;
 import jlitec.checker.SemanticException;
 import jlitec.checker.StaticChecker;
@@ -7,8 +8,6 @@ import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
-
-import java.io.IOException;
 
 public class CheckCommand implements Command {
   @Override
