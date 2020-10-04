@@ -1,6 +1,7 @@
 package jlitec.command;
 
 import java.io.IOException;
+import java.util.stream.Collectors;
 import jlitec.ast.Program;
 import jlitec.checker.SemanticException;
 import jlitec.checker.StaticChecker;
@@ -35,7 +36,12 @@ public class CheckCommand implements Command {
       final Program program = parser.parse();
       System.out.println(StaticChecker.produceClassDescriptor(program));
     } catch (SemanticException e) {
-      System.err.println("Semantic error: " + e.getMessage());
+      final var lines =
+          e.locatableList.stream()
+              .map(l -> l.leftLocation())
+              .map(l -> "--> " + filename + ":" + (l.getLine() + 1) + ":" + (l.getColumn() + 1))
+              .collect(Collectors.joining("\n"));
+      System.err.println(lines + "\nSemantic error: " + e.getMessage());
       for (final var locatable : e.locatableList) {
         System.err.println(parser.formErrorString(e.shortMessage, locatable));
       }
