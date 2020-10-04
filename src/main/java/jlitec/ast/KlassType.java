@@ -1,6 +1,9 @@
 package jlitec.ast;
 
-public record KlassType(String cname) implements Type {
+import java_cup.runtime.ComplexSymbolFactory.Location;
+
+public record KlassType(String cname, Location leftLocation, Location rightLocation)
+    implements Type {
   @Override
   public JliteType type() {
     return JliteType.CLASS;

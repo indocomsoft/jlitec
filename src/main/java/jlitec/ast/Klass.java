@@ -2,8 +2,15 @@ package jlitec.ast;
 
 import java.util.Collections;
 import java.util.List;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 
-public record Klass(String cname, List<Var> fields, List<Method> methods) implements Printable {
+public record Klass(
+    String cname,
+    List<Var> fields,
+    List<Method> methods,
+    Location leftLocation,
+    Location rightLocation)
+    implements Printable, Locatable {
   public Klass {
     this.fields = Collections.unmodifiableList(fields);
     this.methods = Collections.unmodifiableList(methods);

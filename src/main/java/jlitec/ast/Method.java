@@ -3,10 +3,18 @@ package jlitec.ast;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.stmt.Stmt;
 
-public record Method(Type type, String id, List<Var> args, List<Var> vars, List<Stmt> stmtList)
-    implements Printable {
+public record Method(
+    Type type,
+    String id,
+    List<Var> args,
+    List<Var> vars,
+    List<Stmt> stmtList,
+    Location leftLocation,
+    Location rightLocation)
+    implements Printable, Locatable {
   /** Construct a Method in the AST. */
   public Method {
     this.args = Collections.unmodifiableList(args);

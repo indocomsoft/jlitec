@@ -1,31 +1,19 @@
 package jlitec.command;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import java.io.IOException;
-import jlitec.ast.GsonExclusionStrategy;
 import jlitec.ast.Program;
-import jlitec.ast.expr.Expr;
-import jlitec.ast.expr.ExprSerializer;
-import jlitec.ast.stmt.Stmt;
-import jlitec.ast.stmt.StmtSerializer;
+import jlitec.checker.SemanticException;
+import jlitec.checker.StaticChecker;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class AstCommand implements Command {
-  private final Gson gson =
-      new GsonBuilder()
-          .setPrettyPrinting()
-          .registerTypeAdapter(Expr.class, new ExprSerializer())
-          .registerTypeAdapter(Stmt.class, new StmtSerializer())
-          .setExclusionStrategies(new GsonExclusionStrategy())
-          .create();
+import java.io.IOException;
 
+public class CheckCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Show the AST in JSON";
+    return "Perform static semantic check";
   }
 
   @Override
@@ -38,7 +26,9 @@ public class AstCommand implements Command {
     final String filename = parsed.getString("filename");
     try {
       final Program program = new ParserWrapper(filename).parse();
-      System.out.println(this.gson.toJson(program));
+      System.out.println(StaticChecker.produceClassDescriptor(program));
+    } catch (SemanticException e) {
+      System.err.println("Semantic exception: " + e);
     } catch (LexException e) {
       System.err.println("Lexing failed.");
     } catch (IOException e) {

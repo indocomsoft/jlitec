@@ -1,7 +1,9 @@
 package jlitec.lexer;
 
+import java.io.IOException;
+
 /** LexException is thrown when there is an error during lexing. */
-public class LexException extends RuntimeException {
+public class LexException extends IOException {
   public final String message;
   public final int line;
   public final int column;

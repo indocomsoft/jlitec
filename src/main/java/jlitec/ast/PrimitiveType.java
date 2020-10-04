@@ -1,6 +1,9 @@
 package jlitec.ast;
 
-public record PrimitiveType(JliteType type) implements Type {
+import java_cup.runtime.ComplexSymbolFactory.Location;
+
+public record PrimitiveType(JliteType type, Location leftLocation, Location rightLocation)
+    implements Type {
   public PrimitiveType {
     assert type != JliteType.CLASS;
   }

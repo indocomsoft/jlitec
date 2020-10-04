@@ -1,7 +1,6 @@
 package jlitec.ast.expr;
 
 import java.util.Optional;
-import java_cup.runtime.ComplexSymbolFactory;
 import jlitec.ast.Locatable;
 import jlitec.ast.Printable;
 

@@ -3,11 +3,11 @@ package jlitec.ast.stmt;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import java_cup.runtime.ComplexSymbolFactory.Location;
 import jlitec.ast.expr.Expr;
 
-public record CallStmt(Expr target, List<Expr> args, Location leftLocation, Location rightLocation) implements Stmt {
+public record CallStmt(Expr target, List<Expr> args, Location leftLocation, Location rightLocation)
+    implements Stmt {
   public CallStmt {
     this.args = Collections.unmodifiableList(args);
   }

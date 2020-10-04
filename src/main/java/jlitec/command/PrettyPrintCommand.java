@@ -24,10 +24,10 @@ public class PrettyPrintCommand implements Command {
     try {
       final Program program = new ParserWrapper(filename).parse();
       System.out.println(program.print(0));
-    } catch (IOException e) {
-      System.err.println("Unable to read file.");
     } catch (LexException e) {
       System.err.println("Lexing failed.");
+    } catch (IOException e) {
+      System.err.println("Unable to read file.");
     } catch (Exception e) {
       System.err.println("Parsing failed: " + e.getMessage());
     }
