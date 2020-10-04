@@ -24,15 +24,24 @@ public class CheckCommand implements Command {
   @Override
   public void run(Namespace parsed) {
     final String filename = parsed.getString("filename");
+    final ParserWrapper parser;
     try {
-      final Program program = new ParserWrapper(filename).parse();
-      System.out.println(StaticChecker.produceClassDescriptor(program));
-    } catch (SemanticException e) {
-      System.err.println("Semantic exception: " + e);
-    } catch (LexException e) {
-      System.err.println("Lexing failed.");
+      parser = new ParserWrapper(filename);
     } catch (IOException e) {
       System.err.println("Unable to read file.");
+      return;
+    }
+
+    try {
+      final Program program = parser.parse();
+      System.out.println(StaticChecker.produceClassDescriptor(program));
+    } catch (SemanticException e) {
+      System.err.println("Semantic error: " + e.getMessage());
+      for (final var locatable : e.locatableList) {
+        System.err.println(parser.formErrorString(e.shortMessage, locatable));
+      }
+    } catch (LexException e) {
+      System.err.println("Lexing failed.");
     } catch (Exception e) {
       System.err.println("Parsing failed: " + e.getMessage());
     }

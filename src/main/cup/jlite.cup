@@ -12,6 +12,7 @@ import jlitec.ast.JliteType;
 import jlitec.ast.Klass;
 import jlitec.ast.KlassType;
 import jlitec.ast.Method;
+import jlitec.ast.Name;
 import jlitec.ast.PrimitiveType;
 import jlitec.ast.Program;
 import jlitec.ast.Type;
@@ -141,7 +142,7 @@ non terminal Expr BGrd;
 non terminal Expr Term;
 non terminal Expr Ftr;
 
-non terminal String CnameDecl;
+non terminal Name CnameDecl;
 
 start with Program;
 
@@ -151,8 +152,8 @@ Program ::= MainClass:main ClassDecl_star:lst
           {: report_fatal_error("Missing main class.", stack.get(stack.size() - 2)); :}
           ;
 
-MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
-            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(new Method(new PrimitiveType(JliteType.VOID, getLeftLocation(), getRightLocation()), "main", args, vars, stmtlist, getLeftLocation(), getRightLocation())), getLeftLocation(), getRightLocation()); :}
+MainClass ::= CnameDecl:name VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
+            {: RESULT = new Klass(name, Lists.newArrayList(), Lists.newArrayList(new Method(new PrimitiveType(JliteType.VOID, getLeftLocation(), getRightLocation()), new Name("main", ((ComplexSymbol)stack.get(stack.size() - 9)).xleft, ((ComplexSymbol)stack.get(stack.size() - 9)).xright), args, vars, stmtlist, getLeftLocation(), getRightLocation())), getLeftLocation(), getRightLocation()); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE RBRACE
             {: report_fatal_error("Method body of main must contain at least 1 statement.", stack.get(stack.size() - 2)); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE MdDecl_plus RBRACE
@@ -162,14 +163,14 @@ MainClass ::= CnameDecl:cname VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE Va
 // Resolve shift/reduce ambiguity of Type ::= ... and MdDecl_plus ::= ...
 // by enumerating the 4 possible permutations: (0, 0), (0, +), (+, 0), (+, +)
 ClassDecl ::=
-            CnameDecl:cname VarDecl_plus:vars MdDecl_plus:methods RBRACE
-            {: RESULT = new Klass(cname, vars, methods, getLeftLocation(), getRightLocation()); :}
-            | CnameDecl:cname VarDecl_plus:vars RBRACE
-            {: RESULT = new Klass(cname, vars, Lists.newArrayList(), getLeftLocation(), getRightLocation()); :}
-            | CnameDecl:cname MdDecl_plus:methods RBRACE
-            {: RESULT = new Klass(cname, Lists.newArrayList(), methods, getLeftLocation(), getRightLocation()); :}
-            | CnameDecl:cname RBRACE
-            {: RESULT = new Klass(cname, Lists.newArrayList(), Lists.newArrayList(), getLeftLocation(), getRightLocation()); :}
+            CnameDecl:name VarDecl_plus:vars MdDecl_plus:methods RBRACE
+            {: RESULT = new Klass(name, vars, methods, getLeftLocation(), getRightLocation()); :}
+            | CnameDecl:name VarDecl_plus:vars RBRACE
+            {: RESULT = new Klass(name, vars, Lists.newArrayList(), getLeftLocation(), getRightLocation()); :}
+            | CnameDecl:name MdDecl_plus:methods RBRACE
+            {: RESULT = new Klass(name, Lists.newArrayList(), methods, getLeftLocation(), getRightLocation()); :}
+            | CnameDecl:name RBRACE
+            {: RESULT = new Klass(name, Lists.newArrayList(), Lists.newArrayList(), getLeftLocation(), getRightLocation()); :}
             ;
 ClassDecl_star ::=
                  ClassDecl_star:lst ClassDecl:klass
@@ -179,13 +180,13 @@ ClassDecl_star ::=
                  ;
 
 CnameDecl ::= CLASS CNAME:cname LBRACE
-            {: RESULT = cname; :}
+            {: RESULT = new Name(cname, ((ComplexSymbol)stack.get(stack.size() - 2)).xleft, ((ComplexSymbol)stack.get(stack.size() - 2)).xright); :}
             | CLASS ID:e LBRACE
             {: report_fatal_error("Class name must begin with an uppercased letter.", stack.get(stack.size() - 2)); :}
             ;
 
 VarDecl ::= Type:type ID:id SEMICOLON
-          {: RESULT = new Var(type, id, getLeftLocation(), getRightLocation()); :}
+          {: RESULT = new Var(type, new Name(id, ((ComplexSymbol)stack.get(stack.size() - 2)).xleft, ((ComplexSymbol)stack.get(stack.size() - 2)).xright), getLeftLocation(), getRightLocation()); :}
           | Type CNAME SEMICOLON
           {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 2)); :}
           ;
@@ -205,7 +206,7 @@ VarDecl_star ::=
                ;
 
 MdDecl ::= Type:type ID:id LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE
-         {: RESULT = new Method(type, id, args, vars, stmtlist, getLeftLocation(), getRightLocation()); :}
+         {: RESULT = new Method(type, new Name(id, ((ComplexSymbol)stack.get(stack.size() - 8)).xleft, ((ComplexSymbol)stack.get(stack.size() - 8)).xright), args, vars, stmtlist, getLeftLocation(), getRightLocation()); :}
          | Type CNAME LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE
          {: report_fatal_error("Method name must begin with a lowercased letter.", stack.get(stack.size() - 8)); :}
          | Type ID LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE
@@ -228,9 +229,9 @@ FmlList_opt ::=
 
 FmlList ::=
           Type:type ID:id
-          {: RESULT = Lists.newArrayList(new Var(type, id, getLeftLocation(), getRightLocation())); :}
+          {: RESULT = Lists.newArrayList(new Var(type, new Name(id, ((ComplexSymbol)stack.peek()).xleft, ((ComplexSymbol)stack.peek()).xright), getLeftLocation(), getRightLocation())); :}
           | FmlList:lst COMMA Type:type ID:id
-          {: lst.add(new Var(type, id, getLeftLocation(), getRightLocation())); RESULT = lst; :}
+          {: lst.add(new Var(type, new Name(id, ((ComplexSymbol)stack.peek()).xleft, ((ComplexSymbol)stack.peek()).xright), getLeftLocation(), getRightLocation())); RESULT = lst; :}
           | Type CNAME
           {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 1)); :}
           | FmlList COMMA Type CNAME

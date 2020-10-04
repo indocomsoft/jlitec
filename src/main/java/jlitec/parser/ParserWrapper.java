@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 import java_cup.runtime.ComplexSymbolFactory;
+import jlitec.ast.Locatable;
 import jlitec.ast.Program;
 import jlitec.generated.Lexer;
 import jlitec.generated.parser;
@@ -137,6 +138,19 @@ public class ParserWrapper {
     System.err.println("The JLite grammar is more restrictive than the LALR parser used,");
     System.err.println("so we perform some parse tree checks later on.");
     System.err.println();
+  }
+
+  public String formErrorString(String message, Locatable locatable) {
+    final var left = locatable.leftLocation();
+    final var right = locatable.rightLocation();
+    return formErrorString(
+            left.getLine(),
+            left.getColumn(),
+            (left.getLine() == right.getLine()
+                    ? right.getColumn()
+                    : lines.get(left.getLine()).length())
+                    - left.getColumn(),
+            message);
   }
 
   private String formErrorString(int lineNumber, int column, int length, String message) {
