@@ -34,7 +34,6 @@ public class CheckCommand implements Command {
 
     try {
       final Program program = parser.parse();
-      ParseTreeStaticChecker.distinctNameCheck(program);
       System.out.println(ParseTreeStaticChecker.produceClassDescriptor(program));
     } catch (SemanticException e) {
       final var lines =
