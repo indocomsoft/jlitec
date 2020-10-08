@@ -61,7 +61,7 @@ public class ParseTreeStaticChecker {
                                 .stream()
                                 .collect(
                                     Collectors.toUnmodifiableMap(
-                                        e -> e.getKey(),
+                                        Map.Entry::getKey,
                                         e ->
                                             e.getValue().stream()
                                                 .map(
@@ -154,8 +154,6 @@ public class ParseTreeStaticChecker {
   public static void typecheck(
       Method method, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
-    final var argTypes =
-        method.args().stream().map(v -> v.type().print(0)).collect(Collectors.toUnmodifiableList());
     for (final var arg : method.args()) {
       env = env.augment(arg.name().id(), new Type.Basic(arg.type().print(0)));
     }
@@ -192,7 +190,6 @@ public class ParseTreeStaticChecker {
       Environment env)
       throws SemanticException {
     Type.Basic type = new Type.Basic(JliteType.VOID);
-    Type.Basic initialType = type;
     for (final var stmt : stmts) {
       type =
           switch (stmt.getStmtType()) {
@@ -578,10 +575,8 @@ public class ParseTreeStaticChecker {
       Environment env)
       throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> {
-        throw new SemanticException(
-            "Trying to call non-callable expression.", "non-callable expression", List.of(target));
-      }
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+          "Trying to call non-callable expression.", "non-callable expression", List.of(target));
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
