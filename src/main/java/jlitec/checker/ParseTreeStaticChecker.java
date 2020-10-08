@@ -81,7 +81,7 @@ public class ParseTreeStaticChecker {
     return result;
   }
 
-  public static void cnameTypeExistenceCheck(
+  private static void cnameTypeExistenceCheck(
       Program program, Map<String, KlassDescriptor> klassDescriptorMap) throws SemanticException {
     for (final var klass : program.klassList()) {
       // check fields
@@ -140,7 +140,7 @@ public class ParseTreeStaticChecker {
     }
   }
 
-  public static void typecheck(
+  private static void typecheck(
       Klass klass, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
     final var klassName = klass.name().id();
@@ -151,7 +151,7 @@ public class ParseTreeStaticChecker {
     }
   }
 
-  public static void typecheck(
+  private static void typecheck(
       Method method, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
     for (final var arg : method.args()) {
@@ -183,7 +183,7 @@ public class ParseTreeStaticChecker {
     }
   }
 
-  public static Type.Basic typecheck(
+  private static Type.Basic typecheck(
       List<Stmt> stmts,
       Type.Basic expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
@@ -372,7 +372,7 @@ public class ParseTreeStaticChecker {
     return type;
   }
 
-  public static Type.Basic typecheck(
+  private static Type.Basic typecheck(
       Expr expr, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
     return switch (expr.getExprType()) {
@@ -568,7 +568,7 @@ public class ParseTreeStaticChecker {
     };
   }
 
-  public static Type.Basic lookupMethodReturnType(
+  private static Type.Basic lookupMethodReturnType(
       Expr target,
       List<String> argTypes,
       Map<String, KlassDescriptor> klassDescriptorMap,
@@ -665,7 +665,7 @@ public class ParseTreeStaticChecker {
     }
   }
 
-  private static void distinctNameCheck(Program program) throws SemanticException {
+  public static void distinctNameCheck(Program program) throws SemanticException {
     distinctClassNameCheck(program);
     for (final var klass : program.klassList()) {
       distinctFieldNameCheck(klass);
