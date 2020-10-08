@@ -6,7 +6,8 @@ public enum CommandType {
   LEXER(new LexerCommand()),
   PARSE_TREE(new ParseTreeCommand()),
   PRETTY_PRINT(new PrettyPrintCommand()),
-  CHECK(new CheckCommand());
+  CHECK(new CheckCommand()),
+  IR3(new Ir3Command());
 
   public final Command command;
 

@@ -1,8 +1,8 @@
 package jlitec.parsetree.expr;
 
 import java.util.Optional;
+import jlitec.Printable;
 import jlitec.parsetree.Locatable;
-import jlitec.parsetree.Printable;
 
 /** An interface for all the different kinds of expressions in JLite. */
 public interface Expr extends Printable, Locatable {

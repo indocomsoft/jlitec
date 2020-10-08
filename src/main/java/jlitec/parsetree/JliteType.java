@@ -1,5 +1,7 @@
 package jlitec.parsetree;
 
+import jlitec.Printable;
+
 /** Represents the possible types in JLite. */
 public enum JliteType implements Printable {
   INT("Int"),

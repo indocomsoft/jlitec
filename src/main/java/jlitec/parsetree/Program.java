@@ -3,6 +3,7 @@ package jlitec.parsetree;
 import java.util.Collections;
 import java.util.List;
 import java_cup.runtime.ComplexSymbolFactory.Location;
+import jlitec.Printable;
 
 public record Program(List<Klass> klassList, Location leftLocation, Location rightLocation)
     implements Printable, Locatable {

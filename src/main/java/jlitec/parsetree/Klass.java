@@ -3,6 +3,7 @@ package jlitec.parsetree;
 import java.util.Collections;
 import java.util.List;
 import java_cup.runtime.ComplexSymbolFactory.Location;
+import jlitec.Printable;
 
 public record Klass(
     Name name,

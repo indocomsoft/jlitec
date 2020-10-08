@@ -1,4 +1,4 @@
-package jlitec.parsetree;
+package jlitec;
 
 public interface Printable {
   int SPACE_INDENT = 2;

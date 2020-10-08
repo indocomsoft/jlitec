@@ -1,14 +1,42 @@
 package jlitec.ir3;
 
-public interface Type {
+import jlitec.Printable;
+
+public interface Type extends Printable {
   Ir3Type type();
 
-  record PrimitiveType(Ir3Type type) implements Type {}
+  record PrimitiveType(Ir3Type type) implements Type {
+    @Override
+    public String print(int indent) {
+      return switch (type) {
+        case INT -> "Int";
+        case BOOL -> "Bool";
+        case STRING -> "String";
+        case VOID -> "Void";
+        case CLASS -> throw new RuntimeException("Trying to print a class type.");
+      };
+    }
+  }
 
   record KlassType(String cname) implements Type {
     @Override
     public Ir3Type type() {
       return Ir3Type.CLASS;
     }
+
+    @Override
+    public String print(int indent) {
+      return cname;
+    }
+  }
+
+  static Type fromAst(jlitec.ast.Type type) {
+    return switch (type.jliteType()) {
+      case INT -> new PrimitiveType(Ir3Type.INT);
+      case BOOL -> new PrimitiveType(Ir3Type.BOOL);
+      case STRING -> new PrimitiveType(Ir3Type.STRING);
+      case VOID -> new PrimitiveType(Ir3Type.VOID);
+      case CLASS -> new KlassType(((jlitec.ast.KlassType) type).cname());
+    };
   }
 }

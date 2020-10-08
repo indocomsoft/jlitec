@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java_cup.runtime.ComplexSymbolFactory.Location;
+import jlitec.Printable;
 import jlitec.parsetree.stmt.Stmt;
 
 public record Method(
