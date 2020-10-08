@@ -602,7 +602,7 @@ public class ParseTreeStaticChecker {
               "non-existent method `" + signature + "'",
               List.of(de));
         }
-        final var maybeReturnType =
+        final var returnTypes =
             maybeMethods.get().stream()
                 .filter(
                     m ->
@@ -611,15 +611,38 @@ public class ParseTreeStaticChecker {
                             m.argTypes().stream()
                                 .map(Type.Basic::type)
                                 .collect(Collectors.toUnmodifiableList())))
-                .findFirst();
-        if (maybeReturnType.isEmpty()) {
+                .collect(Collectors.toUnmodifiableList());
+        if (returnTypes.isEmpty()) {
           final var signature = de.id() + "(" + String.join(", ", argTypes) + ")";
           throw new SemanticException(
               "Method `" + signature + "' is not found on class `" + targetType.type() + "'",
               "non-existent method `" + signature + "'",
               List.of(de));
         }
-        yield maybeReturnType.get().returnType();
+        if (returnTypes.size() > 1) {
+          final var signature = de.id() + "(" + String.join(", ", argTypes) + ")";
+          final var possibleMethods =
+              returnTypes.stream()
+                  .map(
+                      m ->
+                          de.id()
+                              + "("
+                              + m.argTypes().stream()
+                                  .map(Type.Basic::type)
+                                  .collect(Collectors.joining(", "))
+                              + ")")
+                  .collect(Collectors.joining(", "));
+          throw new SemanticException(
+              "Call with signature `"
+                  + signature
+                  + "' on class `"
+                  + targetType.type()
+                  + "' is ambiguous. Possible method overloads: "
+                  + possibleMethods,
+              "ambiguous method call `" + signature + "'",
+              List.of(de));
+        }
+        yield returnTypes.get(0).returnType();
       }
       case EXPR_PAREN -> lookupMethodReturnType(
           ((ParenExpr) target).expr(), argTypes, klassDescriptorMap, env);
