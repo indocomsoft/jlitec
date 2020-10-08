@@ -32,9 +32,22 @@ public class CheckCommand implements Command {
       return;
     }
 
+    final Program program;
+
     try {
-      final Program program = parser.parse();
-      System.out.println(ParseTreeStaticChecker.produceClassDescriptor(program));
+      program = parser.parse();
+    } catch (LexException e) {
+      System.err.println("Lexing failed.");
+      return;
+    } catch (Exception e) {
+      System.err.println("Parsing failed: " + e.getMessage());
+      return;
+    }
+
+    try {
+      final var classDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+      ParseTreeStaticChecker.typecheck(program, classDescriptorMap);
+      System.err.println("Static check succeeded!");
     } catch (SemanticException e) {
       final var lines =
           e.locatableList.stream()
@@ -45,10 +58,6 @@ public class CheckCommand implements Command {
       for (final var locatable : e.locatableList) {
         System.err.println(parser.formErrorString(e.shortMessage, locatable));
       }
-    } catch (LexException e) {
-      System.err.println("Lexing failed.");
-    } catch (Exception e) {
-      System.err.println("Parsing failed: " + e.getMessage());
     }
   }
 }

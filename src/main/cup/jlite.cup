@@ -153,7 +153,25 @@ Program ::= MainClass:main ClassDecl_star:lst
           ;
 
 MainClass ::= CnameDecl:name VOID MAIN LPAREN FmlList_opt:args RPAREN LBRACE VarDecl_star:vars Stmt_plus:stmtlist RBRACE RBRACE
-            {: RESULT = new Klass(name, Lists.newArrayList(), Lists.newArrayList(new Method(new PrimitiveType(JliteType.VOID, getLeftLocation(), getRightLocation()), new Name("main", ((ComplexSymbol)stack.get(stack.size() - 9)).xleft, ((ComplexSymbol)stack.get(stack.size() - 9)).xright), args, vars, stmtlist, getLeftLocation(), getRightLocation())), getLeftLocation(), getRightLocation()); :}
+            {:
+              RESULT = new Klass(
+                  name,
+                  Lists.newArrayList(),
+                  Lists.newArrayList(
+                    new Method(
+                      new PrimitiveType(JliteType.VOID, ((ComplexSymbol)stack.get(stack.size() - 10)).xleft, ((ComplexSymbol)stack.get(stack.size() - 10)).xright),
+                      new Name("main", ((ComplexSymbol)stack.get(stack.size() - 9)).xleft, ((ComplexSymbol)stack.get(stack.size() - 9)).xright),
+                      args,
+                      vars,
+                      stmtlist,
+                      ((ComplexSymbol)stack.get(stack.size() - 10)).xleft,
+                      ((ComplexSymbol)stack.get(stack.size() - 2)).xright
+                    )
+                  ),
+                  getLeftLocation(),
+                  getRightLocation()
+                );
+              :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star RBRACE RBRACE
             {: report_fatal_error("Method body of main must contain at least 1 statement.", stack.get(stack.size() - 2)); :}
             | CnameDecl VOID MAIN LPAREN FmlList_opt RPAREN LBRACE VarDecl_star Stmt_plus RBRACE MdDecl_plus RBRACE

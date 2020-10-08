@@ -1,13 +1,9 @@
 package jlitec.checker;
 
-import com.google.common.collect.Multimap;
+import java.util.List;
 import java.util.Map;
 
 public record KlassDescriptor(
-    Map<String, Type.Basic> fields, Map<String, Multimap<Integer, Type.Method>> methods) {
-  /**
-   * @param fields field descriptors.
-   * @param methods method descriptors, mapping name -> arity -> methods.
-   */
-  public KlassDescriptor {}
+    Map<String, Type.Basic> fields, Map<String, List<MethodDescriptor>> methods) {
+  public static record MethodDescriptor(Type.Basic returnType, List<Type.Basic> argTypes) {}
 }

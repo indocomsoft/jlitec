@@ -1,13 +1,13 @@
 package jlitec.checker;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import jlitec.parsetree.JliteType;
 
 public interface Type {
-  record Basic(jlitec.parsetree.Type type) implements Type {}
-  record Method(List<Basic> args, Basic returnType) implements Type {
-    public Method(jlitec.parsetree.Method method) {
-      this(method.args().stream().map(m -> new Basic(m.type())).collect(Collectors.toUnmodifiableList()), new Basic(method.type()));
+  record Basic(String type) implements Type {
+    static Basic NULL = new Basic("null");
+
+    public Basic(JliteType type) {
+      this(type.print(0));
     }
   }
 }
