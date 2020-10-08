@@ -670,6 +670,7 @@ public class ParseTreeStaticChecker {
     for (final var klass : program.klassList()) {
       distinctFieldNameCheck(klass);
       distinctMethodNameCheck(klass);
+      distinctParamNameCheck(klass);
     }
   }
 
@@ -700,6 +701,22 @@ public class ParseTreeStaticChecker {
                 + "'.",
             "duplicate field name",
             fieldList.stream().map(Var::name).collect(Collectors.toUnmodifiableList()));
+      }
+    }
+  }
+
+  private static void distinctParamNameCheck(Klass klass) throws SemanticException {
+    for (final var method : klass.methods()) {
+      final var names = method.args().stream().collect(Collectors.groupingBy(m -> m.name().id()));
+      for (final var entry : names.entrySet()) {
+        final var paramList = entry.getValue();
+        if (paramList.size() > 1) {
+          throw new SemanticException(
+              "Names of parameters in a method signature must be distinct: parameter `"
+                  + paramList.get(0).name().id(),
+              "duplicate parameter name",
+              paramList);
+        }
       }
     }
   }

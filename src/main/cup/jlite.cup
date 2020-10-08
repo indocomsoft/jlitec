@@ -249,7 +249,7 @@ FmlList ::=
           Type:type ID:id
           {: RESULT = Lists.newArrayList(new Var(type, new Name(id, ((ComplexSymbol)stack.peek()).xleft, ((ComplexSymbol)stack.peek()).xright), getLeftLocation(), getRightLocation())); :}
           | FmlList:lst COMMA Type:type ID:id
-          {: lst.add(new Var(type, new Name(id, ((ComplexSymbol)stack.peek()).xleft, ((ComplexSymbol)stack.peek()).xright), getLeftLocation(), getRightLocation())); RESULT = lst; :}
+          {: lst.add(new Var(type, new Name(id, ((ComplexSymbol)stack.peek()).xleft, ((ComplexSymbol)stack.peek()).xright), ((ComplexSymbol)stack.get(stack.size() - 2)).xleft, getRightLocation())); RESULT = lst; :}
           | Type CNAME
           {: report_fatal_error("Variable name must begin with a lowercased letter.", stack.get(stack.size() - 1)); :}
           | FmlList COMMA Type CNAME
