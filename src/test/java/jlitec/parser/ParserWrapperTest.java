@@ -26,10 +26,10 @@ public class ParserWrapperTest {
   }
 
   private static Stream<String> loadPassingTests() throws IOException {
-    return Files.list(Paths.get("test", "pass")).map(f -> f.toAbsolutePath().toString());
+    return Files.list(Paths.get("test", "parsing", "pass")).map(f -> f.toAbsolutePath().toString());
   }
 
   private static Stream<String> loadFailingTests() throws IOException {
-    return Files.list(Paths.get("test", "fail")).map(f -> f.toAbsolutePath().toString());
+    return Files.list(Paths.get("test", "parsing", "fail")).map(f -> f.toAbsolutePath().toString());
   }
 }
