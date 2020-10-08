@@ -437,7 +437,7 @@ public class ParseTreeStaticChecker {
               if (!rhsType.equals(new Type.Basic(JliteType.INT))) {
                 throw new SemanticException(
                     "Arithmetic binary operator `+' second operand must be `Int' but encountered `"
-                        + lhsType.type()
+                        + rhsType.type()
                         + "'",
                     "wrong operand type for arithmetic binary operator",
                     List.of(be.rhs()));

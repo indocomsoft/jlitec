@@ -14,26 +14,52 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 public class ParseTreeStaticCheckerTest {
   @ParameterizedTest
-  @MethodSource("loadPassingTests")
-  void testPassingTests(String filename) throws Exception {
+  @MethodSource("loadPassingDistinctNameTests")
+  void testPassingDistincNameTests(String filename) throws Exception {
     Program program = new ParserWrapper(filename).parse();
     assertDoesNotThrow(() -> ParseTreeStaticChecker.distinctNameCheck(program));
   }
 
   @ParameterizedTest
-  @MethodSource("loadFailingTests")
+  @MethodSource("loadFailingDistinctNameTests")
   void testFailingTests(String filename) throws Exception {
     Program program = new ParserWrapper(filename).parse();
     assertThrows(SemanticException.class, () -> ParseTreeStaticChecker.distinctNameCheck(program));
   }
 
-  private static Stream<String> loadPassingTests() throws IOException {
+  @ParameterizedTest
+  @MethodSource("loadPassingTypecheckTests")
+  void testPassingTypecheckTests(String filename) throws Exception {
+    Program program = new ParserWrapper(filename).parse();
+    final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+    assertDoesNotThrow(() -> ParseTreeStaticChecker.typecheck(program, klassDescriptorMap));
+  }
+
+  @ParameterizedTest
+  @MethodSource("loadFailingTypecheckTests")
+  void testFailingTypecheckTests(String filename) throws Exception {
+    Program program = new ParserWrapper(filename).parse();
+    final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+    assertThrows(
+        SemanticException.class,
+        () -> ParseTreeStaticChecker.typecheck(program, klassDescriptorMap));
+  }
+
+  private static Stream<String> loadPassingDistinctNameTests() throws IOException {
     return Files.list(Paths.get("test", "distinctname", "pass"))
         .map(f -> f.toAbsolutePath().toString());
   }
 
-  private static Stream<String> loadFailingTests() throws IOException {
+  private static Stream<String> loadFailingDistinctNameTests() throws IOException {
     return Files.list(Paths.get("test", "distinctname", "fail"))
         .map(f -> f.toAbsolutePath().toString());
+  }
+
+  private static Stream<String> loadPassingTypecheckTests() throws IOException {
+    return Files.list(Paths.get("test", "type", "pass")).map(f -> f.toAbsolutePath().toString());
+  }
+
+  private static Stream<String> loadFailingTypecheckTests() throws IOException {
+    return Files.list(Paths.get("test", "type", "fail")).map(f -> f.toAbsolutePath().toString());
   }
 }
