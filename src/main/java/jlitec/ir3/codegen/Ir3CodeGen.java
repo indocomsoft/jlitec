@@ -68,142 +68,7 @@ public class Ir3CodeGen {
 
         for (final var stmt : method.stmtList()) {
           final List<Stmt> genStmts =
-              switch (stmt.getStmtType()) {
-                  // TODO
-                case STMT_IF -> null;
-                  // TODO
-                case STMT_WHILE -> null;
-                case STMT_READLN -> {
-                  final var rs = (jlitec.ast.stmt.ReadlnStmt) stmt;
-                  yield List.of(new ReadlnStmt(new IdRvalExpr(rs.id())));
-                }
-                case STMT_PRINTLN -> {
-                  final var ps = (jlitec.ast.stmt.PrintlnStmt) stmt;
-                  final var rvalChunk =
-                      toRval(
-                          ps.expr(),
-                          klass.cname(),
-                          mangledMethodNameMap,
-                          localVarMap,
-                          fieldMap,
-                          tempVarGen);
-                  yield ImmutableList.<Stmt>builder()
-                      .addAll(rvalChunk.stmtList())
-                      .add(new PrintlnStmt(rvalChunk.rval()))
-                      .build();
-                }
-                  // TODO
-                case STMT_VAR_ASSIGN -> null;
-                  //                case STMT_VAR_ASSIGN -> {
-                  //                  final var vas = (jlitec.ast.stmt.VarAssignStmt) stmt;
-                  //                  if (localVarMap.containsKey(vas.lhsId())) {
-                  //                    // local var
-                  //                  } else {
-                  //                    // a field in `this`
-                  //                  }
-
-                  //                  yield ImmutableList.<Stmt>builder()
-                  //                          .add(new VarAssignStmt(new IdRvalExpr(vas.lhsId()), ))
-                  //                          .build();
-                  //                }
-                case STMT_FIELD_ASSIGN -> {
-                  final var fas = (jlitec.ast.stmt.FieldAssignStmt) stmt;
-                  final var lhsTarget =
-                      toIdRval(
-                          fas.lhsTarget(),
-                          klass.cname(),
-                          mangledMethodNameMap,
-                          localVarMap,
-                          fieldMap,
-                          tempVarGen);
-                  final var rhs =
-                      toRval(
-                          fas.rhs(),
-                          klass.cname(),
-                          mangledMethodNameMap,
-                          localVarMap,
-                          fieldMap,
-                          tempVarGen);
-                  yield ImmutableList.<Stmt>builder()
-                      .addAll(lhsTarget.stmtList())
-                      .addAll(rhs.stmtList())
-                      .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.rval()))
-                      .build();
-                }
-                case STMT_CALL -> {
-                  final var cs = (jlitec.ast.stmt.CallStmt) stmt;
-                  final var methodReference = cs.methodReference();
-                  final var mangledMethodName =
-                      mangledMethodNameMap.get(
-                          new MethodDescriptor(
-                              methodReference.cname(),
-                              methodReference.methodName(),
-                              methodReference.returnType(),
-                              methodReference.argTypes()));
-                  final var target = new IdRvalExpr(mangledMethodName);
-                  final var argsRvalChunk =
-                      cs.args().stream()
-                          .map(
-                              e ->
-                                  toRval(
-                                      e,
-                                      klass.cname(),
-                                      mangledMethodNameMap,
-                                      localVarMap,
-                                      fieldMap,
-                                      tempVarGen))
-                          .collect(Collectors.toUnmodifiableList());
-                  final var thisIdRvalExpr = resolveThis(cs.target(), tempVarGen);
-                  final var argsRvalExpr =
-                      Stream.concat(
-                              Stream.of(thisIdRvalExpr.idRval()),
-                              argsRvalChunk.stream().map(RvalChunk::rval))
-                          .collect(Collectors.toUnmodifiableList());
-                  final var additionalStmtList =
-                      argsRvalChunk.stream()
-                          .flatMap(i -> i.stmtList().stream())
-                          .collect(Collectors.toUnmodifiableList());
-                  yield ImmutableList.<Stmt>builder()
-                      .addAll(additionalStmtList)
-                      .addAll(thisIdRvalExpr.stmtList())
-                      .add(new CallStmt(target, argsRvalExpr))
-                      .build();
-                }
-                case STMT_RETURN -> {
-                  final var rs = (jlitec.ast.stmt.ReturnStmt) stmt;
-                  final var maybeRvalChunk =
-                      rs.maybeExpr()
-                          .map(
-                              e ->
-                                  toRval(
-                                      e,
-                                      klass.cname(),
-                                      mangledMethodNameMap,
-                                      localVarMap,
-                                      fieldMap,
-                                      tempVarGen));
-                  if (rs.maybeExpr().isEmpty()) {
-                    yield List.of(new ReturnStmt(Optional.empty()));
-                  } else {
-                    final var exprChunk =
-                        toExpr(
-                            rs.maybeExpr().get(),
-                            klass.cname(),
-                            mangledMethodNameMap,
-                            localVarMap,
-                            fieldMap,
-                            tempVarGen);
-                    final var tempVar =
-                        tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()).get());
-                    final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                    yield ImmutableList.<Stmt>builder()
-                        .addAll(exprChunk.stmtList())
-                        .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
-                        .add(new ReturnStmt(Optional.of(idRvalExpr)))
-                        .build();
-                  }
-                }
-              };
+              genStmt(stmt, klass, mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
           // TODO remove conditional
           if (genStmts != null) instructions.addAll(genStmts);
         }
@@ -223,6 +88,140 @@ public class Ir3CodeGen {
     }
 
     return new Program(dataList, methodList);
+  }
+
+  private static List<Stmt> genStmt(
+      jlitec.ast.stmt.Stmt stmt,
+      jlitec.ast.Klass klass,
+      Map<MethodDescriptor, String> mangledMethodNameMap,
+      Map<String, Type> localVarMap,
+      Map<String, Type> fieldMap,
+      TempVarGen tempVarGen) {
+    return switch (stmt.getStmtType()) {
+        // TODO
+      case STMT_IF -> null;
+        // TODO
+      case STMT_WHILE -> null;
+      case STMT_READLN -> {
+        final var rs = (jlitec.ast.stmt.ReadlnStmt) stmt;
+        yield List.of(new ReadlnStmt(new IdRvalExpr(rs.id())));
+      }
+      case STMT_PRINTLN -> {
+        final var ps = (jlitec.ast.stmt.PrintlnStmt) stmt;
+        final var rvalChunk =
+            toRval(
+                ps.expr(), klass.cname(), mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
+        yield ImmutableList.<Stmt>builder()
+            .addAll(rvalChunk.stmtList())
+            .add(new PrintlnStmt(rvalChunk.rval()))
+            .build();
+      }
+      case STMT_VAR_ASSIGN -> {
+        final var vas = (jlitec.ast.stmt.VarAssignStmt) stmt;
+        final var rhsChunk =
+            toExpr(
+                vas.rhs(), klass.cname(), mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
+        final Stmt genStmt;
+        if (localVarMap.containsKey(vas.lhsId())) {
+          // local var
+          genStmt = new VarAssignStmt(new IdRvalExpr(vas.lhsId()), rhsChunk.expr());
+        } else {
+          // a field in `this`
+          genStmt = new FieldAssignStmt(new IdRvalExpr("this"), vas.lhsId(), rhsChunk.expr());
+        }
+        yield ImmutableList.<Stmt>builder().addAll(rhsChunk.stmtList()).add(genStmt).build();
+      }
+      case STMT_FIELD_ASSIGN -> {
+        final var fas = (jlitec.ast.stmt.FieldAssignStmt) stmt;
+        final var lhsTarget =
+            toIdRval(
+                fas.lhsTarget(),
+                klass.cname(),
+                mangledMethodNameMap,
+                localVarMap,
+                fieldMap,
+                tempVarGen);
+        final var rhs =
+            toRval(
+                fas.rhs(), klass.cname(), mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
+        yield ImmutableList.<Stmt>builder()
+            .addAll(lhsTarget.stmtList())
+            .addAll(rhs.stmtList())
+            .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.rval()))
+            .build();
+      }
+      case STMT_CALL -> {
+        final var cs = (jlitec.ast.stmt.CallStmt) stmt;
+        final var methodReference = cs.methodReference();
+        final var mangledMethodName =
+            mangledMethodNameMap.get(
+                new MethodDescriptor(
+                    methodReference.cname(),
+                    methodReference.methodName(),
+                    methodReference.returnType(),
+                    methodReference.argTypes()));
+        final var target = new IdRvalExpr(mangledMethodName);
+        final var argsRvalChunk =
+            cs.args().stream()
+                .map(
+                    e ->
+                        toRval(
+                            e,
+                            klass.cname(),
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen))
+                .collect(Collectors.toUnmodifiableList());
+        final var thisIdRvalExpr = resolveThis(cs.target(), tempVarGen);
+        final var argsRvalExpr =
+            Stream.concat(
+                    Stream.of(thisIdRvalExpr.idRval()), argsRvalChunk.stream().map(RvalChunk::rval))
+                .collect(Collectors.toUnmodifiableList());
+        final var additionalStmtList =
+            argsRvalChunk.stream()
+                .flatMap(i -> i.stmtList().stream())
+                .collect(Collectors.toUnmodifiableList());
+        yield ImmutableList.<Stmt>builder()
+            .addAll(additionalStmtList)
+            .addAll(thisIdRvalExpr.stmtList())
+            .add(new CallStmt(target, argsRvalExpr))
+            .build();
+      }
+      case STMT_RETURN -> {
+        final var rs = (jlitec.ast.stmt.ReturnStmt) stmt;
+        final var maybeRvalChunk =
+            rs.maybeExpr()
+                .map(
+                    e ->
+                        toRval(
+                            e,
+                            klass.cname(),
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen));
+        if (rs.maybeExpr().isEmpty()) {
+          yield List.of(new ReturnStmt(Optional.empty()));
+        } else {
+          final var exprChunk =
+              toExpr(
+                  rs.maybeExpr().get(),
+                  klass.cname(),
+                  mangledMethodNameMap,
+                  localVarMap,
+                  fieldMap,
+                  tempVarGen);
+          final var tempVar = tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()).get());
+          final var idRvalExpr = new IdRvalExpr(tempVar.id());
+          yield ImmutableList.<Stmt>builder()
+              .addAll(exprChunk.stmtList())
+              .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
+              .add(new ReturnStmt(Optional.of(idRvalExpr)))
+              .build();
+        }
+      }
+    };
   }
 
   private static ExprChunk toExpr(
