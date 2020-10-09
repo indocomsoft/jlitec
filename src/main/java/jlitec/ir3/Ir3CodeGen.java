@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import jlitec.ir3.stmt.Stmt;
 
 public class Ir3CodeGen {
   // prevent instantiation
@@ -31,8 +33,9 @@ public class Ir3CodeGen {
     for (final var klass : program.klassList()) {
       for (final var method : klass.methods()) {
         final var localVarsStream = method.vars().stream().map(Var::new);
-        final var vars = localVarsStream.collect(Collectors.toUnmodifiableList());
-
+        final var tempVars = new ArrayList<Var>();
+        final var instructions = new ArrayList<Stmt>();
+        // TODO generate instructions (and temp vars)
         methodList.add(
             new Method(
                 klass.cname(),
@@ -41,9 +44,9 @@ public class Ir3CodeGen {
                     new MethodDescriptor(
                         klass.cname(), method.id(), method.returnType(), method.argTypes())),
                 method.args().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
-                vars,
-                // TODO generate list of instructions
-                List.of()));
+                Stream.concat(method.vars().stream().map(Var::new), tempVars.stream())
+                    .collect(Collectors.toUnmodifiableList()),
+                instructions));
       }
     }
 
