@@ -24,6 +24,7 @@ import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
 import jlitec.ir3.stmt.CallStmt;
+import jlitec.ir3.stmt.FieldAssignStmt;
 import jlitec.ir3.stmt.PrintlnStmt;
 import jlitec.ir3.stmt.ReadlnStmt;
 import jlitec.ir3.stmt.ReturnStmt;
@@ -64,11 +65,12 @@ public class Ir3CodeGen {
                 .collect(
                     Collectors.toUnmodifiableMap(jlitec.ast.Var::id, v -> Type.fromAst(v.type())));
 
-        // TODO generate instructions (and temp vars)
         for (final var stmt : method.stmtList()) {
           final List<Stmt> genStmts =
               switch (stmt.getStmtType()) {
+                  // TODO
                 case STMT_IF -> null;
+                  // TODO
                 case STMT_WHILE -> null;
                 case STMT_READLN -> {
                   final var rs = (jlitec.ast.stmt.ReadlnStmt) stmt;
@@ -89,8 +91,33 @@ public class Ir3CodeGen {
                       .add(new PrintlnStmt(rvalChunk.rval()))
                       .build();
                 }
+                  // TODO
                 case STMT_VAR_ASSIGN -> null;
-                case STMT_FIELD_ASSIGN -> null;
+                  // TODO
+                case STMT_FIELD_ASSIGN -> {
+                  final var fas = (jlitec.ast.stmt.FieldAssignStmt) stmt;
+                  final var lhsTarget =
+                      toIdRval(
+                          fas.lhsTarget(),
+                          klass.cname(),
+                          mangledMethodNameMap,
+                          localVarMap,
+                          fieldMap,
+                          tempVarGen);
+                  final var rhs =
+                      toRval(
+                          fas.rhs(),
+                          klass.cname(),
+                          mangledMethodNameMap,
+                          localVarMap,
+                          fieldMap,
+                          tempVarGen);
+                  yield ImmutableList.<Stmt>builder()
+                      .addAll(lhsTarget.stmtList())
+                      .addAll(rhs.stmtList())
+                      .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.rval()))
+                      .build();
+                }
                 case STMT_CALL -> {
                   final var cs = (jlitec.ast.stmt.CallStmt) stmt;
                   final var methodReference = cs.methodReference();
@@ -204,9 +231,24 @@ public class Ir3CodeGen {
         yield new IdRvalChunk(
             idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new BoolRvalExpr(ble.value()))));
       }
+        // TODO
       case EXPR_BINARY -> null;
+        // TODO
       case EXPR_UNARY -> null;
-      case EXPR_DOT -> null;
+        // TODO
+      case EXPR_DOT -> {
+        final var de = (jlitec.ast.expr.DotExpr) expr;
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()).get());
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var idRvalChunk =
+            toIdRval(de.target(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new IdRvalChunk(
+            idRvalExpr,
+            ImmutableList.<Stmt>builder()
+                .addAll(idRvalChunk.stmtList())
+                .add(new VarAssignStmt(idRvalExpr, new FieldExpr(idRvalChunk.idRval(), de.id())))
+                .build());
+      }
       case EXPR_CALL -> {
         final var ce = (jlitec.ast.expr.CallExpr) expr;
         // call expression type should not be null
@@ -266,6 +308,7 @@ public class Ir3CodeGen {
         yield new IdRvalChunk(
             idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
       }
+        // TODO
       case EXPR_NULL -> null;
     };
   }
