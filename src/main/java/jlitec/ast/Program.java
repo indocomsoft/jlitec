@@ -8,8 +8,4 @@ public record Program(List<Klass> klassList) {
   public Program {
     this.klassList = Collections.unmodifiableList(klassList);
   }
-
-  public Program(jlitec.parsetree.Program program) {
-    this(program.klassList().stream().map(Klass::new).collect(Collectors.toUnmodifiableList()));
-  }
 }

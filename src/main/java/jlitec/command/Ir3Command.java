@@ -1,7 +1,10 @@
 package jlitec.command;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.stream.Collectors;
+
+import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
 import jlitec.ir3.codegen.Ir3CodeGen;
@@ -46,8 +49,9 @@ public class Ir3Command implements Command {
       return;
     }
 
+    final Map<String, KlassDescriptor> classDescriptorMap;
     try {
-      final var classDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+      classDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
       ParseTreeStaticChecker.typecheck(program, classDescriptorMap);
     } catch (SemanticException e) {
       final var lines =
@@ -62,8 +66,7 @@ public class Ir3Command implements Command {
       return;
     }
 
-    final jlitec.ast.Program astProgram = new jlitec.ast.Program(program);
-
+    final jlitec.ast.Program astProgram = ParseTreeStaticChecker.toAst(program, classDescriptorMap);
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     System.out.println(ir3Program);
     System.out.println(ir3Program.print(0));

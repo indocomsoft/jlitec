@@ -3,6 +3,9 @@ package jlitec.ast.stmt;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.google.common.collect.Iterables;
+import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.Expr;
 
 public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStmtList)
@@ -12,19 +15,13 @@ public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStm
     this.elseStmtList = Collections.unmodifiableList(elseStmtList);
   }
 
-  public IfStmt(jlitec.parsetree.stmt.IfStmt is) {
-    this(
-        Expr.fromParseTree(is.condition()),
-        is.thenStmtList().stream()
-            .map(Stmt::fromParseTree)
-            .collect(Collectors.toUnmodifiableList()),
-        is.elseStmtList().stream()
-            .map(Stmt::fromParseTree)
-            .collect(Collectors.toUnmodifiableList()));
-  }
-
   @Override
   public StmtType getStmtType() {
     return StmtType.STMT_IF;
+  }
+
+  @Override
+  public TypeAnnotation typeAnnotation() {
+    return Iterables.getLast(elseStmtList).typeAnnotation();
   }
 }

@@ -13,17 +13,6 @@ public record Method(
     this.stmtList = Collections.unmodifiableList(stmtList);
   }
 
-  public Method(jlitec.parsetree.Method method) {
-    this(
-        Type.fromParseTree(method.type()),
-        method.name().id(),
-        method.args().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
-        method.vars().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
-        method.stmtList().stream()
-            .map(Stmt::fromParseTree)
-            .collect(Collectors.toUnmodifiableList()));
-  }
-
   public List<Type> argTypes() {
     return args.stream().map(Var::type).collect(Collectors.toUnmodifiableList());
   }

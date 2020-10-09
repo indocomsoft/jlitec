@@ -9,11 +9,4 @@ public record Klass(String cname, List<Var> fields, List<Method> methods) {
     this.fields = Collections.unmodifiableList(fields);
     this.methods = Collections.unmodifiableList(methods);
   }
-
-  public Klass(jlitec.parsetree.Klass klass) {
-    this(
-        klass.name().id(),
-        klass.fields().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
-        klass.methods().stream().map(Method::new).collect(Collectors.toUnmodifiableList()));
-  }
 }
