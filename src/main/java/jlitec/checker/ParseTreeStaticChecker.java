@@ -736,7 +736,8 @@ public class ParseTreeStaticChecker {
         if (paramList.size() > 1) {
           throw new SemanticException(
               "Names of parameters in a method signature must be distinct: parameter `"
-                  + paramList.get(0).name().id(),
+                  + paramList.get(0).name().id()
+                  + "'",
               "duplicate parameter name",
               paramList);
         }
