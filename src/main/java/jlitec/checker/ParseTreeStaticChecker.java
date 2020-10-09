@@ -263,7 +263,8 @@ public class ParseTreeStaticChecker {
         for (final var arg : cs.args()) {
           argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
         }
-        final var target = toAst(cs.target(), klassDescriptorMap, env);
+        final var target =
+            transformCallTarget(cs.target(), typeAnnotation, klassDescriptorMap, env);
         final var methodReference =
             lookupMethodReference(cs.target(), argTypes, klassDescriptorMap, env);
         yield new jlitec.ast.stmt.CallStmt(target, args, typeAnnotation, methodReference);
@@ -299,10 +300,16 @@ public class ParseTreeStaticChecker {
         try {
           final var de = (DotExpr) target;
           final var targetType = typecheck(de.target(), klassDescriptorMap, env);
-          yield new jlitec.ast.expr.DotExpr(
-              transformCallTarget(de.target(), typeAnnotation, klassDescriptorMap, env),
-              de.id(),
-              toAst(targetType));
+          final var newTarget =
+              switch (de.target().getExprType()) {
+                case EXPR_NEW -> {
+                  final var ne = (NewExpr) de.target();
+                  yield new jlitec.ast.expr.NewExpr(ne.cname());
+                }
+                default -> transformCallTarget(
+                    de.target(), typeAnnotation, klassDescriptorMap, env);
+              };
+          yield new jlitec.ast.expr.DotExpr(newTarget, de.id(), toAst(targetType));
         } catch (SemanticException e) {
           throw new RuntimeException(e);
         }
@@ -319,7 +326,6 @@ public class ParseTreeStaticChecker {
       List<String> argTypes,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
-    final var cname = env.lookup("this").get().type();
     return switch (target.getExprType()) {
       case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
           "Trying to call non-callable expression.");
@@ -327,6 +333,7 @@ public class ParseTreeStaticChecker {
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
         // this, and the method descriptor must exist in the env
+        final var cname = env.lookup("this").get().type();
         final var klassDescriptor = klassDescriptorMap.get(env.lookup("this").get().type());
         final var methodDescriptors = klassDescriptor.methods().get(ie.id());
         final var methodDescriptor =
@@ -369,7 +376,7 @@ public class ParseTreeStaticChecker {
               methodDescriptor.argTypes().stream()
                   .map(jlitec.ast.Type::fromChecker)
                   .collect(Collectors.toUnmodifiableList());
-          yield new MethodReference(cname, de.id(), returnType, astArgTypes);
+          yield new MethodReference(targetType.type(), de.id(), returnType, astArgTypes);
         } catch (SemanticException e) {
           throw new RuntimeException(e);
         }

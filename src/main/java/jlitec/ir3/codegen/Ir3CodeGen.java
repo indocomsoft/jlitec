@@ -23,6 +23,7 @@ import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
+import jlitec.ir3.stmt.CallStmt;
 import jlitec.ir3.stmt.PrintlnStmt;
 import jlitec.ir3.stmt.ReadlnStmt;
 import jlitec.ir3.stmt.ReturnStmt;
@@ -90,7 +91,45 @@ public class Ir3CodeGen {
                 }
                 case STMT_VAR_ASSIGN -> null;
                 case STMT_FIELD_ASSIGN -> null;
-                case STMT_CALL -> null;
+                case STMT_CALL -> {
+                  final var cs = (jlitec.ast.stmt.CallStmt) stmt;
+                  final var methodReference = cs.methodReference();
+                  final var mangledMethodName =
+                      mangledMethodNameMap.get(
+                          new MethodDescriptor(
+                              methodReference.cname(),
+                              methodReference.methodName(),
+                              methodReference.returnType(),
+                              methodReference.argTypes()));
+                  final var target = new IdRvalExpr(mangledMethodName);
+                  final var argsRvalChunk =
+                      cs.args().stream()
+                          .map(
+                              e ->
+                                  toRval(
+                                      e,
+                                      klass.cname(),
+                                      mangledMethodNameMap,
+                                      localVarMap,
+                                      fieldMap,
+                                      tempVarGen))
+                          .collect(Collectors.toUnmodifiableList());
+                  final var thisIdRvalExpr = resolveThis(cs.target(), tempVarGen);
+                  final var argsRvalExpr =
+                      Stream.concat(
+                              Stream.of(thisIdRvalExpr.idRval()),
+                              argsRvalChunk.stream().map(RvalChunk::rval))
+                          .collect(Collectors.toUnmodifiableList());
+                  final var additionalStmtList =
+                      argsRvalChunk.stream()
+                          .flatMap(i -> i.stmtList().stream())
+                          .collect(Collectors.toUnmodifiableList());
+                  yield ImmutableList.<Stmt>builder()
+                      .addAll(additionalStmtList)
+                      .addAll(thisIdRvalExpr.stmtList())
+                      .add(new CallStmt(target, argsRvalExpr))
+                      .build();
+                }
                 case STMT_RETURN -> {
                   final var rs = (jlitec.ast.stmt.ReturnStmt) stmt;
                   final var maybeIdRvalChunk =
@@ -187,10 +226,7 @@ public class Ir3CodeGen {
             ce.args().stream()
                 .map(e -> toRval(e, cname, mangledMethodNameMap, localVarMap, fieldMap, gen))
                 .collect(Collectors.toUnmodifiableList());
-        final var thisIdRvalExpr =
-            ce.target().getExprType() == ExprType.EXPR_ID
-                ? new IdRvalChunk(new IdRvalExpr("this"), List.of())
-                : resolveThis(ce.target(), gen);
+        final var thisIdRvalExpr = resolveThis(ce.target(), gen);
         final var argsRvalExpr =
             Stream.concat(
                     Stream.of(thisIdRvalExpr.idRval()), argsRvalChunk.stream().map(RvalChunk::rval))
@@ -264,8 +300,7 @@ public class Ir3CodeGen {
           "Trying to call non-callable expression.");
       case EXPR_ID -> {
         // local call
-        final var ie = (jlitec.ast.expr.IdExpr) target;
-        yield new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
+        yield new IdRvalChunk(new IdRvalExpr("this"), List.of());
       }
       case EXPR_DOT -> {
         // global call
@@ -279,6 +314,13 @@ public class Ir3CodeGen {
     if (target.getExprType() == ExprType.EXPR_ID) {
       final var ie = (jlitec.ast.expr.IdExpr) target;
       return new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
+    }
+    if (target.getExprType() == ExprType.EXPR_NEW) {
+      final var ne = (jlitec.ast.expr.NewExpr) target;
+      final var tempVar = gen.gen(Type.fromTypeAnnotation(ne.typeAnnotation()).get());
+      final var idRvalExpr = new IdRvalExpr(tempVar.id());
+      return new IdRvalChunk(
+          idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
     }
     final var de = (jlitec.ast.expr.DotExpr) target;
     final var idRvalChunk = resolveDotExprThis(de.target(), gen);
