@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import jlitec.ir3.expr.rval.IdRvalExpr;
+import jlitec.ir3.stmt.ReadlnStmt;
 import jlitec.ir3.stmt.Stmt;
 
 public class Ir3CodeGen {
@@ -32,10 +34,29 @@ public class Ir3CodeGen {
     final var methodList = new ArrayList<Method>();
     for (final var klass : program.klassList()) {
       for (final var method : klass.methods()) {
-        final var localVarsStream = method.vars().stream().map(Var::new);
         final var tempVars = new ArrayList<Var>();
         final var instructions = new ArrayList<Stmt>();
+
         // TODO generate instructions (and temp vars)
+        for (final var stmt : method.stmtList()) {
+          final Stmt genStmt =
+              switch (stmt.getStmtType()) {
+                case STMT_IF -> null;
+                case STMT_WHILE -> null;
+                case STMT_READLN -> {
+                  final var rs = (jlitec.ast.stmt.ReadlnStmt) stmt;
+                  yield new ReadlnStmt(new IdRvalExpr(rs.id()));
+                }
+                case STMT_PRINTLN -> null;
+                case STMT_VAR_ASSIGN -> null;
+                case STMT_FIELD_ASSIGN -> null;
+                case STMT_CALL -> null;
+                case STMT_RETURN -> null;
+              };
+          // TODO remove conditional
+          if (genStmt != null) instructions.add(genStmt);
+        }
+
         methodList.add(
             new Method(
                 klass.cname(),
