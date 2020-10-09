@@ -19,6 +19,7 @@ import jlitec.ir3.Program;
 import jlitec.ir3.Type;
 import jlitec.ir3.Var;
 import jlitec.ir3.expr.FieldExpr;
+import jlitec.ir3.expr.NewExpr;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
@@ -151,12 +152,14 @@ public class Ir3CodeGen {
       case EXPR_UNARY -> null;
       case EXPR_DOT -> null;
       case EXPR_CALL -> null;
-      case EXPR_THIS -> null;
+      case EXPR_THIS -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
       case EXPR_ID -> {
         final var ie = (IdExpr) expr;
         if (localVarMap.containsKey(ie.id())) {
+          // local var
           yield new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
         } else {
+          // a field in `this`
           final var tempVar = gen.gen(fieldMap.get(ie.id()));
           final var idRvalExpr = new IdRvalExpr(tempVar.id());
           yield new IdRvalChunk(
@@ -165,7 +168,13 @@ public class Ir3CodeGen {
                   new VarAssignStmt(idRvalExpr, new FieldExpr(new IdRvalExpr("this"), ie.id()))));
         }
       }
-      case EXPR_NEW -> null;
+      case EXPR_NEW -> {
+        final var ne = (jlitec.ast.expr.NewExpr) expr;
+        final var tempVar = gen.gen(new Type.KlassType(ne.cname()));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        yield new IdRvalChunk(
+            idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
+      }
       case EXPR_NULL -> null;
     };
   }
@@ -182,26 +191,12 @@ public class Ir3CodeGen {
           new StringRvalExpr(((StringLiteralExpr) expr).value()), List.of());
       case EXPR_BOOL_LITERAL -> new RvalChunk(
           new BoolRvalExpr(((BoolLiteralExpr) expr).value()), List.of());
-      case EXPR_BINARY -> null;
-      case EXPR_UNARY -> null;
-      case EXPR_DOT -> null;
-      case EXPR_CALL -> null;
-      case EXPR_THIS -> null;
-      case EXPR_ID -> {
-        final var ie = (IdExpr) expr;
-        if (localVarMap.containsKey(ie.id())) {
-          yield new RvalChunk(new IdRvalExpr(ie.id()), List.of());
-        } else {
-          final var tempVar = gen.gen(fieldMap.get(ie.id()));
-          final var idRvalExpr = new IdRvalExpr(tempVar.id());
-          yield new RvalChunk(
-              idRvalExpr,
-              List.of(
-                  new VarAssignStmt(idRvalExpr, new FieldExpr(new IdRvalExpr("this"), ie.id()))));
-        }
+      case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW, EXPR_NULL -> {
+        final var idRvalChunk = toIdRval(expr, localVarMap, fieldMap, gen);
+        // TODO remove once done
+        if (idRvalChunk == null) yield null;
+        yield new RvalChunk(idRvalChunk.idRval(), idRvalChunk.stmtList());
       }
-      case EXPR_NEW -> null;
-      case EXPR_NULL -> null;
     };
   }
 
