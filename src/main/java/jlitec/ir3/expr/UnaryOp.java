@@ -13,4 +13,11 @@ public enum UnaryOp implements Printable {
       case NEGATIVE -> "-";
     };
   }
+
+  public static UnaryOp fromAst(jlitec.ast.expr.UnaryOp op) {
+    return switch (op) {
+      case NOT -> NOT;
+      case NEGATIVE -> NEGATIVE;
+    };
+  }
 }

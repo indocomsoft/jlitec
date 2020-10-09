@@ -33,4 +33,21 @@ public enum BinaryOp implements Printable {
       case MINUS -> "-";
     };
   }
+
+  public static BinaryOp fromAst(jlitec.ast.expr.BinaryOp op) {
+    return switch (op) {
+      case OR -> OR;
+      case AND -> AND;
+      case GT -> GT;
+      case LT -> LT;
+      case GEQ -> GEQ;
+      case LEQ -> LEQ;
+      case EQ -> EQ;
+      case NEQ -> NEQ;
+      case PLUS -> PLUS;
+      case MINUS -> MINUS;
+      case MULT -> MULT;
+      case DIV -> DIV;
+    };
+  }
 }

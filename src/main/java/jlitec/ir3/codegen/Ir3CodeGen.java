@@ -16,9 +16,13 @@ import jlitec.ir3.Method;
 import jlitec.ir3.Program;
 import jlitec.ir3.Type;
 import jlitec.ir3.Var;
+import jlitec.ir3.expr.BinaryExpr;
+import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.CallExpr;
 import jlitec.ir3.expr.FieldExpr;
 import jlitec.ir3.expr.NewExpr;
+import jlitec.ir3.expr.UnaryExpr;
+import jlitec.ir3.expr.UnaryOp;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
@@ -236,10 +240,26 @@ public class Ir3CodeGen {
         final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new ExprChunk(rvalChunk.rval(), rvalChunk.stmtList());
       }
-        // TODO
-      case EXPR_BINARY -> null;
-        // TODO
-      case EXPR_UNARY -> null;
+      case EXPR_BINARY -> {
+        final var be = (jlitec.ast.expr.BinaryExpr) expr;
+        final var lhsChunk =
+            toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var rhsChunk =
+            toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new ExprChunk(
+            new BinaryExpr(BinaryOp.fromAst(be.op()), lhsChunk.rval(), rhsChunk.rval()),
+            ImmutableList.<Stmt>builder()
+                .addAll(lhsChunk.stmtList())
+                .addAll(rhsChunk.stmtList())
+                .build());
+      }
+      case EXPR_UNARY -> {
+        final var ue = (jlitec.ast.expr.UnaryExpr) expr;
+        final var rvalChunk =
+            toRval(ue.expr(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new ExprChunk(
+            new UnaryExpr(UnaryOp.fromAst(ue.op()), rvalChunk.rval()), rvalChunk.stmtList());
+      }
       case EXPR_DOT -> {
         final var de = (jlitec.ast.expr.DotExpr) expr;
         final var idRvalChunk =
@@ -319,10 +339,41 @@ public class Ir3CodeGen {
         yield new IdRvalChunk(
             idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new BoolRvalExpr(ble.value()))));
       }
-        // TODO
-      case EXPR_BINARY -> null;
-        // TODO
-      case EXPR_UNARY -> null;
+      case EXPR_BINARY -> {
+        final var be = (jlitec.ast.expr.BinaryExpr) expr;
+        final var lhsChunk =
+            toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var rhsChunk =
+            toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(be.typeAnnotation()).get());
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        yield new IdRvalChunk(
+            idRvalExpr,
+            ImmutableList.<Stmt>builder()
+                .addAll(lhsChunk.stmtList())
+                .addAll(rhsChunk.stmtList())
+                .add(
+                    new VarAssignStmt(
+                        idRvalExpr,
+                        new BinaryExpr(
+                            BinaryOp.fromAst(be.op()), lhsChunk.rval(), rhsChunk.rval())))
+                .build());
+      }
+      case EXPR_UNARY -> {
+        final var ue = (jlitec.ast.expr.UnaryExpr) expr;
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(ue.typeAnnotation()).get());
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var rvalChunk =
+            toRval(ue.expr(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new IdRvalChunk(
+            idRvalExpr,
+            ImmutableList.<Stmt>builder()
+                .addAll(rvalChunk.stmtList())
+                .add(
+                    new VarAssignStmt(
+                        idRvalExpr, new UnaryExpr(UnaryOp.fromAst(ue.op()), rvalChunk.rval())))
+                .build());
+      }
       case EXPR_DOT -> {
         final var de = (jlitec.ast.expr.DotExpr) expr;
         final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()).get());
@@ -394,8 +445,6 @@ public class Ir3CodeGen {
       case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW -> {
         final var idRvalChunk =
             toIdRval(expr, cname, mangledMethodNameMap, fieldMap, localVarMap, gen);
-        // TODO remove once done
-        if (idRvalChunk == null) yield null;
         yield new RvalChunk(idRvalChunk.idRval(), idRvalChunk.stmtList());
       }
     };
