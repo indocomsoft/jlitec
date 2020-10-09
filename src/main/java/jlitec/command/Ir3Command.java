@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.util.stream.Collectors;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
-import jlitec.ir3.Ir3CodeGen;
+import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Locatable;
