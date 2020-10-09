@@ -23,4 +23,8 @@ public record Method(
             .map(Stmt::fromParseTree)
             .collect(Collectors.toUnmodifiableList()));
   }
+
+  public List<Type> argTypes() {
+    return args.stream().map(Var::type).collect(Collectors.toUnmodifiableList());
+  }
 }

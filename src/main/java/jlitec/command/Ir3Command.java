@@ -7,6 +7,7 @@ import jlitec.checker.SemanticException;
 import jlitec.ir3.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
+import jlitec.parsetree.Locatable;
 import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -51,13 +52,14 @@ public class Ir3Command implements Command {
     } catch (SemanticException e) {
       final var lines =
           e.locatableList.stream()
-              .map(l -> l.leftLocation())
+              .map(Locatable::leftLocation)
               .map(l -> "--> " + filename + ":" + (l.getLine() + 1) + ":" + (l.getColumn() + 1))
               .collect(Collectors.joining("\n"));
       System.err.println(lines + "\nSemantic error: " + e.getMessage());
       for (final var locatable : e.locatableList) {
         System.err.println(parser.formErrorString(e.shortMessage, locatable));
       }
+      return;
     }
 
     final jlitec.ast.Program astProgram = new jlitec.ast.Program(program);
