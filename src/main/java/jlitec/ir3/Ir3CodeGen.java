@@ -30,6 +30,9 @@ public class Ir3CodeGen {
     final var methodList = new ArrayList<Method>();
     for (final var klass : program.klassList()) {
       for (final var method : klass.methods()) {
+        final var localVarsStream = method.vars().stream().map(Var::new);
+        final var vars = localVarsStream.collect(Collectors.toUnmodifiableList());
+
         methodList.add(
             new Method(
                 klass.cname(),
@@ -38,7 +41,7 @@ public class Ir3CodeGen {
                     new MethodDescriptor(
                         klass.cname(), method.id(), method.returnType(), method.argTypes())),
                 method.args().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
-                method.vars().stream().map(Var::new).collect(Collectors.toUnmodifiableList()),
+                vars,
                 // TODO generate list of instructions
                 List.of()));
       }

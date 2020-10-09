@@ -21,7 +21,6 @@ public record Program(List<Data> dataList, List<Method> methodList) implements P
     for (final var method : methodList) {
       sb.append(method.print(indent)).append("\n\n");
     }
-    // TODO print method
     return sb.toString();
   }
 }
