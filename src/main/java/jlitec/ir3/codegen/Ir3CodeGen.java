@@ -146,12 +146,12 @@ public class Ir3CodeGen {
                 fieldMap,
                 tempVarGen);
         final var rhs =
-            toRval(
+            toExpr(
                 fas.rhs(), klass.cname(), mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
         yield ImmutableList.<Stmt>builder()
             .addAll(lhsTarget.stmtList())
             .addAll(rhs.stmtList())
-            .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.rval()))
+            .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.expr()))
             .build();
       }
       case STMT_CALL -> {
@@ -194,17 +194,6 @@ public class Ir3CodeGen {
       }
       case STMT_RETURN -> {
         final var rs = (jlitec.ast.stmt.ReturnStmt) stmt;
-        final var maybeRvalChunk =
-            rs.maybeExpr()
-                .map(
-                    e ->
-                        toRval(
-                            e,
-                            klass.cname(),
-                            mangledMethodNameMap,
-                            localVarMap,
-                            fieldMap,
-                            tempVarGen));
         if (rs.maybeExpr().isEmpty()) {
           yield List.of(new ReturnStmt(Optional.empty()));
         } else {
@@ -216,7 +205,7 @@ public class Ir3CodeGen {
                   localVarMap,
                   fieldMap,
                   tempVarGen);
-          final var tempVar = tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()).get());
+          final var tempVar = tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()));
           final var idRvalExpr = new IdRvalExpr(tempVar.id());
           yield ImmutableList.<Stmt>builder()
               .addAll(exprChunk.stmtList())
@@ -268,10 +257,6 @@ public class Ir3CodeGen {
       }
       case EXPR_CALL -> {
         final var ce = (jlitec.ast.expr.CallExpr) expr;
-        // call expression type should not be null
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()).get());
-
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
         final var methodReference = ce.methodReference();
         final var mangledMethodName =
             mangledMethodNameMap.get(
@@ -345,7 +330,7 @@ public class Ir3CodeGen {
             toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         final var rhsChunk =
             toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(be.typeAnnotation()).get());
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(be.typeAnnotation()));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield new IdRvalChunk(
             idRvalExpr,
@@ -361,7 +346,7 @@ public class Ir3CodeGen {
       }
       case EXPR_UNARY -> {
         final var ue = (jlitec.ast.expr.UnaryExpr) expr;
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(ue.typeAnnotation()).get());
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(ue.typeAnnotation()));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         final var rvalChunk =
             toRval(ue.expr(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
@@ -376,7 +361,7 @@ public class Ir3CodeGen {
       }
       case EXPR_DOT -> {
         final var de = (jlitec.ast.expr.DotExpr) expr;
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()).get());
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         final var idRvalChunk =
             toIdRval(de.target(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
@@ -390,7 +375,7 @@ public class Ir3CodeGen {
       case EXPR_CALL -> {
         final var ce = (jlitec.ast.expr.CallExpr) expr;
         // call expression type should not be null
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()).get());
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         final var exprChunk = toExpr(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new IdRvalChunk(
@@ -454,15 +439,10 @@ public class Ir3CodeGen {
     return switch (target.getExprType()) {
       case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
           "Trying to call non-callable expression.");
-      case EXPR_ID -> {
         // local call
-        yield new IdRvalChunk(new IdRvalExpr("this"), List.of());
-      }
-      case EXPR_DOT -> {
+      case EXPR_ID -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
         // global call
-        final var de = (jlitec.ast.expr.DotExpr) target;
-        yield resolveDotExprThis(de.target(), gen);
-      }
+      case EXPR_DOT -> resolveDotExprThis(((jlitec.ast.expr.DotExpr) target).target(), gen);
     };
   }
 
@@ -473,7 +453,7 @@ public class Ir3CodeGen {
     }
     if (target.getExprType() == ExprType.EXPR_NEW) {
       final var ne = (jlitec.ast.expr.NewExpr) target;
-      final var tempVar = gen.gen(Type.fromTypeAnnotation(ne.typeAnnotation()).get());
+      final var tempVar = gen.gen(Type.fromTypeAnnotation(ne.typeAnnotation()));
       final var idRvalExpr = new IdRvalExpr(tempVar.id());
       return new IdRvalChunk(
           idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
@@ -481,7 +461,7 @@ public class Ir3CodeGen {
     final var de = (jlitec.ast.expr.DotExpr) target;
     final var idRvalChunk = resolveDotExprThis(de.target(), gen);
     // type annotation should not be null at this stage.
-    final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()).get());
+    final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()));
     final var idRvalExpr = new IdRvalExpr(tempVar.id());
     return new IdRvalChunk(
         idRvalExpr,
@@ -497,11 +477,6 @@ public class Ir3CodeGen {
     for (final var klass : program.klassList()) {
       int counter = 0;
       for (final var method : klass.methods()) {
-        final var argTypes =
-            method.args().stream()
-                .map(jlitec.ast.Var::type)
-                .map(Type::fromAst)
-                .collect(Collectors.toUnmodifiableList());
         final var methodDescriptor =
             new MethodDescriptor(
                 klass.cname(), method.id(), method.returnType(), method.argTypes());
