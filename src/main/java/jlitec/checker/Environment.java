@@ -21,8 +21,8 @@ public class Environment {
     }
   }
 
-  public final ListMultimap<String, Type.Basic> map;
-  public final Map<MethodDescriptor, Type.Basic> methodDescriptors;
+  private final ListMultimap<String, Type.Basic> map;
+  private final Map<MethodDescriptor, Type.Basic> methodDescriptors;
 
   public Environment() {
     this.map = ImmutableListMultimap.of();
