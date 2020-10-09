@@ -1,5 +1,7 @@
 package jlitec.ir3.stmt;
 
-public interface Stmt {
+import jlitec.Printable;
+
+public interface Stmt extends Printable {
   StmtType getStmtType();
 }

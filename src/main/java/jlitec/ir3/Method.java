@@ -35,6 +35,9 @@ public record Method(
     }
 
     // TODO print stmtList
+    for (final var stmt : stmtList) {
+      sb.append(stmt.print(indent + 1));
+    }
 
     indent(sb, indent);
     sb.append("}");
