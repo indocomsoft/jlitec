@@ -2,12 +2,13 @@ package jlitec.ast.stmt;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
-
+import jlitec.ast.MethodReference;
 import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.Expr;
 
-public record CallStmt(Expr target, List<Expr> args, TypeAnnotation typeAnnotation) implements Stmt {
+public record CallStmt(
+    Expr target, List<Expr> args, TypeAnnotation typeAnnotation, MethodReference methodReference)
+    implements Stmt {
   public CallStmt {
     this.args = Collections.unmodifiableList(args);
   }

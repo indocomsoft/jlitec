@@ -1,6 +1,8 @@
 package jlitec.ir3;
 
+import java.util.Optional;
 import jlitec.Printable;
+import jlitec.ast.TypeAnnotation;
 
 public interface Type extends Printable {
   Ir3Type type();
@@ -38,5 +40,17 @@ public interface Type extends Printable {
       case VOID -> new PrimitiveType(Ir3Type.VOID);
       case CLASS -> new KlassType(((jlitec.ast.KlassType) type).cname());
     };
+  }
+
+  static Optional<Type> fromTypeAnnotation(jlitec.ast.TypeAnnotation typeAnnotation) {
+    return Optional.ofNullable(
+        switch (typeAnnotation.annotation()) {
+          case INT -> new PrimitiveType(Ir3Type.INT);
+          case STRING -> new PrimitiveType(Ir3Type.STRING);
+          case VOID -> new PrimitiveType(Ir3Type.VOID);
+          case BOOL -> new PrimitiveType(Ir3Type.BOOL);
+          case CLASS -> new KlassType(((TypeAnnotation.Klass) typeAnnotation).cname());
+          case NULL -> null;
+        });
   }
 }

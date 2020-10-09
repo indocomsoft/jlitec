@@ -1,13 +1,12 @@
 package jlitec.checker;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-
+import jlitec.ast.MethodReference;
 import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
 import jlitec.ast.expr.ThisExpr;
@@ -141,50 +140,83 @@ public class ParseTreeStaticChecker {
     }
   }
 
-  public static jlitec.ast.Program toAst(jlitec.parsetree.Program program, Map<String, KlassDescriptor> klassDescriptorMap) {
+  public static jlitec.ast.Program toAst(
+      jlitec.parsetree.Program program, Map<String, KlassDescriptor> klassDescriptorMap) {
     final Environment env = new Environment();
-    final var astKlasses = program.klassList().stream().map(k -> toAst(k, klassDescriptorMap, env)).collect(Collectors.toUnmodifiableList());
+    final var astKlasses =
+        program.klassList().stream()
+            .map(k -> toAst(k, klassDescriptorMap, env))
+            .collect(Collectors.toUnmodifiableList());
     return new jlitec.ast.Program(astKlasses);
   }
 
-  private static jlitec.ast.Klass toAst(jlitec.parsetree.Klass klass, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) {
+  private static jlitec.ast.Klass toAst(
+      jlitec.parsetree.Klass klass,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env) {
     final var klassName = klass.name().id();
     env = env.augment(new Environment(klassDescriptorMap.get(klassName)));
     final var finalEnv = env.augment("this", new Type.Basic(klassName));
-    final var astFields = klass.fields().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
-    final var astMethods = klass.methods().stream().map(m -> toAst(m, klassDescriptorMap, finalEnv)).collect(Collectors.toUnmodifiableList());
+    final var astFields =
+        klass.fields().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
+    final var astMethods =
+        klass.methods().stream()
+            .map(m -> toAst(m, klassDescriptorMap, finalEnv))
+            .collect(Collectors.toUnmodifiableList());
     return new jlitec.ast.Klass(klassName, astFields, astMethods);
   }
 
-  private static jlitec.ast.Method toAst(jlitec.parsetree.Method method, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) {
+  private static jlitec.ast.Method toAst(
+      jlitec.parsetree.Method method,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env) {
     for (final var arg : method.args()) {
       env = env.augment(arg.name().id(), new Type.Basic(arg.type().print(0)));
     }
     for (final var variables : method.vars()) {
       env = env.augment(variables.name().id(), new Type.Basic(variables.type().print(0)));
     }
-    final var astArgs = method.args().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
-    final var astVars = method.vars().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
+    final var astArgs =
+        method.args().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
+    final var astVars =
+        method.vars().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
     final var expectedReturnType = new Type.Basic(method.type().print(0));
     final var astStmtList = toAst(method.stmtList(), expectedReturnType, klassDescriptorMap, env);
-    return new jlitec.ast.Method(jlitec.ast.Type.fromParseTree(method.type()), method.name().id(), astArgs, astVars, astStmtList);
+    return new jlitec.ast.Method(
+        jlitec.ast.Type.fromParseTree(method.type()),
+        method.name().id(),
+        astArgs,
+        astVars,
+        astStmtList);
   }
 
-  private static List<jlitec.ast.stmt.Stmt> toAst(List<Stmt> stmtList, Type.Basic expectedReturnType, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) {
-    return stmtList.stream().map(stmt -> {
-      try {
-        // should not throw, typecheck has already been performed.
-        return toAst(stmt, expectedReturnType, klassDescriptorMap, env);
-      } catch (SemanticException e) {
-        throw new RuntimeException(e);
-      }
-    }).collect(Collectors.toUnmodifiableList());
+  private static List<jlitec.ast.stmt.Stmt> toAst(
+      List<Stmt> stmtList,
+      Type.Basic expectedReturnType,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env) {
+    return stmtList.stream()
+        .map(
+            stmt -> {
+              try {
+                // should not throw, typecheck has already been performed.
+                return toAst(stmt, expectedReturnType, klassDescriptorMap, env);
+              } catch (SemanticException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(Collectors.toUnmodifiableList());
   }
 
-  private static jlitec.ast.stmt.Stmt toAst(Stmt stmt, Type.Basic expectedReturnType, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) throws SemanticException {
+  private static jlitec.ast.stmt.Stmt toAst(
+      Stmt stmt,
+      Type.Basic expectedReturnType,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env)
+      throws SemanticException {
     final var type = typecheck(stmt, expectedReturnType, klassDescriptorMap, env);
     final var typeAnnotation = toAst(type);
-    return switch(stmt.getStmtType()) {
+    return switch (stmt.getStmtType()) {
       case STMT_IF -> {
         final var is = (IfStmt) stmt;
         final var condition = toAst(is.condition(), klassDescriptorMap, env);
@@ -207,8 +239,9 @@ public class ParseTreeStaticChecker {
         }
         yield new jlitec.ast.stmt.WhileStmt(condition, stmtList);
       }
-      case STMT_READLN -> new jlitec.ast.stmt.ReadlnStmt(((ReadlnStmt)stmt).id());
-      case STMT_PRINTLN -> new jlitec.ast.stmt.PrintlnStmt(toAst(((PrintlnStmt) stmt).expr(), klassDescriptorMap, env));
+      case STMT_READLN -> new jlitec.ast.stmt.ReadlnStmt(((ReadlnStmt) stmt).id());
+      case STMT_PRINTLN -> new jlitec.ast.stmt.PrintlnStmt(
+          toAst(((PrintlnStmt) stmt).expr(), klassDescriptorMap, env));
       case STMT_VAR_ASSIGN -> {
         final var vas = (VarAssignStmt) stmt;
         final var rhs = toAst(vas.rhs(), klassDescriptorMap, env);
@@ -226,14 +259,21 @@ public class ParseTreeStaticChecker {
         for (final var arg : cs.args()) {
           args.add(toAst(arg, klassDescriptorMap, env));
         }
+        final var argTypes = new ArrayList<String>();
+        for (final var arg : cs.args()) {
+          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+        }
         final var target = toAst(cs.target(), klassDescriptorMap, env);
-        yield new jlitec.ast.stmt.CallStmt(target, args, typeAnnotation);
+        final var methodReference =
+            lookupMethodReference(cs.target(), argTypes, klassDescriptorMap, env);
+        yield new jlitec.ast.stmt.CallStmt(target, args, typeAnnotation, methodReference);
       }
       case STMT_RETURN -> {
         final var rs = (ReturnStmt) stmt;
         final var maybeExpr = rs.maybeExpr();
         if (maybeExpr.isPresent()) {
-          yield new jlitec.ast.stmt.ReturnStmt(Optional.of(toAst(maybeExpr.get(), klassDescriptorMap, env)));
+          yield new jlitec.ast.stmt.ReturnStmt(
+              Optional.of(toAst(maybeExpr.get(), klassDescriptorMap, env)));
         } else {
           yield new jlitec.ast.stmt.ReturnStmt(Optional.empty());
         }
@@ -241,23 +281,127 @@ public class ParseTreeStaticChecker {
     };
   }
 
-  private static jlitec.ast.expr.Expr toAst(Expr expr, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) throws SemanticException {
+  private static jlitec.ast.expr.Expr transformCallTarget(
+      Expr target,
+      TypeAnnotation typeAnnotation,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env) {
+    return switch (target.getExprType()) {
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
+          "Trying to call non-callable expression.");
+      case EXPR_ID -> {
+        // local call
+        final var ie = (IdExpr) target;
+        yield new jlitec.ast.expr.IdExpr(ie.id(), typeAnnotation);
+      }
+      case EXPR_DOT -> {
+        // global call
+        try {
+          final var de = (DotExpr) target;
+          final var targetType = typecheck(de.target(), klassDescriptorMap, env);
+          yield new jlitec.ast.expr.DotExpr(
+              transformCallTarget(de.target(), typeAnnotation, klassDescriptorMap, env),
+              de.id(),
+              toAst(targetType));
+        } catch (SemanticException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      case EXPR_PAREN -> {
+        final var pe = (ParenExpr) target;
+        yield transformCallTarget(pe.expr(), typeAnnotation, klassDescriptorMap, env);
+      }
+    };
+  }
+
+  private static MethodReference lookupMethodReference(
+      Expr target,
+      List<String> argTypes,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env) {
+    final var cname = env.lookup("this").get().type();
+    return switch (target.getExprType()) {
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
+          "Trying to call non-callable expression.");
+        // LocalCall
+      case EXPR_ID -> {
+        final var ie = (IdExpr) target;
+        // this, and the method descriptor must exist in the env
+        final var klassDescriptor = klassDescriptorMap.get(env.lookup("this").get().type());
+        final var methodDescriptors = klassDescriptor.methods().get(ie.id());
+        final var methodDescriptor =
+            methodDescriptors.stream()
+                .filter(
+                    m ->
+                        isCompatible(
+                            argTypes,
+                            m.argTypes().stream()
+                                .map(Type.Basic::type)
+                                .collect(Collectors.toUnmodifiableList())))
+                .findFirst()
+                .get();
+        final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
+        final var astArgTypes =
+            methodDescriptor.argTypes().stream()
+                .map(jlitec.ast.Type::fromChecker)
+                .collect(Collectors.toUnmodifiableList());
+        yield new MethodReference(cname, ie.id(), returnType, astArgTypes);
+      }
+      case EXPR_DOT -> {
+        try {
+          final var de = (DotExpr) target;
+          final var targetType = typecheck(de.target(), klassDescriptorMap, env);
+          final var klassDescriptor = klassDescriptorMap.get(targetType.type());
+          final var methodDescriptors = klassDescriptor.methods().get(de.id());
+          final var methodDescriptor =
+              methodDescriptors.stream()
+                  .filter(
+                      m ->
+                          isCompatible(
+                              argTypes,
+                              m.argTypes().stream()
+                                  .map(Type.Basic::type)
+                                  .collect(Collectors.toUnmodifiableList())))
+                  .findFirst()
+                  .get();
+          final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
+          final var astArgTypes =
+              methodDescriptor.argTypes().stream()
+                  .map(jlitec.ast.Type::fromChecker)
+                  .collect(Collectors.toUnmodifiableList());
+          yield new MethodReference(cname, de.id(), returnType, astArgTypes);
+        } catch (SemanticException e) {
+          throw new RuntimeException(e);
+        }
+      }
+      case EXPR_PAREN -> lookupMethodReference(
+          ((ParenExpr) target).expr(), argTypes, klassDescriptorMap, env);
+    };
+  }
+
+  private static jlitec.ast.expr.Expr toAst(
+      Expr expr, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
+      throws SemanticException {
     final var type = typecheck(expr, klassDescriptorMap, env);
     final var typeAnnotation = toAst(type);
-    return switch(expr.getExprType()) {
+    return switch (expr.getExprType()) {
       case EXPR_INT_LITERAL -> new jlitec.ast.expr.IntLiteralExpr(((IntLiteralExpr) expr).value());
-      case EXPR_STRING_LITERAL -> new jlitec.ast.expr.StringLiteralExpr(((StringLiteralExpr)expr).value());
-      case EXPR_BOOL_LITERAL -> new jlitec.ast.expr.BoolLiteralExpr(((BoolLiteralExpr)expr).value());
+      case EXPR_STRING_LITERAL -> new jlitec.ast.expr.StringLiteralExpr(
+          ((StringLiteralExpr) expr).value());
+      case EXPR_BOOL_LITERAL -> new jlitec.ast.expr.BoolLiteralExpr(
+          ((BoolLiteralExpr) expr).value());
       case EXPR_BINARY -> {
         final var be = (BinaryExpr) expr;
         final var lhs = toAst(be.lhs(), klassDescriptorMap, env);
         final var rhs = toAst(be.rhs(), klassDescriptorMap, env);
-        yield new jlitec.ast.expr.BinaryExpr(BinaryOp.fromParseTree(be.op()), lhs, rhs, typeAnnotation);
+        yield new jlitec.ast.expr.BinaryExpr(
+            BinaryOp.fromParseTree(be.op()), lhs, rhs, typeAnnotation);
       }
       case EXPR_UNARY -> {
         final var ue = (UnaryExpr) expr;
         final var astExpr = toAst(ue.expr(), klassDescriptorMap, env);
-        yield new jlitec.ast.expr.UnaryExpr(UnaryOp.fromParseTree(ue.op()), astExpr, typeAnnotation);
+        yield new jlitec.ast.expr.UnaryExpr(
+            UnaryOp.fromParseTree(ue.op()), astExpr, typeAnnotation);
       }
       case EXPR_DOT -> {
         final var de = (DotExpr) expr;
@@ -266,18 +410,25 @@ public class ParseTreeStaticChecker {
       }
       case EXPR_CALL -> {
         final var ce = (CallExpr) expr;
-        final var target = toAst(ce.target(), klassDescriptorMap, env);
+        final var target =
+            transformCallTarget(ce.target(), typeAnnotation, klassDescriptorMap, env);
         final var args = new ArrayList<jlitec.ast.expr.Expr>();
         for (final var arg : ce.args()) {
           args.add(toAst(arg, klassDescriptorMap, env));
         }
-        yield new jlitec.ast.expr.CallExpr(target, args, typeAnnotation);
+        final var argTypes = new ArrayList<String>();
+        for (final var arg : ce.args()) {
+          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+        }
+        final var methodReference =
+            lookupMethodReference(ce.target(), argTypes, klassDescriptorMap, env);
+        yield new jlitec.ast.expr.CallExpr(target, args, typeAnnotation, methodReference);
       }
       case EXPR_THIS -> new ThisExpr(typeAnnotation);
       case EXPR_ID -> new jlitec.ast.expr.IdExpr(((IdExpr) expr).id(), typeAnnotation);
-      case EXPR_NEW -> new jlitec.ast.expr.NewExpr(((NewExpr)expr).cname());
+      case EXPR_NEW -> new jlitec.ast.expr.NewExpr(((NewExpr) expr).cname());
       case EXPR_NULL -> new jlitec.ast.expr.NullExpr();
-      case EXPR_PAREN -> toAst(((ParenExpr)expr).expr(), klassDescriptorMap, env);
+      case EXPR_PAREN -> toAst(((ParenExpr) expr).expr(), klassDescriptorMap, env);
     };
   }
 
@@ -350,11 +501,11 @@ public class ParseTreeStaticChecker {
   }
 
   private static Type.Basic typecheck(
-          List<Stmt> stmts,
-          Type.Basic expectedReturnType,
-          Map<String, KlassDescriptor> klassDescriptorMap,
-          Environment env)
-          throws SemanticException {
+      List<Stmt> stmts,
+      Type.Basic expectedReturnType,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env)
+      throws SemanticException {
     Type.Basic type = new Type.Basic(JliteType.VOID);
     for (final var stmt : stmts) {
       type = typecheck(stmt, expectedReturnType, klassDescriptorMap, env);
@@ -362,183 +513,182 @@ public class ParseTreeStaticChecker {
     return type;
   }
 
-  private static Type.Basic typecheck(Stmt stmt, Type.Basic expectedReturnType, Map<String, KlassDescriptor> klassDescriptorMap, Environment env) throws SemanticException {
+  private static Type.Basic typecheck(
+      Stmt stmt,
+      Type.Basic expectedReturnType,
+      Map<String, KlassDescriptor> klassDescriptorMap,
+      Environment env)
+      throws SemanticException {
     return switch (stmt.getStmtType()) {
-              case STMT_VAR_ASSIGN -> {
-                final var vas = (VarAssignStmt) stmt;
-                final var maybeType = env.lookup(vas.lhsId());
-                if (maybeType.isEmpty()) {
-                  throw new SemanticException(
-                          "Use of undeclared identifier `" + vas.lhsId() + "'",
-                          "undeclared identifier `" + vas.lhsId() + "'",
-                          List.of(vas));
-                }
-                final var expectedType = maybeType.get();
-                final var rhsType = typecheck(vas.rhs(), klassDescriptorMap, env);
-                if (!isCompatible(expectedType, rhsType)) {
-                  throw new SemanticException(
-                          "Incompatible types, trying to assign expression of type `"
-                                  + rhsType.type()
-                                  + "' to variable `"
-                                  + vas.lhsId()
-                                  + "' of type `"
-                                  + expectedType.type()
-                                  + "'",
-                          "incompatible types",
-                          List.of(vas));
-                }
-                yield expectedType;
-              }
-              case STMT_FIELD_ASSIGN -> {
-                final var fas = (FieldAssignStmt) stmt;
-                final var lhsClassType = typecheck(fas.lhsTarget(), klassDescriptorMap, env);
-                final var klass = klassDescriptorMap.get(lhsClassType.type());
-                final var maybeFieldType = Optional.ofNullable(klass.fields().get(fas.lhsId()));
-                if (maybeFieldType.isEmpty()) {
-                  throw new SemanticException(
-                          "Field `"
-                                  + fas.lhsId()
-                                  + "' does not exist in class `"
-                                  + lhsClassType.type()
-                                  + "'",
-                          "non-existent field `" + fas.lhsId() + "'",
-                          List.of(fas));
-                }
-                final var expectedType = maybeFieldType.get();
-                final var rhsType = typecheck(fas.rhs(), klassDescriptorMap, env);
-                if (!isCompatible(expectedType, rhsType)) {
-                  throw new SemanticException(
-                          "Incompatible types, trying to assign expression of type `"
-                                  + rhsType.type()
-                                  + "' to field `"
-                                  + fas.lhsId()
-                                  + "' of class `"
-                                  + lhsClassType.type()
-                                  + "' of type `"
-                                  + expectedType.type()
-                                  + "'",
-                          "incompatible types",
-                          List.of(fas));
-                }
-                yield expectedType;
-              }
-              case STMT_IF -> {
-                final var is = (IfStmt) stmt;
-                final var conditionType = typecheck(is.condition(), klassDescriptorMap, env);
-                if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
-                  throw new SemanticException(
-                          "If condition expression must be of type `Bool', but encountered `"
-                                  + conditionType.type()
-                                  + "'",
-                          "condition type is not `Bool'",
-                          List.of(is.condition()));
-                }
-                final var thenType =
-                        typecheck(is.thenStmtList(), expectedReturnType, klassDescriptorMap, env);
-                final var elseType =
-                        typecheck(is.elseStmtList(), expectedReturnType, klassDescriptorMap, env);
-                if (!isCompatible(thenType, elseType)) {
-                  throw new SemanticException(
-                          "The types of then and else blocks of conditionals must be compatible, then block type is `"
-                                  + thenType.type()
-                                  + "', else block type is `"
-                                  + elseType.type()
-                                  + "'",
-                          "incompatible then and else type",
-                          List.of(is));
-                }
-                yield elseType;
-              }
-              case STMT_WHILE -> {
-                final var ws = (WhileStmt) stmt;
-                final var conditionType = typecheck(ws.condition(), klassDescriptorMap, env);
-                if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
-                  throw new SemanticException(
-                          "While condition expression must be of type `Bool', but encountered `"
-                                  + conditionType.type()
-                                  + "'",
-                          "condition type is not `Bool'",
-                          List.of(ws.condition()));
-                }
-                if (ws.stmtList().isEmpty()) {
-                  yield new Type.Basic(JliteType.VOID);
-                }
-                yield typecheck(ws.stmtList(), expectedReturnType, klassDescriptorMap, env);
-              }
-              case STMT_READLN -> {
-                final var rs = (ReadlnStmt) stmt;
-                final var maybeVarType = env.lookup(rs.id());
-                if (maybeVarType.isEmpty()) {
-                  throw new SemanticException(
-                          "Use of undeclared identifier `" + rs.id() + "'",
-                          "undeclared identifier `" + rs.id() + "'",
-                          List.of(rs));
-                }
-                final var varType = maybeVarType.get();
-                if (!Set.of(
-                        JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
-                        .contains(varType.type())) {
-                  throw new SemanticException(
-                          "Type of variable passed to `readln' must be `Int', `Bool', or `String', but encountered `"
-                                  + varType.type()
-                                  + "'",
-                          "incompatible type",
-                          List.of(rs));
-                }
-                yield new Type.Basic(JliteType.VOID);
-              }
-              case STMT_PRINTLN -> {
-                final var ps = (PrintlnStmt) stmt;
-                final var psType = typecheck(ps.expr(), klassDescriptorMap, env);
-                if (!Set.of(
-                        JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
-                        .contains(psType.type())) {
-                  throw new SemanticException(
-                          "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
-                                  + psType.type()
-                                  + "'",
-                          "incompatible type",
-                          List.of(ps));
-                }
-                yield new Type.Basic(JliteType.VOID);
-              }
-              case STMT_CALL -> {
-                final var cs = (CallStmt) stmt;
-                final var argTypes = new ArrayList<String>();
-                for (final var arg : cs.args()) {
-                  argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
-                }
-                yield lookupMethodReturnType(cs.target(), argTypes, klassDescriptorMap, env);
-              }
-              case STMT_RETURN -> {
-                final var rs = (ReturnStmt) stmt;
-                final var maybeExpr = rs.maybeExpr();
-                if (maybeExpr.isEmpty()) {
-                  if (!expectedReturnType.equals(new Type.Basic(JliteType.VOID))) {
-                    throw new SemanticException(
-                            "Returning `Void' for a method that expects return type `"
-                                    + expectedReturnType.type()
-                                    + "'",
-                            "invalid return type",
-                            List.of(rs));
-                  }
-                  yield new Type.Basic(JliteType.VOID);
-                }
-                final var expr = maybeExpr.get();
-                final var exprType = typecheck(expr, klassDescriptorMap, env);
-                if (!isCompatible(expectedReturnType, exprType)) {
-                  throw new SemanticException(
-                          "Returning `"
-                                  + exprType.type()
-                                  + "' for a method that expects return type `"
-                                  + expectedReturnType.type()
-                                  + "'",
-                          "invalid return type",
-                          List.of(rs));
-                }
-                yield exprType;
-              }
-            };
+      case STMT_VAR_ASSIGN -> {
+        final var vas = (VarAssignStmt) stmt;
+        final var maybeType = env.lookup(vas.lhsId());
+        if (maybeType.isEmpty()) {
+          throw new SemanticException(
+              "Use of undeclared identifier `" + vas.lhsId() + "'",
+              "undeclared identifier `" + vas.lhsId() + "'",
+              List.of(vas));
+        }
+        final var expectedType = maybeType.get();
+        final var rhsType = typecheck(vas.rhs(), klassDescriptorMap, env);
+        if (!isCompatible(expectedType, rhsType)) {
+          throw new SemanticException(
+              "Incompatible types, trying to assign expression of type `"
+                  + rhsType.type()
+                  + "' to variable `"
+                  + vas.lhsId()
+                  + "' of type `"
+                  + expectedType.type()
+                  + "'",
+              "incompatible types",
+              List.of(vas));
+        }
+        yield expectedType;
+      }
+      case STMT_FIELD_ASSIGN -> {
+        final var fas = (FieldAssignStmt) stmt;
+        final var lhsClassType = typecheck(fas.lhsTarget(), klassDescriptorMap, env);
+        final var klass = klassDescriptorMap.get(lhsClassType.type());
+        final var maybeFieldType = Optional.ofNullable(klass.fields().get(fas.lhsId()));
+        if (maybeFieldType.isEmpty()) {
+          throw new SemanticException(
+              "Field `" + fas.lhsId() + "' does not exist in class `" + lhsClassType.type() + "'",
+              "non-existent field `" + fas.lhsId() + "'",
+              List.of(fas));
+        }
+        final var expectedType = maybeFieldType.get();
+        final var rhsType = typecheck(fas.rhs(), klassDescriptorMap, env);
+        if (!isCompatible(expectedType, rhsType)) {
+          throw new SemanticException(
+              "Incompatible types, trying to assign expression of type `"
+                  + rhsType.type()
+                  + "' to field `"
+                  + fas.lhsId()
+                  + "' of class `"
+                  + lhsClassType.type()
+                  + "' of type `"
+                  + expectedType.type()
+                  + "'",
+              "incompatible types",
+              List.of(fas));
+        }
+        yield expectedType;
+      }
+      case STMT_IF -> {
+        final var is = (IfStmt) stmt;
+        final var conditionType = typecheck(is.condition(), klassDescriptorMap, env);
+        if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
+          throw new SemanticException(
+              "If condition expression must be of type `Bool', but encountered `"
+                  + conditionType.type()
+                  + "'",
+              "condition type is not `Bool'",
+              List.of(is.condition()));
+        }
+        final var thenType =
+            typecheck(is.thenStmtList(), expectedReturnType, klassDescriptorMap, env);
+        final var elseType =
+            typecheck(is.elseStmtList(), expectedReturnType, klassDescriptorMap, env);
+        if (!isCompatible(thenType, elseType)) {
+          throw new SemanticException(
+              "The types of then and else blocks of conditionals must be compatible, then block type is `"
+                  + thenType.type()
+                  + "', else block type is `"
+                  + elseType.type()
+                  + "'",
+              "incompatible then and else type",
+              List.of(is));
+        }
+        yield elseType;
+      }
+      case STMT_WHILE -> {
+        final var ws = (WhileStmt) stmt;
+        final var conditionType = typecheck(ws.condition(), klassDescriptorMap, env);
+        if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
+          throw new SemanticException(
+              "While condition expression must be of type `Bool', but encountered `"
+                  + conditionType.type()
+                  + "'",
+              "condition type is not `Bool'",
+              List.of(ws.condition()));
+        }
+        if (ws.stmtList().isEmpty()) {
+          yield new Type.Basic(JliteType.VOID);
+        }
+        yield typecheck(ws.stmtList(), expectedReturnType, klassDescriptorMap, env);
+      }
+      case STMT_READLN -> {
+        final var rs = (ReadlnStmt) stmt;
+        final var maybeVarType = env.lookup(rs.id());
+        if (maybeVarType.isEmpty()) {
+          throw new SemanticException(
+              "Use of undeclared identifier `" + rs.id() + "'",
+              "undeclared identifier `" + rs.id() + "'",
+              List.of(rs));
+        }
+        final var varType = maybeVarType.get();
+        if (!Set.of(JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
+            .contains(varType.type())) {
+          throw new SemanticException(
+              "Type of variable passed to `readln' must be `Int', `Bool', or `String', but encountered `"
+                  + varType.type()
+                  + "'",
+              "incompatible type",
+              List.of(rs));
+        }
+        yield new Type.Basic(JliteType.VOID);
+      }
+      case STMT_PRINTLN -> {
+        final var ps = (PrintlnStmt) stmt;
+        final var psType = typecheck(ps.expr(), klassDescriptorMap, env);
+        if (!Set.of(JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
+            .contains(psType.type())) {
+          throw new SemanticException(
+              "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
+                  + psType.type()
+                  + "'",
+              "incompatible type",
+              List.of(ps));
+        }
+        yield new Type.Basic(JliteType.VOID);
+      }
+      case STMT_CALL -> {
+        final var cs = (CallStmt) stmt;
+        final var argTypes = new ArrayList<String>();
+        for (final var arg : cs.args()) {
+          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+        }
+        yield lookupMethodReturnType(cs.target(), argTypes, klassDescriptorMap, env);
+      }
+      case STMT_RETURN -> {
+        final var rs = (ReturnStmt) stmt;
+        final var maybeExpr = rs.maybeExpr();
+        if (maybeExpr.isEmpty()) {
+          if (!expectedReturnType.equals(new Type.Basic(JliteType.VOID))) {
+            throw new SemanticException(
+                "Returning `Void' for a method that expects return type `"
+                    + expectedReturnType.type()
+                    + "'",
+                "invalid return type",
+                List.of(rs));
+          }
+          yield new Type.Basic(JliteType.VOID);
+        }
+        final var expr = maybeExpr.get();
+        final var exprType = typecheck(expr, klassDescriptorMap, env);
+        if (!isCompatible(expectedReturnType, exprType)) {
+          throw new SemanticException(
+              "Returning `"
+                  + exprType.type()
+                  + "' for a method that expects return type `"
+                  + expectedReturnType.type()
+                  + "'",
+              "invalid return type",
+              List.of(rs));
+        }
+        yield exprType;
+      }
+    };
   }
 
   private static Type.Basic typecheck(
@@ -749,19 +899,63 @@ public class ParseTreeStaticChecker {
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
-        final var maybeType = env.lookup(new Environment.MethodDescriptor(ie.id(), argTypes));
-        if (maybeType.isEmpty()) {
+        final var klassDescriptor = klassDescriptorMap.get(env.lookup("this").get().type());
+        final var maybeMethods = Optional.ofNullable(klassDescriptor.methods().get(ie.id()));
+        if (maybeMethods.isEmpty()) {
+          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
           throw new SemanticException(
-              "Local method `" + ie.id() + "' does not exist.",
-              "non-existent local method `" + ie.id() + "'",
+              "Local method `" + signature + "' does not exist.",
+              "non-existent local method `" + signature + "'",
               List.of(ie));
         }
-        yield maybeType.get();
+        final var returnTypes =
+            maybeMethods.get().stream()
+                .filter(
+                    m ->
+                        isCompatible(
+                            argTypes,
+                            m.argTypes().stream()
+                                .map(Type.Basic::type)
+                                .collect(Collectors.toUnmodifiableList())))
+                .collect(Collectors.toUnmodifiableList());
+        if (returnTypes.isEmpty()) {
+          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
+          throw new SemanticException(
+              "Local method `" + signature + "' does not exist.",
+              "non-existent method `" + signature + "'",
+              List.of(ie));
+        }
+        if (returnTypes.size() > 1) {
+          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
+          final var possibleMethods =
+              returnTypes.stream()
+                  .map(
+                      m ->
+                          ie.id()
+                              + "("
+                              + m.argTypes().stream()
+                                  .map(Type.Basic::type)
+                                  .collect(Collectors.joining(", "))
+                              + ")")
+                  .collect(Collectors.joining(", "));
+          throw new SemanticException(
+              "Local call with signature `"
+                  + signature
+                  + "' is ambiguous. Possible method overloads: "
+                  + possibleMethods,
+              "ambiguous method call `" + signature + "'",
+              List.of(ie));
+        }
+        yield returnTypes.get(0).returnType();
       }
         // GlobalCall
       case EXPR_DOT -> {
         final var de = (DotExpr) target;
         final var targetType = typecheck(de.target(), klassDescriptorMap, env);
+        if (targetType.equals(Type.Basic.NULL)) {
+          throw new SemanticException(
+              "Trying to access a method of `null'", "calling a method on `null'", List.of(target));
+        }
         final var klassDescriptor = klassDescriptorMap.get(targetType.type());
         final var maybeMethods = Optional.ofNullable(klassDescriptor.methods().get(de.id()));
         if (maybeMethods.isEmpty()) {

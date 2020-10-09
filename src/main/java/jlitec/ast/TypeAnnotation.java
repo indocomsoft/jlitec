@@ -14,7 +14,8 @@ public interface TypeAnnotation {
 
   record Primitive(Annotation annotation) implements TypeAnnotation {
     public Primitive {
-      if (annotation == Annotation.CLASS || annotation == Annotation.NULL) throw new RuntimeException("invalid annotation");
+      if (annotation == Annotation.CLASS || annotation == Annotation.NULL)
+        throw new RuntimeException("invalid annotation");
     }
   }
 
