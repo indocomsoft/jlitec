@@ -8,10 +8,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import jlitec.ast.expr.BoolLiteralExpr;
-import jlitec.ast.expr.IdExpr;
-import jlitec.ast.expr.IntLiteralExpr;
-import jlitec.ast.expr.StringLiteralExpr;
 import jlitec.ir3.Data;
 import jlitec.ir3.Ir3Type;
 import jlitec.ir3.Method;
@@ -154,7 +150,7 @@ public class Ir3CodeGen {
       case EXPR_CALL -> null;
       case EXPR_THIS -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
       case EXPR_ID -> {
-        final var ie = (IdExpr) expr;
+        final var ie = (jlitec.ast.expr.IdExpr) expr;
         if (localVarMap.containsKey(ie.id())) {
           // local var
           yield new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
@@ -186,11 +182,11 @@ public class Ir3CodeGen {
       TempVarGen gen) {
     return switch (expr.getExprType()) {
       case EXPR_INT_LITERAL -> new RvalChunk(
-          new IntRvalExpr(((IntLiteralExpr) expr).value()), List.of());
+          new IntRvalExpr(((jlitec.ast.expr.IntLiteralExpr) expr).value()), List.of());
       case EXPR_STRING_LITERAL -> new RvalChunk(
-          new StringRvalExpr(((StringLiteralExpr) expr).value()), List.of());
+          new StringRvalExpr(((jlitec.ast.expr.StringLiteralExpr) expr).value()), List.of());
       case EXPR_BOOL_LITERAL -> new RvalChunk(
-          new BoolRvalExpr(((BoolLiteralExpr) expr).value()), List.of());
+          new BoolRvalExpr(((jlitec.ast.expr.BoolLiteralExpr) expr).value()), List.of());
       case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW, EXPR_NULL -> {
         final var idRvalChunk = toIdRval(expr, localVarMap, fieldMap, gen);
         // TODO remove once done
