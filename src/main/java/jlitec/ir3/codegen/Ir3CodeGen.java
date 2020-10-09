@@ -429,7 +429,7 @@ public class Ir3CodeGen {
       case EXPR_NULL -> new RvalChunk(new NullRvalExpr(), List.of());
       case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW -> {
         final var idRvalChunk =
-            toIdRval(expr, cname, mangledMethodNameMap, fieldMap, localVarMap, gen);
+            toIdRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new RvalChunk(idRvalChunk.idRval(), idRvalChunk.stmtList());
       }
     };
