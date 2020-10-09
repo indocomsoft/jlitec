@@ -274,9 +274,10 @@ public class ParseTreeStaticChecker {
         final var maybeExpr = rs.maybeExpr();
         if (maybeExpr.isPresent()) {
           yield new jlitec.ast.stmt.ReturnStmt(
-              Optional.of(toAst(maybeExpr.get(), klassDescriptorMap, env)));
+              Optional.of(toAst(maybeExpr.get(), klassDescriptorMap, env)),
+              toAst(expectedReturnType));
         } else {
-          yield new jlitec.ast.stmt.ReturnStmt(Optional.empty());
+          yield new jlitec.ast.stmt.ReturnStmt(Optional.empty(), toAst(expectedReturnType));
         }
       }
     };

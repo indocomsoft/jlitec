@@ -22,6 +22,7 @@ import jlitec.ir3.expr.NewExpr;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
+import jlitec.ir3.expr.rval.NullRvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
 import jlitec.ir3.stmt.CallStmt;
 import jlitec.ir3.stmt.FieldAssignStmt;
@@ -93,7 +94,18 @@ public class Ir3CodeGen {
                 }
                   // TODO
                 case STMT_VAR_ASSIGN -> null;
-                  // TODO
+                  //                case STMT_VAR_ASSIGN -> {
+                  //                  final var vas = (jlitec.ast.stmt.VarAssignStmt) stmt;
+                  //                  if (localVarMap.containsKey(vas.lhsId())) {
+                  //                    // local var
+                  //                  } else {
+                  //                    // a field in `this`
+                  //                  }
+
+                  //                  yield ImmutableList.<Stmt>builder()
+                  //                          .add(new VarAssignStmt(new IdRvalExpr(vas.lhsId()), ))
+                  //                          .build();
+                  //                }
                 case STMT_FIELD_ASSIGN -> {
                   final var fas = (jlitec.ast.stmt.FieldAssignStmt) stmt;
                   final var lhsTarget =
@@ -159,24 +171,35 @@ public class Ir3CodeGen {
                 }
                 case STMT_RETURN -> {
                   final var rs = (jlitec.ast.stmt.ReturnStmt) stmt;
-                  final var maybeIdRvalChunk =
+                  final var maybeRvalChunk =
                       rs.maybeExpr()
                           .map(
                               e ->
-                                  toIdRval(
+                                  toRval(
                                       e,
                                       klass.cname(),
                                       mangledMethodNameMap,
                                       localVarMap,
                                       fieldMap,
                                       tempVarGen));
-                  if (maybeIdRvalChunk.isEmpty()) {
+                  if (rs.maybeExpr().isEmpty()) {
                     yield List.of(new ReturnStmt(Optional.empty()));
                   } else {
-                    final var rvalChunk = maybeIdRvalChunk.get();
+                    final var exprChunk =
+                        toExpr(
+                            rs.maybeExpr().get(),
+                            klass.cname(),
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen);
+                    final var tempVar =
+                        tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()).get());
+                    final var idRvalExpr = new IdRvalExpr(tempVar.id());
                     yield ImmutableList.<Stmt>builder()
-                        .addAll(rvalChunk.stmtList())
-                        .add(new ReturnStmt(Optional.of(rvalChunk.idRval())))
+                        .addAll(exprChunk.stmtList())
+                        .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
+                        .add(new ReturnStmt(Optional.of(idRvalExpr)))
                         .build();
                   }
                 }
@@ -200,6 +223,72 @@ public class Ir3CodeGen {
     }
 
     return new Program(dataList, methodList);
+  }
+
+  private static ExprChunk toExpr(
+      jlitec.ast.expr.Expr expr,
+      String cname,
+      Map<MethodDescriptor, String> mangledMethodNameMap,
+      Map<String, Type> localVarMap,
+      Map<String, Type> fieldMap,
+      TempVarGen gen) {
+    return switch (expr.getExprType()) {
+      case EXPR_BOOL_LITERAL, EXPR_STRING_LITERAL, EXPR_INT_LITERAL -> {
+        final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new ExprChunk(rvalChunk.rval(), rvalChunk.stmtList());
+      }
+        // TODO
+      case EXPR_BINARY -> null;
+        // TODO
+      case EXPR_UNARY -> null;
+      case EXPR_DOT -> {
+        final var de = (jlitec.ast.expr.DotExpr) expr;
+        final var idRvalChunk =
+            toIdRval(de.target(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new ExprChunk(new FieldExpr(idRvalChunk.idRval(), de.id()), idRvalChunk.stmtList());
+      }
+      case EXPR_CALL -> {
+        final var ce = (jlitec.ast.expr.CallExpr) expr;
+        // call expression type should not be null
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()).get());
+
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var methodReference = ce.methodReference();
+        final var mangledMethodName =
+            mangledMethodNameMap.get(
+                new MethodDescriptor(
+                    methodReference.cname(),
+                    methodReference.methodName(),
+                    methodReference.returnType(),
+                    methodReference.argTypes()));
+        final var target = new IdRvalExpr(mangledMethodName);
+        final var argsRvalChunk =
+            ce.args().stream()
+                .map(e -> toRval(e, cname, mangledMethodNameMap, localVarMap, fieldMap, gen))
+                .collect(Collectors.toUnmodifiableList());
+        final var thisIdRvalExpr = resolveThis(ce.target(), gen);
+        final var argsRvalExpr =
+            Stream.concat(
+                    Stream.of(thisIdRvalExpr.idRval()), argsRvalChunk.stream().map(RvalChunk::rval))
+                .collect(Collectors.toUnmodifiableList());
+        final var additionalStmtList =
+            argsRvalChunk.stream()
+                .flatMap(i -> i.stmtList().stream())
+                .collect(Collectors.toUnmodifiableList());
+        yield new ExprChunk(
+            new CallExpr(target, argsRvalExpr),
+            ImmutableList.<Stmt>builder()
+                .addAll(additionalStmtList)
+                .addAll(thisIdRvalExpr.stmtList())
+                .build());
+      }
+      case EXPR_THIS -> new ExprChunk(new IdRvalExpr("this"), List.of());
+      case EXPR_ID -> new ExprChunk(
+          new IdRvalExpr(((jlitec.ast.expr.IdExpr) expr).id()), List.of());
+      case EXPR_NEW -> new ExprChunk(
+          new NewExpr(((jlitec.ast.expr.NewExpr) expr).cname()), List.of());
+      case EXPR_NULL -> new ExprChunk(new NullRvalExpr(), List.of());
+    };
   }
 
   private static IdRvalChunk toIdRval(
@@ -235,7 +324,6 @@ public class Ir3CodeGen {
       case EXPR_BINARY -> null;
         // TODO
       case EXPR_UNARY -> null;
-        // TODO
       case EXPR_DOT -> {
         final var de = (jlitec.ast.expr.DotExpr) expr;
         final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()).get());
@@ -253,36 +341,13 @@ public class Ir3CodeGen {
         final var ce = (jlitec.ast.expr.CallExpr) expr;
         // call expression type should not be null
         final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()).get());
-
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        final var methodReference = ce.methodReference();
-        final var mangledMethodName =
-            mangledMethodNameMap.get(
-                new MethodDescriptor(
-                    methodReference.cname(),
-                    methodReference.methodName(),
-                    methodReference.returnType(),
-                    methodReference.argTypes()));
-        final var target = new IdRvalExpr(mangledMethodName);
-        final var argsRvalChunk =
-            ce.args().stream()
-                .map(e -> toRval(e, cname, mangledMethodNameMap, localVarMap, fieldMap, gen))
-                .collect(Collectors.toUnmodifiableList());
-        final var thisIdRvalExpr = resolveThis(ce.target(), gen);
-        final var argsRvalExpr =
-            Stream.concat(
-                    Stream.of(thisIdRvalExpr.idRval()), argsRvalChunk.stream().map(RvalChunk::rval))
-                .collect(Collectors.toUnmodifiableList());
-        final var additionalStmtList =
-            argsRvalChunk.stream()
-                .flatMap(i -> i.stmtList().stream())
-                .collect(Collectors.toUnmodifiableList());
+        final var exprChunk = toExpr(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new IdRvalChunk(
             idRvalExpr,
             ImmutableList.<Stmt>builder()
-                .addAll(additionalStmtList)
-                .addAll(thisIdRvalExpr.stmtList())
-                .add(new VarAssignStmt(idRvalExpr, new CallExpr(target, argsRvalExpr)))
+                .addAll(exprChunk.stmtList())
+                .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
                 .build());
       }
       case EXPR_THIS -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
@@ -308,8 +373,7 @@ public class Ir3CodeGen {
         yield new IdRvalChunk(
             idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
       }
-        // TODO
-      case EXPR_NULL -> null;
+      case EXPR_NULL -> throw new RuntimeException("It is not possible to create idRval for null.");
     };
   }
 
@@ -327,7 +391,8 @@ public class Ir3CodeGen {
           new StringRvalExpr(((jlitec.ast.expr.StringLiteralExpr) expr).value()), List.of());
       case EXPR_BOOL_LITERAL -> new RvalChunk(
           new BoolRvalExpr(((jlitec.ast.expr.BoolLiteralExpr) expr).value()), List.of());
-      case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW, EXPR_NULL -> {
+      case EXPR_NULL -> new RvalChunk(new NullRvalExpr(), List.of());
+      case EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_CALL, EXPR_THIS, EXPR_ID, EXPR_NEW -> {
         final var idRvalChunk =
             toIdRval(expr, cname, mangledMethodNameMap, fieldMap, localVarMap, gen);
         // TODO remove once done
