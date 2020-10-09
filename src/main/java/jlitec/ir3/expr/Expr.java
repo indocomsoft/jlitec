@@ -1,5 +1,7 @@
 package jlitec.ir3.expr;
 
-public interface Expr {
+import jlitec.Printable;
+
+public interface Expr extends Printable {
   ExprType getExprType();
 }

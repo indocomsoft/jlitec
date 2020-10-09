@@ -7,4 +7,9 @@ public record FieldExpr(IdRvalExpr target, String field) implements Expr {
   public ExprType getExprType() {
     return ExprType.FIELD;
   }
+
+  @Override
+  public String print(int indent) {
+    return target.print(indent) + "." + field;
+  }
 }

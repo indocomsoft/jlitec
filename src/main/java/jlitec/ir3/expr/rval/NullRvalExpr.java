@@ -5,4 +5,9 @@ public record NullRvalExpr() implements RvalExpr {
   public RvalExprType getRvalExprType() {
     return RvalExprType.NULL;
   }
+
+  @Override
+  public String print(int indent) {
+    return "null";
+  }
 }

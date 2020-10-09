@@ -5,4 +5,9 @@ public record IdRvalExpr(String id) implements RvalExpr {
   public RvalExprType getRvalExprType() {
     return RvalExprType.ID;
   }
+
+  @Override
+  public String print(int indent) {
+    return id;
+  }
 }

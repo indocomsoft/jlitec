@@ -5,4 +5,9 @@ public record StringRvalExpr(String value) implements RvalExpr {
   public RvalExprType getRvalExprType() {
     return RvalExprType.STRING;
   }
+
+  @Override
+  public String print(int indent) {
+    return "\"" + value + "\"";
+  }
 }

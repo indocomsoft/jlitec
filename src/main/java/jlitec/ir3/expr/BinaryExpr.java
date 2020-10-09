@@ -7,4 +7,9 @@ public record BinaryExpr(BinaryOp op, RvalExpr lhs, RvalExpr rhs) implements Exp
   public ExprType getExprType() {
     return ExprType.BINARY;
   }
+
+  @Override
+  public String print(int indent) {
+    return lhs.print(indent) + " " + op.print(indent) + " " + rhs.print(indent);
+  }
 }

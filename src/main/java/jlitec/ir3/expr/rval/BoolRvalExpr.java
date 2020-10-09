@@ -5,4 +5,9 @@ public record BoolRvalExpr(boolean value) implements RvalExpr {
   public RvalExprType getRvalExprType() {
     return RvalExprType.BOOL;
   }
+
+  @Override
+  public String print(int indent) {
+    return value ? "true" : "false";
+  }
 }
