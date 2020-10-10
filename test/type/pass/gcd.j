@@ -65,6 +65,5 @@ class Div {
       this.quotient = this.quotient + 1;
     }
     this.remainder = dividend;
-    return;
   }
 }

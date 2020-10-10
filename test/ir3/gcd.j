@@ -57,7 +57,7 @@ class Div {
       this.remainder = -1;
       return;
     } else {
-      while (false) {}
+      while (false) { }
     }
       this.quotient = 0;
     while (dividend >= this.divisor) {
@@ -65,6 +65,5 @@ class Div {
       this.quotient = this.quotient + 1;
     }
     this.remainder = dividend;
-    return;
   }
 }

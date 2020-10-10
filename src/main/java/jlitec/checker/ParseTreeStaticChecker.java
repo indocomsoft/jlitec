@@ -567,7 +567,7 @@ public class ParseTreeStaticChecker {
               "incompatible types",
               List.of(vas));
         }
-        yield expectedType;
+        yield new Type.Basic(JliteType.VOID);
       }
       case STMT_FIELD_ASSIGN -> {
         final var fas = (FieldAssignStmt) stmt;
@@ -596,7 +596,7 @@ public class ParseTreeStaticChecker {
               "incompatible types",
               List.of(fas));
         }
-        yield expectedType;
+        yield new Type.Basic(JliteType.VOID);
       }
       case STMT_IF -> {
         final var is = (IfStmt) stmt;
@@ -635,9 +635,6 @@ public class ParseTreeStaticChecker {
                   + "'",
               "condition type is not `Bool'",
               List.of(ws.condition()));
-        }
-        if (ws.stmtList().isEmpty()) {
-          yield new Type.Basic(JliteType.VOID);
         }
         yield typecheck(ws.stmtList(), expectedReturnType, klassDescriptorMap, env);
       }
