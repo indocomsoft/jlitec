@@ -81,7 +81,7 @@ class B {
       if (a == 10) {
         return a;
       } else {
-        a = a + 1;
+        return a + 1;
       }
     }
   }
