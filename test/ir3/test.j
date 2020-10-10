@@ -11,6 +11,8 @@ class B {
   Bool b;
   Void f(Int a, String b) {
     Bool c;
+    z = 5;
+    this.baa = this;
     this.b = false;
     c = this.b;
     while (a < 10) {
