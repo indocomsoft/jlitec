@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import jlitec.ast.MethodReference;
 import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
@@ -1086,6 +1087,9 @@ public class ParseTreeStaticChecker {
       distinctFieldNameCheck(klass);
       distinctMethodNameCheck(klass);
       distinctParamNameCheck(klass);
+      for (final var method : klass.methods()) {
+        distinctArgLocalNameCheck(method);
+      }
     }
   }
 
@@ -1170,6 +1174,22 @@ public class ParseTreeStaticChecker {
                     .collect(Collectors.toUnmodifiableList()));
           }
         }
+      }
+    }
+  }
+
+  private static void distinctArgLocalNameCheck(Method method) throws SemanticException {
+    final var grouped =
+        Stream.concat(method.args().stream(), method.vars().stream())
+            .collect(Collectors.groupingBy(v -> v.name().id()));
+    for (final var entry : grouped.entrySet()) {
+      if (entry.getValue().size() > 1) {
+        throw new SemanticException(
+            "Variables with the same name in method arguments and/or local declarations: `"
+                + entry.getKey()
+                + "'",
+            "duplicate arg and/or local variable: `" + entry.getKey() + "'",
+            entry.getValue());
       }
     }
   }
