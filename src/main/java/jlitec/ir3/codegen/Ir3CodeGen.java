@@ -2,6 +2,7 @@ package jlitec.ir3.codegen;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -55,27 +56,36 @@ public class Ir3CodeGen {
                         k.cname(),
                         k.fields().stream().map(Var::new).collect(Collectors.toUnmodifiableList())))
             .collect(Collectors.toUnmodifiableList());
+
     final var mangledMethodNameMap = generateMangledMethodNames(program);
     final var methodList = new ArrayList<Method>();
     for (final var klass : program.klassList()) {
       for (final var method : klass.methods()) {
         final var tempVarGen = new TempVarGen();
-        final var instructions = new ArrayList<Stmt>();
         final var localVarMap =
-            method.vars().stream()
+            Stream.concat(method.vars().stream(), method.args().stream())
                 .collect(
                     Collectors.toUnmodifiableMap(jlitec.ast.Var::id, v -> Type.fromAst(v.type())));
         final var fieldMap =
             klass.fields().stream()
                 .collect(
                     Collectors.toUnmodifiableMap(jlitec.ast.Var::id, v -> Type.fromAst(v.type())));
-
-        for (final var stmt : method.stmtList()) {
-          final List<Stmt> genStmts =
-              genStmt(stmt, klass, mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
-          // TODO remove conditional
-          if (genStmts != null) instructions.addAll(genStmts);
-        }
+        // TODO remove optional
+        final var instructions =
+            method.stmtList().stream()
+                .flatMap(
+                    stmt ->
+                        Optional.ofNullable(
+                            genStmt(
+                                stmt,
+                                klass,
+                                mangledMethodNameMap,
+                                localVarMap,
+                                fieldMap,
+                                tempVarGen))
+                            .stream())
+                .flatMap(Collection::stream)
+                .collect(Collectors.toUnmodifiableList());
 
         methodList.add(
             new Method(
