@@ -39,6 +39,7 @@ import jlitec.parsetree.stmt.VarAssignStmt;
 import jlitec.parsetree.stmt.WhileStmt;
 
 public class ParseTreeStaticChecker {
+  // prevent instantiation
   private ParseTreeStaticChecker() {}
 
   /**
@@ -98,7 +99,7 @@ public class ParseTreeStaticChecker {
         if (type instanceof KlassType klassType
             && !klassDescriptorMap.containsKey(klassType.cname())) {
           throw new SemanticException(
-              "Non-existent class type `" + klass.name().id() + "'",
+              "Non-existent class type `" + type.print(0) + "'",
               "non-existent class type",
               List.of(type));
         }
@@ -110,7 +111,7 @@ public class ParseTreeStaticChecker {
         if (returnType instanceof KlassType klassType
             && !klassDescriptorMap.containsKey(klassType.cname())) {
           throw new SemanticException(
-              "Non-existent class type `" + klass.name().id() + "'",
+              "Non-existent class type `" + returnType.print(0) + "'",
               "non-existent class type",
               List.of(returnType));
         }
@@ -120,7 +121,7 @@ public class ParseTreeStaticChecker {
           if (type instanceof KlassType klassType
               && !klassDescriptorMap.containsKey(klassType.cname())) {
             throw new SemanticException(
-                "Non-existent class type `" + klass.name().id() + "'",
+                "Non-existent class type `" + type.print(0) + "'",
                 "non-existent class type",
                 List.of(type));
           }
@@ -131,7 +132,7 @@ public class ParseTreeStaticChecker {
           if (type instanceof KlassType klassType
               && !klassDescriptorMap.containsKey(klassType.cname())) {
             throw new SemanticException(
-                "Non-existent class type `" + klass.name().id() + "'",
+                "Non-existent class type `" + type.print(0) + "'",
                 "non-existent class type",
                 List.of(type));
           }

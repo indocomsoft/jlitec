@@ -67,7 +67,6 @@ public class Ir3Command implements Command {
 
     final jlitec.ast.Program astProgram = ParseTreeStaticChecker.toAst(program, classDescriptorMap);
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    System.out.println(ir3Program);
     System.out.println(ir3Program.print(0));
   }
 }
