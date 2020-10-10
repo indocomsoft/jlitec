@@ -289,7 +289,7 @@ public class ParseTreeStaticChecker {
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_NEW, EXPR_NULL, EXPR_CALL -> throw new RuntimeException(
           "Trying to call non-callable expression.");
       case EXPR_ID -> {
         // local call
@@ -307,8 +307,20 @@ public class ParseTreeStaticChecker {
                   final var ne = (NewExpr) de.target();
                   yield new jlitec.ast.expr.NewExpr(ne.cname());
                 }
-                default -> transformCallTarget(
-                    de.target(), typeAnnotation, klassDescriptorMap, env);
+                case EXPR_THIS -> {
+                  final var te = (jlitec.parsetree.expr.ThisExpr) de.target();
+                  yield new ThisExpr(new TypeAnnotation.Klass(env.lookup("this").get().type()));
+                }
+                case EXPR_CALL -> {
+                  try {
+                    yield toAst(target, klassDescriptorMap, env);
+                  } catch (SemanticException e) {
+                    throw new RuntimeException(e);
+                  }
+                }
+                case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_ID, EXPR_NULL, EXPR_PAREN -> {
+                  yield transformCallTarget(de.target(), typeAnnotation, klassDescriptorMap, env);
+                }
               };
           yield new jlitec.ast.expr.DotExpr(newTarget, de.id(), toAst(targetType));
         } catch (SemanticException e) {
