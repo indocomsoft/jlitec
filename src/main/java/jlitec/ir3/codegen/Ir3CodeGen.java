@@ -2,7 +2,6 @@ package jlitec.ir3.codegen;
 
 import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -73,22 +72,19 @@ public class Ir3CodeGen {
             klass.fields().stream()
                 .collect(
                     Collectors.toUnmodifiableMap(jlitec.ast.Var::id, v -> Type.fromAst(v.type())));
-        // TODO remove optional
         final var instructions =
             method.stmtList().stream()
                 .flatMap(
                     stmt ->
-                        Optional.ofNullable(
-                            genStmt(
-                                stmt,
-                                klass,
-                                mangledMethodNameMap,
-                                localVarMap,
-                                fieldMap,
-                                tempVarGen,
-                                labelGen))
+                        genStmt(
+                            stmt,
+                            klass,
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen,
+                            labelGen)
                             .stream())
-                .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList());
 
         methodList.add(
@@ -169,9 +165,6 @@ public class Ir3CodeGen {
       }
       case STMT_WHILE -> {
         final var ws = (jlitec.ast.stmt.WhileStmt) stmt;
-        if (ws.stmtList().isEmpty()) {
-          yield List.of();
-        }
         final var conditionChunk =
             toOppositeRelExpr(
                 ws.condition(),
@@ -303,20 +296,17 @@ public class Ir3CodeGen {
         if (rs.maybeExpr().isEmpty()) {
           yield List.of(new ReturnStmt(Optional.empty()));
         } else {
-          final var exprChunk =
-              toExpr(
+          final var idRvalChunk =
+              toIdRval(
                   rs.maybeExpr().get(),
                   klass.cname(),
                   mangledMethodNameMap,
                   localVarMap,
                   fieldMap,
                   tempVarGen);
-          final var tempVar = tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()));
-          final var idRvalExpr = new IdRvalExpr(tempVar.id());
           yield ImmutableList.<Stmt>builder()
-              .addAll(exprChunk.stmtList())
-              .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
-              .add(new ReturnStmt(Optional.of(idRvalExpr)))
+              .addAll(idRvalChunk.stmtList())
+              .add(new ReturnStmt(Optional.of(idRvalChunk.idRval())))
               .build();
         }
       }
@@ -453,7 +443,7 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (expr.getExprType()) {
-      case EXPR_BOOL_LITERAL, EXPR_STRING_LITERAL, EXPR_INT_LITERAL, EXPR_NULL, EXPR_THIS -> {
+      case EXPR_BOOL_LITERAL, EXPR_STRING_LITERAL, EXPR_INT_LITERAL, EXPR_NULL -> {
         // delegate to `toRval`
         final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new ExprChunk(rvalChunk.rval(), rvalChunk.stmtList());
@@ -526,6 +516,7 @@ public class Ir3CodeGen {
           yield new ExprChunk(new FieldExpr(new IdRvalExpr("this"), ie.id()), List.of());
         }
       }
+      case EXPR_THIS -> new ExprChunk(new IdRvalExpr("this"), List.of());
       case EXPR_NEW -> new ExprChunk(
           new NewExpr(((jlitec.ast.expr.NewExpr) expr).cname()), List.of());
     };
