@@ -656,8 +656,9 @@ public class Ir3CodeGen {
         final var methodDescriptor =
             new MethodDescriptor(
                 klass.cname(), method.id(), method.returnType(), method.argTypes());
-        if (result.containsKey(methodDescriptor))
+        if (result.containsKey(methodDescriptor)) {
           throw new RuntimeException("Duplicate overloaded method detected.");
+        }
         result.put(
             methodDescriptor,
             method.id().equals("main") ? "main" : "%" + klass.cname() + "_" + counter);

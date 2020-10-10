@@ -1036,28 +1036,36 @@ public class ParseTreeStaticChecker {
   }
 
   private static boolean isCompatible(List<String> actualTypes, List<String> expectedTypes) {
-    if (actualTypes.size() != expectedTypes.size()) return false;
+    if (actualTypes.size() != expectedTypes.size()) {
+      return false;
+    }
     final var primitiveType = Set.of(JliteType.BOOL.print(0), JliteType.INT.print(0));
     for (int i = 0; i < actualTypes.size(); i++) {
       final var actualType = actualTypes.get(i);
       final var expectedType = expectedTypes.get(i);
 
       if (primitiveType.contains(expectedType)) {
-        if (!expectedType.equals(actualType)) return false;
-      } else if (expectedType.equals(JliteType.STRING.print(0))) {
-        if (!Set.of(JliteType.STRING.print(0), Type.Basic.NULL.type()).contains(actualType))
+        if (!expectedType.equals(actualType)) {
           return false;
+        }
+      } else if (expectedType.equals(JliteType.STRING.print(0))) {
+        if (!Set.of(JliteType.STRING.print(0), Type.Basic.NULL.type()).contains(actualType)) {
+          return false;
+        }
       } else {
         // Must be non-string, non-primitive, class type
-        if (!actualType.equals(Type.Basic.NULL.type()) && !actualType.equals(expectedType))
+        if (!actualType.equals(Type.Basic.NULL.type()) && !actualType.equals(expectedType)) {
           return false;
+        }
       }
     }
     return true;
   }
 
   private static boolean isCompatible(Type.Basic type1, Type.Basic type2) {
-    if (type1.equals(type2)) return true;
+    if (type1.equals(type2)) {
+      return true;
+    }
     final var primitiveType = Set.of(JliteType.BOOL.print(0), JliteType.INT.print(0));
     // if types are not equal
     if (primitiveType.contains(type1.type())) {
