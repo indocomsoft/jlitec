@@ -31,18 +31,24 @@ public class ParseTreeStaticCheckerTest {
   @MethodSource("loadPassingTypecheckTests")
   void testPassingTypecheckTests(String filename) throws Exception {
     Program program = new ParserWrapper(filename).parse();
-    final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
-    assertDoesNotThrow(() -> ParseTreeStaticChecker.typecheck(program, klassDescriptorMap));
+    assertDoesNotThrow(
+        () -> {
+          final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+          ParseTreeStaticChecker.typecheck(program, klassDescriptorMap);
+          ParseTreeStaticChecker.toAst(program, klassDescriptorMap);
+        });
   }
 
   @ParameterizedTest
   @MethodSource("loadFailingTypecheckTests")
   void testFailingTypecheckTests(String filename) throws Exception {
     Program program = new ParserWrapper(filename).parse();
-    final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
     assertThrows(
         SemanticException.class,
-        () -> ParseTreeStaticChecker.typecheck(program, klassDescriptorMap));
+        () -> {
+          final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
+          ParseTreeStaticChecker.typecheck(program, klassDescriptorMap);
+        });
   }
 
   private static Stream<String> loadPassingDistinctNameTests() throws IOException {

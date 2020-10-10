@@ -199,9 +199,9 @@ public class ParseTreeStaticChecker {
         .map(
             stmt -> {
               try {
-                // should not throw, typecheck has already been performed.
                 return toAst(stmt, expectedReturnType, klassDescriptorMap, env);
               } catch (SemanticException e) {
+                // should not throw, typecheck has already been performed.
                 throw new RuntimeException(e);
               }
             })
@@ -328,8 +328,10 @@ public class ParseTreeStaticChecker {
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
-          "Trying to call non-callable expression.");
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> {
+        // should not throw, checks have already been performed
+        throw new RuntimeException("Trying to call non-callable expression.");
+      }
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
@@ -379,6 +381,7 @@ public class ParseTreeStaticChecker {
                   .collect(Collectors.toUnmodifiableList());
           yield new MethodReference(targetType.type(), de.id(), returnType, astArgTypes);
         } catch (SemanticException e) {
+          // should not throw, checks have already been performed
           throw new RuntimeException(e);
         }
       }
