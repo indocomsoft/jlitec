@@ -349,7 +349,7 @@ public class ParseTreeStaticChecker {
         final var ie = (IdExpr) target;
         // this, and the method descriptor must exist in the env
         final var cname = env.lookup("this").get().type();
-        final var klassDescriptor = klassDescriptorMap.get(env.lookup("this").get().type());
+        final var klassDescriptor = klassDescriptorMap.get(cname);
         final var methodDescriptors = klassDescriptor.methods().get(ie.id());
         final var methodDescriptor =
             methodDescriptors.stream()
