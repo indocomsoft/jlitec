@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.ast.expr.DotExpr;
+import jlitec.ast.expr.ExprType;
 import jlitec.ir3.Data;
 import jlitec.ir3.Ir3Type;
 import jlitec.ir3.Method;
@@ -237,13 +238,13 @@ public class Ir3CodeGen {
                 localVarMap,
                 fieldMap,
                 tempVarGen);
-        final var rhs =
+        final var rhsChunk =
             toExpr(
                 fas.rhs(), klass.cname(), mangledMethodNameMap, localVarMap, fieldMap, tempVarGen);
         yield ImmutableList.<Stmt>builder()
             .addAll(lhsTarget.stmtList())
-            .addAll(rhs.stmtList())
-            .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhs.expr()))
+            .addAll(rhsChunk.stmtList())
+            .add(new FieldAssignStmt(lhsTarget.idRval(), fas.lhsId(), rhsChunk.expr()))
             .build();
       }
       case STMT_CALL -> {
@@ -296,14 +297,23 @@ public class Ir3CodeGen {
         if (rs.maybeExpr().isEmpty()) {
           yield List.of(new ReturnStmt(Optional.empty()));
         } else {
-          final var idRvalChunk =
-              toIdRval(
-                  rs.maybeExpr().get(),
-                  klass.cname(),
-                  mangledMethodNameMap,
-                  localVarMap,
-                  fieldMap,
-                  tempVarGen);
+          final IdRvalChunk idRvalChunk;
+          if (rs.maybeExpr().get().getExprType() == ExprType.EXPR_NULL) {
+            final var tempVar = tempVarGen.gen(Type.fromTypeAnnotation(rs.typeAnnotation()));
+            final var idRvalExpr = new IdRvalExpr(tempVar.id());
+            idRvalChunk =
+                new IdRvalChunk(
+                    idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NullRvalExpr())));
+          } else {
+            idRvalChunk =
+                toIdRval(
+                    rs.maybeExpr().get(),
+                    klass.cname(),
+                    mangledMethodNameMap,
+                    localVarMap,
+                    fieldMap,
+                    tempVarGen);
+          }
           yield ImmutableList.<Stmt>builder()
               .addAll(idRvalChunk.stmtList())
               .add(new ReturnStmt(Optional.of(idRvalChunk.idRval())))
