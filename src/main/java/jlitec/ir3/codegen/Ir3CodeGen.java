@@ -12,7 +12,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.ast.expr.ExprType;
 import jlitec.ir3.Data;
-import jlitec.ir3.Ir3Type;
 import jlitec.ir3.Method;
 import jlitec.ir3.Program;
 import jlitec.ir3.Type;
@@ -297,8 +296,16 @@ public class Ir3CodeGen {
                 .build());
       }
       case EXPR_THIS -> new ExprChunk(new IdRvalExpr("this"), List.of());
-      case EXPR_ID -> new ExprChunk(
-          new IdRvalExpr(((jlitec.ast.expr.IdExpr) expr).id()), List.of());
+      case EXPR_ID -> {
+        final var ie = (jlitec.ast.expr.IdExpr) expr;
+        if (localVarMap.containsKey(ie.id())) {
+          // local var
+          yield new ExprChunk(new IdRvalExpr(ie.id()), List.of());
+        } else {
+          // a field in `this`
+          yield new ExprChunk(new FieldExpr(new IdRvalExpr("this"), ie.id()), List.of());
+        }
+      }
       case EXPR_NEW -> new ExprChunk(
           new NewExpr(((jlitec.ast.expr.NewExpr) expr).cname()), List.of());
       case EXPR_NULL -> new ExprChunk(new NullRvalExpr(), List.of());
@@ -313,81 +320,22 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (expr.getExprType()) {
-      case EXPR_INT_LITERAL -> {
-        final var ile = (jlitec.ast.expr.IntLiteralExpr) expr;
-        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL -> {
+        final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(expr.typeAnnotation()));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalChunk(
-            idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new IntRvalExpr(ile.value()))));
-      }
-      case EXPR_STRING_LITERAL -> {
-        final var sle = (jlitec.ast.expr.StringLiteralExpr) expr;
-        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalChunk(
-            idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new StringRvalExpr(sle.value()))));
-      }
-      case EXPR_BOOL_LITERAL -> {
-        final var ble = (jlitec.ast.expr.BoolLiteralExpr) expr;
-        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalChunk(
-            idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new BoolRvalExpr(ble.value()))));
-      }
-      case EXPR_BINARY -> {
-        final var be = (jlitec.ast.expr.BinaryExpr) expr;
-        final var lhsChunk =
-            toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        final var rhsChunk =
-            toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(be.typeAnnotation()));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalChunk(
-            idRvalExpr,
-            ImmutableList.<Stmt>builder()
-                .addAll(lhsChunk.stmtList())
-                .addAll(rhsChunk.stmtList())
-                .add(
-                    new VarAssignStmt(
-                        idRvalExpr,
-                        new BinaryExpr(
-                            BinaryOp.fromAst(be.op()), lhsChunk.rval(), rhsChunk.rval())))
-                .build());
-      }
-      case EXPR_UNARY -> {
-        final var ue = (jlitec.ast.expr.UnaryExpr) expr;
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(ue.typeAnnotation()));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        final var rvalChunk =
-            toRval(ue.expr(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         yield new IdRvalChunk(
             idRvalExpr,
             ImmutableList.<Stmt>builder()
                 .addAll(rvalChunk.stmtList())
-                .add(
-                    new VarAssignStmt(
-                        idRvalExpr, new UnaryExpr(UnaryOp.fromAst(ue.op()), rvalChunk.rval())))
+                .add(new VarAssignStmt(idRvalExpr, rvalChunk.rval()))
                 .build());
       }
-      case EXPR_DOT -> {
-        final var de = (jlitec.ast.expr.DotExpr) expr;
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        final var idRvalChunk =
-            toIdRval(de.target(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        yield new IdRvalChunk(
-            idRvalExpr,
-            ImmutableList.<Stmt>builder()
-                .addAll(idRvalChunk.stmtList())
-                .add(new VarAssignStmt(idRvalExpr, new FieldExpr(idRvalChunk.idRval(), de.id())))
-                .build());
-      }
-      case EXPR_CALL -> {
-        final var ce = (jlitec.ast.expr.CallExpr) expr;
-        // call expression type should not be null
-        final var tempVar = gen.gen(Type.fromTypeAnnotation(ce.typeAnnotation()));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+      case EXPR_BINARY, EXPR_UNARY, EXPR_NEW, EXPR_CALL, EXPR_DOT, EXPR_ID -> {
+        // delegate to `toExpr`
         final var exprChunk = toExpr(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var tempVar = gen.gen(Type.fromTypeAnnotation(expr.typeAnnotation()));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield new IdRvalChunk(
             idRvalExpr,
             ImmutableList.<Stmt>builder()
@@ -396,28 +344,6 @@ public class Ir3CodeGen {
                 .build());
       }
       case EXPR_THIS -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
-      case EXPR_ID -> {
-        final var ie = (jlitec.ast.expr.IdExpr) expr;
-        if (localVarMap.containsKey(ie.id())) {
-          // local var
-          yield new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
-        } else {
-          // a field in `this`
-          final var tempVar = gen.gen(fieldMap.get(ie.id()));
-          final var idRvalExpr = new IdRvalExpr(tempVar.id());
-          yield new IdRvalChunk(
-              idRvalExpr,
-              List.of(
-                  new VarAssignStmt(idRvalExpr, new FieldExpr(new IdRvalExpr("this"), ie.id()))));
-        }
-      }
-      case EXPR_NEW -> {
-        final var ne = (jlitec.ast.expr.NewExpr) expr;
-        final var tempVar = gen.gen(new Type.KlassType(ne.cname()));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalChunk(
-            idRvalExpr, List.of(new VarAssignStmt(idRvalExpr, new NewExpr(ne.cname()))));
-      }
       case EXPR_NULL -> throw new RuntimeException("It is not possible to create idRval for null.");
     };
   }
@@ -470,7 +396,6 @@ public class Ir3CodeGen {
     }
     final var de = (jlitec.ast.expr.DotExpr) target;
     final var idRvalChunk = resolveDotExprThis(de.target(), gen);
-    // type annotation should not be null at this stage.
     final var tempVar = gen.gen(Type.fromTypeAnnotation(de.typeAnnotation()));
     final var idRvalExpr = new IdRvalExpr(tempVar.id());
     return new IdRvalChunk(
