@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.ast.expr.ExprType;
 import jlitec.ir3.Data;
+import jlitec.ir3.Ir3Type;
 import jlitec.ir3.Method;
 import jlitec.ir3.Program;
 import jlitec.ir3.Type;
@@ -29,7 +30,9 @@ import jlitec.ir3.expr.rval.IntRvalExpr;
 import jlitec.ir3.expr.rval.NullRvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
 import jlitec.ir3.stmt.CallStmt;
+import jlitec.ir3.stmt.CmpStmt;
 import jlitec.ir3.stmt.FieldAssignStmt;
+import jlitec.ir3.stmt.GotoStmt;
 import jlitec.ir3.stmt.PrintlnStmt;
 import jlitec.ir3.stmt.ReadlnStmt;
 import jlitec.ir3.stmt.ReturnStmt;
@@ -58,6 +61,7 @@ public class Ir3CodeGen {
 
     final var mangledMethodNameMap = generateMangledMethodNames(program);
     final var methodList = new ArrayList<Method>();
+    final var labelGen = new LabelGen();
     for (final var klass : program.klassList()) {
       for (final var method : klass.methods()) {
         final var tempVarGen = new TempVarGen();
@@ -81,7 +85,8 @@ public class Ir3CodeGen {
                                 mangledMethodNameMap,
                                 localVarMap,
                                 fieldMap,
-                                tempVarGen))
+                                tempVarGen,
+                                labelGen))
                             .stream())
                 .flatMap(Collection::stream)
                 .collect(Collectors.toUnmodifiableList());
@@ -109,12 +114,95 @@ public class Ir3CodeGen {
       Map<MethodDescriptor, String> mangledMethodNameMap,
       Map<String, Type> localVarMap,
       Map<String, Type> fieldMap,
-      TempVarGen tempVarGen) {
+      TempVarGen tempVarGen,
+      LabelGen labelGen) {
     return switch (stmt.getStmtType()) {
+      case STMT_IF -> {
+        final var is = (jlitec.ast.stmt.IfStmt) stmt;
+        final var conditionChunk =
+            toRelExpr(
+                is.condition(),
+                klass.cname(),
+                mangledMethodNameMap,
+                localVarMap,
+                fieldMap,
+                tempVarGen);
+        final var trueLabel = labelGen.gen();
+        final var nextLabel = labelGen.gen();
+        final var trueStmtList =
+            is.thenStmtList().stream()
+                .flatMap(
+                    s ->
+                        genStmt(
+                            s,
+                            klass,
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen,
+                            labelGen)
+                            .stream())
+                .collect(Collectors.toUnmodifiableList());
+        final var elseStmtList =
+            is.elseStmtList().stream()
+                .flatMap(
+                    s ->
+                        genStmt(
+                            s,
+                            klass,
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen,
+                            labelGen)
+                            .stream())
+                .collect(Collectors.toUnmodifiableList());
+        yield ImmutableList.<Stmt>builder()
+            .addAll(conditionChunk.stmtList())
+            .add(new CmpStmt(conditionChunk.expr(), trueLabel))
+            .addAll(elseStmtList)
+            .add(new GotoStmt(nextLabel))
+            .add(trueLabel)
+            .addAll(trueStmtList)
+            .add(nextLabel)
+            .build();
+      }
         // TODO
-      case STMT_IF -> null;
-        // TODO
-      case STMT_WHILE -> null;
+      case STMT_WHILE -> {
+        final var ws = (jlitec.ast.stmt.WhileStmt) stmt;
+        final var conditionChunk =
+            toOppositeRelExpr(
+                ws.condition(),
+                klass.cname(),
+                mangledMethodNameMap,
+                localVarMap,
+                fieldMap,
+                tempVarGen);
+        final var beginLabel = labelGen.gen();
+        final var nextLabel = labelGen.gen();
+        final var stmtList =
+            ws.stmtList().stream()
+                .flatMap(
+                    s ->
+                        genStmt(
+                            s,
+                            klass,
+                            mangledMethodNameMap,
+                            localVarMap,
+                            fieldMap,
+                            tempVarGen,
+                            labelGen)
+                            .stream())
+                .collect(Collectors.toUnmodifiableList());
+        yield ImmutableList.<Stmt>builder()
+            .add(beginLabel)
+            .addAll(conditionChunk.stmtList())
+            .add(new CmpStmt(conditionChunk.expr(), nextLabel))
+            .addAll(stmtList)
+            .add(new GotoStmt(beginLabel))
+            .add(nextLabel)
+            .build();
+      }
       case STMT_READLN -> {
         final var rs = (jlitec.ast.stmt.ReadlnStmt) stmt;
         yield List.of(new ReadlnStmt(new IdRvalExpr(rs.id())));
@@ -226,6 +314,128 @@ public class Ir3CodeGen {
     };
   }
 
+  private static ExprChunk toOppositeRelExpr(
+      jlitec.ast.expr.Expr expr,
+      String cname,
+      Map<MethodDescriptor, String> mangledMethodNameMap,
+      Map<String, Type> localVarMap,
+      Map<String, Type> fieldMap,
+      TempVarGen gen) {
+    return switch (expr.getExprType()) {
+      case EXPR_BOOL_LITERAL -> new ExprChunk(
+          new BoolRvalExpr(!((jlitec.ast.expr.BoolLiteralExpr) expr).value()), List.of());
+      case EXPR_BINARY -> {
+        final var be = (jlitec.ast.expr.BinaryExpr) expr;
+        final var op = be.op();
+        yield switch (op) {
+          case LT, GT, LEQ, GEQ, EQ, NEQ -> {
+            final var oppositeOp =
+                switch (op) {
+                  case LT -> BinaryOp.GEQ;
+                  case GT -> BinaryOp.LEQ;
+                  case LEQ -> BinaryOp.GT;
+                  case GEQ -> BinaryOp.LT;
+                  case EQ -> BinaryOp.NEQ;
+                  case NEQ -> BinaryOp.EQ;
+                  case OR, AND, PLUS, MINUS, MULT, DIV -> throw new RuntimeException(
+                      "This is literally impossible to reach in toOppositeRelExpr");
+                };
+            final var lhs =
+                toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            final var rhs =
+                toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            yield new ExprChunk(
+                new BinaryExpr(oppositeOp, lhs.rval(), rhs.rval()),
+                ImmutableList.<Stmt>builder()
+                    .addAll(lhs.stmtList())
+                    .addAll(rhs.stmtList())
+                    .build());
+          }
+          case OR, AND -> {
+            final var rvalChunk =
+                toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
+            final var idRvalExpr = new IdRvalExpr(tempVar.id());
+            yield new ExprChunk(
+                idRvalExpr,
+                ImmutableList.<Stmt>builder()
+                    .addAll(rvalChunk.stmtList())
+                    .add(
+                        new VarAssignStmt(idRvalExpr, new UnaryExpr(UnaryOp.NOT, rvalChunk.rval())))
+                    .build());
+          }
+          case PLUS, MINUS, MULT, DIV -> throw new RuntimeException(
+              "typecheck failure at toOppositeRelExpr");
+        };
+      }
+      case EXPR_UNARY, EXPR_DOT, EXPR_CALL -> {
+        final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        yield new ExprChunk(
+            idRvalExpr,
+            ImmutableList.<Stmt>builder()
+                .addAll(rvalChunk.stmtList())
+                .add(new VarAssignStmt(idRvalExpr, new UnaryExpr(UnaryOp.NOT, rvalChunk.rval())))
+                .build());
+      }
+      case EXPR_ID -> new ExprChunk(
+          new IdRvalExpr(((jlitec.ast.expr.IdExpr) expr).id()), List.of());
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_NEW, EXPR_NULL, EXPR_THIS -> {
+        // this should not have passed typechecking
+        throw new RuntimeException("non-boolean type passed to `toRelExpr");
+      }
+    };
+  }
+
+  private static ExprChunk toRelExpr(
+      jlitec.ast.expr.Expr expr,
+      String cname,
+      Map<MethodDescriptor, String> mangledMethodNameMap,
+      Map<String, Type> localVarMap,
+      Map<String, Type> fieldMap,
+      TempVarGen gen) {
+    return switch (expr.getExprType()) {
+      case EXPR_BOOL_LITERAL -> new ExprChunk(
+          new BoolRvalExpr(((jlitec.ast.expr.BoolLiteralExpr) expr).value()), List.of());
+      case EXPR_BINARY -> {
+        final var be = (jlitec.ast.expr.BinaryExpr) expr;
+        final var op = be.op();
+        yield switch (op) {
+          case LT, GT, LEQ, GEQ, EQ, NEQ -> {
+            final var lhs =
+                toRval(be.lhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            final var rhs =
+                toRval(be.rhs(), cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            yield new ExprChunk(
+                new BinaryExpr(BinaryOp.fromAst(op), lhs.rval(), rhs.rval()),
+                ImmutableList.<Stmt>builder()
+                    .addAll(lhs.stmtList())
+                    .addAll(rhs.stmtList())
+                    .build());
+          }
+          case OR, AND -> {
+            final var rvalChunk =
+                toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+            yield new ExprChunk(rvalChunk.rval(), rvalChunk.stmtList());
+          }
+          case PLUS, MINUS, MULT, DIV -> throw new RuntimeException(
+              "typecheck failure at toRelExpr");
+        };
+      }
+      case EXPR_UNARY, EXPR_DOT, EXPR_CALL -> {
+        final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        yield new ExprChunk(rvalChunk.rval(), rvalChunk.stmtList());
+      }
+      case EXPR_ID -> new ExprChunk(
+          new IdRvalExpr(((jlitec.ast.expr.IdExpr) expr).id()), List.of());
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_NEW, EXPR_NULL, EXPR_THIS -> {
+        // this should not have passed typechecking
+        throw new RuntimeException("non-boolean type passed to `toRelExpr");
+      }
+    };
+  }
+
   private static ExprChunk toExpr(
       jlitec.ast.expr.Expr expr,
       String cname,
@@ -319,7 +529,7 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (expr.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_NEW, EXPR_CALL, EXPR_DOT, EXPR_ID -> {
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_NEW, EXPR_CALL, EXPR_DOT -> {
         // delegate to `toExpr` and wrap with a temp var.
         final var exprChunk = toExpr(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         final var tempVar = gen.gen(Type.fromTypeAnnotation(expr.typeAnnotation()));
@@ -330,6 +540,21 @@ public class Ir3CodeGen {
                 .addAll(exprChunk.stmtList())
                 .add(new VarAssignStmt(idRvalExpr, exprChunk.expr()))
                 .build());
+      }
+      case EXPR_ID -> {
+        final var ie = (jlitec.ast.expr.IdExpr) expr;
+        if (localVarMap.containsKey(ie.id())) {
+          // local var
+          yield new IdRvalChunk(new IdRvalExpr(ie.id()), List.of());
+        } else {
+          // a field in `this`
+          final var tempVar = gen.gen(Type.fromTypeAnnotation(expr.typeAnnotation()));
+          final var idRvalExpr = new IdRvalExpr(tempVar.id());
+          yield new IdRvalChunk(
+              idRvalExpr,
+              List.of(
+                  new VarAssignStmt(idRvalExpr, new FieldExpr(new IdRvalExpr("this"), ie.id()))));
+        }
       }
       case EXPR_THIS -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
       case EXPR_NULL -> throw new RuntimeException("It is not possible to create idRval for null.");

@@ -1,8 +1,8 @@
 package jlitec.ir3.stmt;
 
-import jlitec.ir3.expr.BinaryExpr;
+import jlitec.ir3.expr.Expr;
 
-public record CmpStmt(BinaryExpr condition, LabelStmt dest) implements Stmt {
+public record CmpStmt(Expr condition, LabelStmt dest) implements Stmt {
   @Override
   public StmtType getStmtType() {
     return StmtType.CMP;
