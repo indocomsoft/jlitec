@@ -759,7 +759,9 @@ public class Ir3CodeGen {
       }
       case EXPR_DOT, EXPR_CALL, EXPR_ID -> {
         final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        yield new ExprChunk(new BinaryExpr(BinaryOp.EQ, rvalChunk.rval(), new BoolRvalExpr(false)), rvalChunk.stmtList());
+        yield new ExprChunk(
+            new BinaryExpr(BinaryOp.EQ, rvalChunk.rval(), new BoolRvalExpr(false)),
+            rvalChunk.stmtList());
       }
     };
   }

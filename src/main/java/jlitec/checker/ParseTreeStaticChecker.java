@@ -305,17 +305,15 @@ public class ParseTreeStaticChecker {
           final var targetType = typecheck(de.target(), klassDescriptorMap, env);
           final var newTarget =
               switch (de.target().getExprType()) {
+                case EXPR_THIS -> new ThisExpr(
+                    new TypeAnnotation.Klass(env.lookup("this").get().type()));
                 case EXPR_NEW -> {
                   final var ne = (NewExpr) de.target();
                   yield new jlitec.ast.expr.NewExpr(ne.cname());
                 }
-                case EXPR_THIS -> {
-                  final var te = (jlitec.parsetree.expr.ThisExpr) de.target();
-                  yield new ThisExpr(new TypeAnnotation.Klass(env.lookup("this").get().type()));
-                }
                 case EXPR_CALL -> {
                   try {
-                    yield toAst(target, klassDescriptorMap, env);
+                    yield toAst(de.target(), klassDescriptorMap, env);
                   } catch (SemanticException e) {
                     throw new RuntimeException(e);
                   }
