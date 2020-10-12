@@ -50,4 +50,17 @@ public enum BinaryOp implements Printable {
       case DIV -> DIV;
     };
   }
+
+  public static BinaryOp fromAstOpposite(jlitec.ast.expr.BinaryOp op) {
+    return switch (op) {
+      case GT -> LEQ;
+      case LT -> GEQ;
+      case GEQ -> LT;
+      case LEQ -> GT;
+      case EQ -> NEQ;
+      case NEQ -> EQ;
+      case PLUS, MINUS, MULT, DIV, OR, AND -> throw new RuntimeException(
+          "Invalid operator to get opposite");
+    };
+  }
 }
