@@ -759,14 +759,7 @@ public class Ir3CodeGen {
       }
       case EXPR_DOT, EXPR_CALL, EXPR_ID -> {
         final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-        final var tempGen = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
-        final var idRvalExpr = new IdRvalExpr(tempGen.id());
-        yield new ExprChunk(
-            idRvalExpr,
-            ImmutableList.<Stmt>builder()
-                .addAll(rvalChunk.stmtList())
-                .add(new VarAssignStmt(idRvalExpr, new UnaryExpr(UnaryOp.NOT, rvalChunk.rval())))
-                .build());
+        yield new ExprChunk(new BinaryExpr(BinaryOp.EQ, rvalChunk.rval(), new BoolRvalExpr(false)), rvalChunk.stmtList());
       }
     };
   }
