@@ -203,6 +203,7 @@ public class Ir3CodeGen {
             .addAll(boolCode)
             .addAll(code)
             .add(new GotoStmt(beginLabel))
+            .add(nextLabel)
             .build();
       }
       case STMT_READLN -> {
@@ -757,17 +758,14 @@ public class Ir3CodeGen {
         };
       }
       case EXPR_DOT, EXPR_CALL, EXPR_ID -> {
-        // delegate to `toIdRval`
-        final var idRvalChunk =
-            toIdRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
+        final var rvalChunk = toRval(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         final var tempGen = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
         final var idRvalExpr = new IdRvalExpr(tempGen.id());
         yield new ExprChunk(
             idRvalExpr,
             ImmutableList.<Stmt>builder()
-                .addAll(idRvalChunk.stmtList())
-                .add(
-                    new VarAssignStmt(idRvalExpr, new UnaryExpr(UnaryOp.NOT, idRvalChunk.idRval())))
+                .addAll(rvalChunk.stmtList())
+                .add(new VarAssignStmt(idRvalExpr, new UnaryExpr(UnaryOp.NOT, rvalChunk.rval())))
                 .build());
       }
     };
