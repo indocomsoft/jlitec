@@ -14,8 +14,10 @@ import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
 import jlitec.ast.expr.ThisExpr;
 import jlitec.ast.expr.UnaryOp;
+import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Klass;
 import jlitec.parsetree.KlassType;
+import jlitec.parsetree.Locatable;
 import jlitec.parsetree.Method;
 import jlitec.parsetree.Program;
 import jlitec.parsetree.Var;
@@ -43,6 +45,21 @@ import jlitec.parsetree.stmt.WhileStmt;
 public class ParseTreeStaticChecker {
   // prevent instantiation
   private ParseTreeStaticChecker() {}
+
+  public static String generateErrorMessage(SemanticException e, ParserWrapper parser) {
+    final var sb = new StringBuilder();
+    final var lines =
+        e.locatableList.stream()
+            .map(Locatable::leftLocation)
+            .map(
+                l -> "--> " + parser.filename + ":" + (l.getLine() + 1) + ":" + (l.getColumn() + 1))
+            .collect(Collectors.joining("\n"));
+    sb.append(lines).append("\nSemantic error: ").append(e.getMessage()).append("\n");
+    for (final var locatable : e.locatableList) {
+      sb.append(parser.formErrorString(e.shortMessage, locatable)).append("\n");
+    }
+    return sb.toString();
+  }
 
   /**
    * Performs distinct name checking, and then produces class descriptors.

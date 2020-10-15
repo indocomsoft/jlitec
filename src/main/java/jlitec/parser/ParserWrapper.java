@@ -61,7 +61,7 @@ public class ParserWrapper {
           Map.entry("CNAME", "CNAME"));
 
   private final List<String> lines;
-  private final String filename;
+  public final String filename;
 
   public ParserWrapper(String filename) throws IOException {
     this.filename = filename;

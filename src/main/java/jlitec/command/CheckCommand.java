@@ -1,12 +1,10 @@
 package jlitec.command;
 
 import java.io.IOException;
-import java.util.stream.Collectors;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
-import jlitec.parsetree.Locatable;
 import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
@@ -50,15 +48,7 @@ public class CheckCommand implements Command {
       ParseTreeStaticChecker.toAst(program, classDescriptorMap);
       System.err.println("Static check succeeded!");
     } catch (SemanticException e) {
-      final var lines =
-          e.locatableList.stream()
-              .map(Locatable::leftLocation)
-              .map(l -> "--> " + filename + ":" + (l.getLine() + 1) + ":" + (l.getColumn() + 1))
-              .collect(Collectors.joining("\n"));
-      System.err.println(lines + "\nSemantic error: " + e.getMessage());
-      for (final var locatable : e.locatableList) {
-        System.err.println(parser.formErrorString(e.shortMessage, locatable));
-      }
+      System.err.println(ParseTreeStaticChecker.generateErrorMessage(e, parser));
     }
   }
 }
