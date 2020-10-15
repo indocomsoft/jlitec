@@ -501,7 +501,7 @@ public class ParseTreeStaticChecker {
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env)
       throws SemanticException {
-    Type type = new Type.Basic(Type.TypeEnum.VOID);
+    Type type = Type.VOID;
     for (final var stmt : stmts) {
       type = typecheck(stmt, expectedReturnType, klassDescriptorMap, env);
     }
@@ -538,7 +538,7 @@ public class ParseTreeStaticChecker {
               "incompatible types",
               List.of(vas));
         }
-        yield new Type.Basic(Type.TypeEnum.VOID);
+        yield Type.VOID;
       }
       case STMT_FIELD_ASSIGN -> {
         final var fas = (FieldAssignStmt) stmt;
@@ -577,7 +577,7 @@ public class ParseTreeStaticChecker {
               "incompatible types",
               List.of(fas));
         }
-        yield new Type.Basic(Type.TypeEnum.VOID);
+        yield Type.VOID;
       }
       case STMT_IF -> {
         final var is = (IfStmt) stmt;
@@ -638,7 +638,7 @@ public class ParseTreeStaticChecker {
               "incompatible type",
               List.of(rs));
         }
-        yield new Type.Basic(Type.TypeEnum.VOID);
+        yield Type.VOID;
       }
       case STMT_PRINTLN -> {
         final var ps = (PrintlnStmt) stmt;
@@ -652,7 +652,7 @@ public class ParseTreeStaticChecker {
               "incompatible type",
               List.of(ps));
         }
-        yield new Type.Basic(Type.TypeEnum.VOID);
+        yield Type.VOID;
       }
       case STMT_CALL -> {
         final var cs = (CallStmt) stmt;
@@ -674,7 +674,7 @@ public class ParseTreeStaticChecker {
                 "invalid return type",
                 List.of(rs));
           }
-          yield new Type.Basic(Type.TypeEnum.VOID);
+          yield Type.VOID;
         }
         final var expr = maybeExpr.get();
         final var exprType = typecheck(expr, klassDescriptorMap, env);
@@ -713,9 +713,9 @@ public class ParseTreeStaticChecker {
         }
         yield maybeType.get();
       }
-      case EXPR_INT_LITERAL -> new Type.Basic(Type.TypeEnum.INT);
-      case EXPR_BOOL_LITERAL -> new Type.Basic(Type.TypeEnum.BOOL);
-      case EXPR_STRING_LITERAL -> new Type.Basic(Type.TypeEnum.STRING);
+      case EXPR_INT_LITERAL -> Type.INT;
+      case EXPR_BOOL_LITERAL -> Type.BOOL;
+      case EXPR_STRING_LITERAL -> Type.STRING;
       case EXPR_DOT -> {
         final var de = (DotExpr) expr;
         final var targetType = typecheck(de.target(), klassDescriptorMap, env);
@@ -770,10 +770,10 @@ public class ParseTreeStaticChecker {
                     "wrong operand type for arithmetic binary operator",
                     List.of(be.rhs()));
               }
-              yield new Type.Basic(Type.TypeEnum.INT);
+              yield Type.INT;
             } else if (stringTypes.contains(lhsType.typeEnum())) {
               if (stringTypes.contains(rhsType.typeEnum())) {
-                yield new Type.Basic(Type.TypeEnum.STRING);
+                yield Type.STRING;
               } else {
                 throw new SemanticException(
                     "String concatenation operator `+' second operand must be `String' or `null' but encountered `"
@@ -812,7 +812,7 @@ public class ParseTreeStaticChecker {
                   "wrong operand type for arithmetic binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(Type.TypeEnum.INT);
+            yield Type.INT;
           }
           case LT, GT, LEQ, GEQ, EQ, NEQ -> {
             if (lhsType.typeEnum() != Type.TypeEnum.INT) {
@@ -835,7 +835,7 @@ public class ParseTreeStaticChecker {
                   "wrong operand type for comparison binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(Type.TypeEnum.BOOL);
+            yield Type.BOOL;
           }
           case AND, OR -> {
             if (lhsType.typeEnum() != Type.TypeEnum.BOOL) {
@@ -858,7 +858,7 @@ public class ParseTreeStaticChecker {
                   "wrong operand type for boolean binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(Type.TypeEnum.BOOL);
+            yield Type.BOOL;
           }
         };
       }
@@ -875,7 +875,7 @@ public class ParseTreeStaticChecker {
                   "invalid type for negation",
                   List.of(ue));
             }
-            yield new Type.Basic(Type.TypeEnum.INT);
+            yield Type.INT;
           }
           case NOT -> {
             if (exprType.typeEnum() != Type.TypeEnum.BOOL) {
@@ -886,7 +886,7 @@ public class ParseTreeStaticChecker {
                   "invalid type for negation",
                   List.of(ue));
             }
-            yield new Type.Basic(Type.TypeEnum.BOOL);
+            yield Type.BOOL;
           }
         };
       }
