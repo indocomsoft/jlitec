@@ -6,6 +6,10 @@ public interface Type {
   String friendlyName();
 
   Type NULL = new Basic(TypeEnum.NULL);
+  Type STRING = new Basic(TypeEnum.STRING);
+  Type INT = new Basic(TypeEnum.INT);
+  Type BOOL = new Basic(TypeEnum.BOOL);
+  Type VOID = new Basic(TypeEnum.VOID);
 
   record Basic(TypeEnum typeEnum) implements Type {
     @Override

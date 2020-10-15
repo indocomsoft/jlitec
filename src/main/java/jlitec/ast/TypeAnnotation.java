@@ -1,6 +1,8 @@
 package jlitec.ast;
 
 public interface TypeAnnotation {
+  Annotation annotation();
+
   enum Annotation {
     INT,
     STRING,
@@ -9,8 +11,6 @@ public interface TypeAnnotation {
     CLASS,
     NULL,
   }
-
-  Annotation annotation();
 
   record Primitive(Annotation annotation) implements TypeAnnotation {
     public Primitive {

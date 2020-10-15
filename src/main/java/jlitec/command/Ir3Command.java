@@ -49,9 +49,10 @@ public class Ir3Command implements Command {
     }
 
     final Map<String, KlassDescriptor> classDescriptorMap;
+    final jlitec.ast.Program astProgram;
     try {
       classDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
-      ParseTreeStaticChecker.typecheck(program, classDescriptorMap);
+      astProgram = ParseTreeStaticChecker.toAst(program, classDescriptorMap);
     } catch (SemanticException e) {
       final var lines =
           e.locatableList.stream()
@@ -65,7 +66,6 @@ public class Ir3Command implements Command {
       return;
     }
 
-    final jlitec.ast.Program astProgram = ParseTreeStaticChecker.toAst(program, classDescriptorMap);
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     System.out.println(ir3Program.print(0));
   }

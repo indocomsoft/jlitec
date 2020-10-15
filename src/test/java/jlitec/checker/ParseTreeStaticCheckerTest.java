@@ -34,7 +34,6 @@ public class ParseTreeStaticCheckerTest {
     assertDoesNotThrow(
         () -> {
           final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
-          ParseTreeStaticChecker.typecheck(program, klassDescriptorMap);
           ParseTreeStaticChecker.toAst(program, klassDescriptorMap);
         });
   }
@@ -47,7 +46,7 @@ public class ParseTreeStaticCheckerTest {
         SemanticException.class,
         () -> {
           final var klassDescriptorMap = ParseTreeStaticChecker.produceClassDescriptor(program);
-          ParseTreeStaticChecker.typecheck(program, klassDescriptorMap);
+          ParseTreeStaticChecker.toAst(program, klassDescriptorMap);
         });
   }
 

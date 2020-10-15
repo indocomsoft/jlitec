@@ -1,5 +1,6 @@
 package jlitec.checker;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.List;
@@ -142,47 +143,80 @@ public class ParseTreeStaticChecker {
   }
 
   public static jlitec.ast.Program toAst(
-      jlitec.parsetree.Program program, Map<String, KlassDescriptor> klassDescriptorMap) {
+      jlitec.parsetree.Program program, Map<String, KlassDescriptor> klassDescriptorMap)
+      throws SemanticException {
     final Environment env = new Environment();
-    final var astKlasses =
-        program.klassList().stream()
-            .map(k -> toAst(k, klassDescriptorMap, env))
-            .collect(Collectors.toUnmodifiableList());
+    final var astKlasses = new ArrayList<jlitec.ast.Klass>();
+    for (final var klass : program.klassList()) {
+      astKlasses.add(toAst(klass, klassDescriptorMap, env));
+    }
     return new jlitec.ast.Program(astKlasses);
   }
 
   private static jlitec.ast.Klass toAst(
       jlitec.parsetree.Klass klass,
       Map<String, KlassDescriptor> klassDescriptorMap,
-      Environment env) {
+      Environment env)
+      throws SemanticException {
     final var klassName = klass.name().id();
     env = env.augment(new Environment(klassDescriptorMap.get(klassName)));
-    final var finalEnv = env.augment("this", new Type.Klass(klassName));
+    env = env.augment("this", new Type.Klass(klassName));
+
     final var astFields =
         klass.fields().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
-    final var astMethods =
-        klass.methods().stream()
-            .map(m -> toAst(m, klassDescriptorMap, finalEnv))
-            .collect(Collectors.toUnmodifiableList());
+
+    final var astMethods = new ArrayList<jlitec.ast.Method>();
+    for (final var method : klass.methods()) {
+      astMethods.add(toAst(method, klassDescriptorMap, env));
+    }
     return new jlitec.ast.Klass(klassName, astFields, astMethods);
   }
 
   private static jlitec.ast.Method toAst(
       jlitec.parsetree.Method method,
       Map<String, KlassDescriptor> klassDescriptorMap,
-      Environment env) {
+      Environment env)
+      throws SemanticException {
     for (final var arg : method.args()) {
       env = env.augment(arg.name().id(), Type.fromParseTree(arg.type()));
     }
     for (final var variables : method.vars()) {
       env = env.augment(variables.name().id(), Type.fromParseTree(variables.type()));
     }
+
     final var astArgs =
         method.args().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
     final var astVars =
         method.vars().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
+
     final var expectedReturnType = Type.fromParseTree(method.type());
     final var astStmtList = toAst(method.stmtList(), expectedReturnType, klassDescriptorMap, env);
+
+    // check statements
+    final var returnTypeAnnotation =
+        Optional.ofNullable(Iterables.getLast(astStmtList, null))
+            .map(jlitec.ast.stmt.Stmt::typeAnnotation)
+            .orElse(new TypeAnnotation.Primitive(TypeAnnotation.Annotation.VOID));
+    final var returnType = fromTypeAnnotation(returnTypeAnnotation);
+
+    if (!isCompatible(returnType, expectedReturnType)) {
+      final var signature =
+          method.name().id()
+              + "("
+              + method.args().stream().map(v -> v.type().print(0)).collect(Collectors.joining(", "))
+              + ")";
+      throw new SemanticException(
+          "Incompatible return type for method `"
+              + signature
+              + "'. Expected `"
+              + expectedReturnType.friendlyName()
+              + "' but encountered `"
+              + returnType.friendlyName()
+              + "'",
+          "Incompatible return type",
+          List.of(method.type()));
+    }
+
     return new jlitec.ast.Method(
         jlitec.ast.Type.fromParseTree(method.type()),
         method.name().id(),
@@ -191,22 +225,28 @@ public class ParseTreeStaticChecker {
         astStmtList);
   }
 
+  private static Type fromTypeAnnotation(TypeAnnotation typeAnnotation) {
+    return switch (typeAnnotation.annotation()) {
+      case NULL -> Type.NULL;
+      case INT -> Type.INT;
+      case VOID -> Type.VOID;
+      case STRING -> Type.STRING;
+      case BOOL -> Type.BOOL;
+      case CLASS -> new Type.Klass(((TypeAnnotation.Klass) typeAnnotation).cname());
+    };
+  }
+
   private static List<jlitec.ast.stmt.Stmt> toAst(
       List<Stmt> stmtList,
       Type expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
-      Environment env) {
-    return stmtList.stream()
-        .map(
-            stmt -> {
-              try {
-                return toAst(stmt, expectedReturnType, klassDescriptorMap, env);
-              } catch (SemanticException e) {
-                // should not throw, typecheck has already been performed.
-                throw new RuntimeException(e);
-              }
-            })
-        .collect(Collectors.toUnmodifiableList());
+      Environment env)
+      throws SemanticException {
+    final var result = new ArrayList<jlitec.ast.stmt.Stmt>();
+    for (final var stmt : stmtList) {
+      result.add(toAst(stmt, expectedReturnType, klassDescriptorMap, env));
+    }
+    return result;
   }
 
   private static jlitec.ast.stmt.Stmt toAst(
@@ -288,10 +328,11 @@ public class ParseTreeStaticChecker {
       Expr target,
       TypeAnnotation typeAnnotation,
       Map<String, KlassDescriptor> klassDescriptorMap,
-      Environment env) {
+      Environment env)
+      throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_NEW, EXPR_NULL, EXPR_CALL -> throw new RuntimeException(
-          "Trying to call non-callable expression.");
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+          "Trying to call non-callable expression.", "non-callable expression", List.of(target));
       case EXPR_ID -> {
         // local call
         final var ie = (IdExpr) target;
@@ -299,32 +340,21 @@ public class ParseTreeStaticChecker {
       }
       case EXPR_DOT -> {
         // global call
-        try {
-          final var de = (DotExpr) target;
-          final var targetType = typecheck(de.target(), klassDescriptorMap, env);
-          final var newTarget =
-              switch (de.target().getExprType()) {
-                case EXPR_THIS -> new ThisExpr(
-                    new TypeAnnotation.Klass(((Type.Klass) env.lookup("this").get()).cname()));
-                case EXPR_NEW -> {
-                  final var ne = (NewExpr) de.target();
-                  yield new jlitec.ast.expr.NewExpr(ne.cname());
-                }
-                case EXPR_CALL -> {
-                  try {
-                    yield toAst(de.target(), klassDescriptorMap, env);
-                  } catch (SemanticException e) {
-                    throw new RuntimeException(e);
-                  }
-                }
-                case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_ID, EXPR_NULL, EXPR_PAREN -> {
-                  yield transformCallTarget(de.target(), typeAnnotation, klassDescriptorMap, env);
-                }
-              };
-          yield new jlitec.ast.expr.DotExpr(newTarget, de.id(), toAst(targetType));
-        } catch (SemanticException e) {
-          throw new RuntimeException(e);
-        }
+        final var de = (DotExpr) target;
+        final var targetType = typecheck(de.target(), klassDescriptorMap, env);
+        final var newTarget =
+            switch (de.target().getExprType()) {
+              case EXPR_THIS -> new ThisExpr(
+                  new TypeAnnotation.Klass(((Type.Klass) env.lookup("this").get()).cname()));
+              case EXPR_NEW -> {
+                final var ne = (NewExpr) de.target();
+                yield new jlitec.ast.expr.NewExpr(ne.cname());
+              }
+              case EXPR_CALL -> toAst(de.target(), klassDescriptorMap, env);
+              case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_ID, EXPR_NULL, EXPR_PAREN -> transformCallTarget(
+                  de.target(), typeAnnotation, klassDescriptorMap, env);
+            };
+        yield new jlitec.ast.expr.DotExpr(newTarget, de.id(), toAst(targetType));
       }
       case EXPR_PAREN -> {
         final var pe = (ParenExpr) target;
@@ -337,12 +367,11 @@ public class ParseTreeStaticChecker {
       Expr target,
       List<Type> argTypes,
       Map<String, KlassDescriptor> klassDescriptorMap,
-      Environment env) {
+      Environment env)
+      throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> {
-        // should not throw, checks have already been performed
-        throw new RuntimeException("Trying to call non-callable expression.");
-      }
+      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+          "Trying to call non-callable expression.", "non-callable expression", List.of(target));
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
@@ -363,27 +392,22 @@ public class ParseTreeStaticChecker {
         yield new MethodReference(cname, ie.id(), returnType, astArgTypes);
       }
       case EXPR_DOT -> {
-        try {
-          final var de = (DotExpr) target;
-          // typechecking has already been performed, so casting must succeed
-          final var targetType = (Type.Klass) typecheck(de.target(), klassDescriptorMap, env);
-          final var klassDescriptor = klassDescriptorMap.get(targetType.cname());
-          final var methodDescriptors = klassDescriptor.methods().get(de.id());
-          final var methodDescriptor =
-              methodDescriptors.stream()
-                  .filter(m -> isCompatible(argTypes, m.argTypes()))
-                  .findFirst()
-                  .get();
-          final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
-          final var astArgTypes =
-              methodDescriptor.argTypes().stream()
-                  .map(jlitec.ast.Type::fromChecker)
-                  .collect(Collectors.toUnmodifiableList());
-          yield new MethodReference(targetType.cname(), de.id(), returnType, astArgTypes);
-        } catch (SemanticException e) {
-          // should not throw, checks have already been performed
-          throw new RuntimeException(e);
-        }
+        final var de = (DotExpr) target;
+        // typechecking has already been performed, so casting must succeed
+        final var targetType = (Type.Klass) typecheck(de.target(), klassDescriptorMap, env);
+        final var klassDescriptor = klassDescriptorMap.get(targetType.cname());
+        final var methodDescriptors = klassDescriptor.methods().get(de.id());
+        final var methodDescriptor =
+            methodDescriptors.stream()
+                .filter(m -> isCompatible(argTypes, m.argTypes()))
+                .findFirst()
+                .get();
+        final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
+        final var astArgTypes =
+            methodDescriptor.argTypes().stream()
+                .map(jlitec.ast.Type::fromChecker)
+                .collect(Collectors.toUnmodifiableList());
+        yield new MethodReference(targetType.cname(), de.id(), returnType, astArgTypes);
       }
       case EXPR_PAREN -> lookupMethodReference(
           ((ParenExpr) target).expr(), argTypes, klassDescriptorMap, env);
@@ -452,57 +476,6 @@ public class ParseTreeStaticChecker {
       case NULL -> new TypeAnnotation.Null();
       case CLASS -> new TypeAnnotation.Klass(((Type.Klass) type).cname());
     };
-  }
-
-  public static void typecheck(Program program, Map<String, KlassDescriptor> klassDescriptorMap)
-      throws SemanticException {
-    final Environment env = new Environment();
-    for (final var klass : program.klassList()) {
-      typecheck(klass, klassDescriptorMap, env);
-    }
-  }
-
-  private static void typecheck(
-      Klass klass, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
-      throws SemanticException {
-    final var klassName = klass.name().id();
-    env = env.augment(new Environment(klassDescriptorMap.get(klassName)));
-    env = env.augment("this", new Type.Klass(klassName));
-    for (final var method : klass.methods()) {
-      typecheck(method, klassDescriptorMap, env);
-    }
-  }
-
-  private static void typecheck(
-      Method method, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
-      throws SemanticException {
-    for (final var arg : method.args()) {
-      env = env.augment(arg.name().id(), Type.fromParseTree(arg.type()));
-    }
-    for (final var variables : method.vars()) {
-      env = env.augment(variables.name().id(), Type.fromParseTree(variables.type()));
-    }
-    // check statements
-    final var expectedReturnType = Type.fromParseTree(method.type());
-    final var returnType =
-        typecheck(method.stmtList(), expectedReturnType, klassDescriptorMap, env);
-    final var signature =
-        method.name().id()
-            + "("
-            + method.args().stream().map(v -> v.type().print(0)).collect(Collectors.joining(", "))
-            + ")";
-    if (!isCompatible(returnType, expectedReturnType)) {
-      throw new SemanticException(
-          "Incompatible return type for method `"
-              + signature
-              + "'. Expected `"
-              + expectedReturnType.friendlyName()
-              + "' but encountered `"
-              + returnType.friendlyName()
-              + "'",
-          "Incompatible return type",
-          List.of(method.type()));
-    }
   }
 
   private static Type typecheck(
