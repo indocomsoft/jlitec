@@ -9,18 +9,18 @@ import com.google.common.collect.Multimaps;
 import java.util.Optional;
 
 public class Environment {
-  private final ListMultimap<String, Type.Basic> map;
+  private final ListMultimap<String, Type> map;
 
   public Environment() {
     this.map = ImmutableListMultimap.of();
   }
 
-  private Environment(Multimap<String, Type.Basic> map) {
+  private Environment(Multimap<String, Type> map) {
     this.map = ImmutableListMultimap.copyOf(map);
   }
 
   public Environment(KlassDescriptor klassDescriptor) {
-    final ArrayListMultimap<String, Type.Basic> map =
+    final ArrayListMultimap<String, Type> map =
         klassDescriptor.fields().entrySet().stream()
             .collect(
                 ArrayListMultimap::create,
@@ -29,7 +29,7 @@ public class Environment {
     this.map = Multimaps.unmodifiableListMultimap(map);
   }
 
-  public Optional<Type.Basic> lookup(String id) {
+  public Optional<Type> lookup(String id) {
     return Optional.ofNullable(Iterables.getLast(map.get(id), null));
   }
 
@@ -39,7 +39,7 @@ public class Environment {
     return new Environment(map);
   }
 
-  public Environment augment(String id, Type.Basic type) {
+  public Environment augment(String id, Type type) {
     final var temp = ArrayListMultimap.create(map);
     temp.put(id, type);
     return new Environment(temp);

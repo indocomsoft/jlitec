@@ -1,5 +1,6 @@
 package jlitec.checker;
 
+import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +13,6 @@ import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
 import jlitec.ast.expr.ThisExpr;
 import jlitec.ast.expr.UnaryOp;
-import jlitec.parsetree.JliteType;
 import jlitec.parsetree.Klass;
 import jlitec.parsetree.KlassType;
 import jlitec.parsetree.Method;
@@ -63,8 +63,7 @@ public class ParseTreeStaticChecker {
                             k.fields().stream()
                                 .collect(
                                     Collectors.toMap(
-                                        v -> v.name().id(),
-                                        v -> new Type.Basic(v.type().print(0)))),
+                                        v -> v.name().id(), v -> Type.fromParseTree(v.type()))),
                             k.methods().stream()
                                 .collect(Collectors.groupingBy(m -> m.name().id()))
                                 .entrySet()
@@ -77,12 +76,12 @@ public class ParseTreeStaticChecker {
                                                 .map(
                                                     m ->
                                                         new KlassDescriptor.MethodDescriptor(
-                                                            new Type.Basic(m.type().print(0)),
+                                                            Type.fromParseTree(m.type()),
                                                             m.args().stream()
                                                                 .map(
                                                                     v ->
-                                                                        new Type.Basic(
-                                                                            v.type().print(0)))
+                                                                        Type.fromParseTree(
+                                                                            v.type()))
                                                                 .collect(
                                                                     Collectors
                                                                         .toUnmodifiableList())))
@@ -158,7 +157,7 @@ public class ParseTreeStaticChecker {
       Environment env) {
     final var klassName = klass.name().id();
     env = env.augment(new Environment(klassDescriptorMap.get(klassName)));
-    final var finalEnv = env.augment("this", new Type.Basic(klassName));
+    final var finalEnv = env.augment("this", new Type.Klass(klassName));
     final var astFields =
         klass.fields().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
     final var astMethods =
@@ -173,16 +172,16 @@ public class ParseTreeStaticChecker {
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
     for (final var arg : method.args()) {
-      env = env.augment(arg.name().id(), new Type.Basic(arg.type().print(0)));
+      env = env.augment(arg.name().id(), Type.fromParseTree(arg.type()));
     }
     for (final var variables : method.vars()) {
-      env = env.augment(variables.name().id(), new Type.Basic(variables.type().print(0)));
+      env = env.augment(variables.name().id(), Type.fromParseTree(variables.type()));
     }
     final var astArgs =
         method.args().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
     final var astVars =
         method.vars().stream().map(jlitec.ast.Var::new).collect(Collectors.toUnmodifiableList());
-    final var expectedReturnType = new Type.Basic(method.type().print(0));
+    final var expectedReturnType = Type.fromParseTree(method.type());
     final var astStmtList = toAst(method.stmtList(), expectedReturnType, klassDescriptorMap, env);
     return new jlitec.ast.Method(
         jlitec.ast.Type.fromParseTree(method.type()),
@@ -194,7 +193,7 @@ public class ParseTreeStaticChecker {
 
   private static List<jlitec.ast.stmt.Stmt> toAst(
       List<Stmt> stmtList,
-      Type.Basic expectedReturnType,
+      Type expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
     return stmtList.stream()
@@ -212,7 +211,7 @@ public class ParseTreeStaticChecker {
 
   private static jlitec.ast.stmt.Stmt toAst(
       Stmt stmt,
-      Type.Basic expectedReturnType,
+      Type expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env)
       throws SemanticException {
@@ -261,9 +260,9 @@ public class ParseTreeStaticChecker {
         for (final var arg : cs.args()) {
           args.add(toAst(arg, klassDescriptorMap, env));
         }
-        final var argTypes = new ArrayList<String>();
+        final var argTypes = new ArrayList<Type>();
         for (final var arg : cs.args()) {
-          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+          argTypes.add(typecheck(arg, klassDescriptorMap, env));
         }
         final var target =
             transformCallTarget(cs.target(), typeAnnotation, klassDescriptorMap, env);
@@ -306,7 +305,7 @@ public class ParseTreeStaticChecker {
           final var newTarget =
               switch (de.target().getExprType()) {
                 case EXPR_THIS -> new ThisExpr(
-                    new TypeAnnotation.Klass(env.lookup("this").get().type()));
+                    new TypeAnnotation.Klass(((Type.Klass) env.lookup("this").get()).cname()));
                 case EXPR_NEW -> {
                   final var ne = (NewExpr) de.target();
                   yield new jlitec.ast.expr.NewExpr(ne.cname());
@@ -336,7 +335,7 @@ public class ParseTreeStaticChecker {
 
   private static MethodReference lookupMethodReference(
       Expr target,
-      List<String> argTypes,
+      List<Type> argTypes,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env) {
     return switch (target.getExprType()) {
@@ -347,19 +346,13 @@ public class ParseTreeStaticChecker {
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
-        // this, and the method descriptor must exist in the env
-        final var cname = env.lookup("this").get().type();
+        // `this` must exist in the env
+        final var cname = ((Type.Klass) env.lookup("this").get()).cname();
         final var klassDescriptor = klassDescriptorMap.get(cname);
         final var methodDescriptors = klassDescriptor.methods().get(ie.id());
         final var methodDescriptor =
             methodDescriptors.stream()
-                .filter(
-                    m ->
-                        isCompatible(
-                            argTypes,
-                            m.argTypes().stream()
-                                .map(Type.Basic::type)
-                                .collect(Collectors.toUnmodifiableList())))
+                .filter(m -> isCompatible(argTypes, m.argTypes()))
                 .findFirst()
                 .get();
         final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
@@ -372,18 +365,13 @@ public class ParseTreeStaticChecker {
       case EXPR_DOT -> {
         try {
           final var de = (DotExpr) target;
-          final var targetType = typecheck(de.target(), klassDescriptorMap, env);
-          final var klassDescriptor = klassDescriptorMap.get(targetType.type());
+          // typechecking has already been performed, so casting must succeed
+          final var targetType = (Type.Klass) typecheck(de.target(), klassDescriptorMap, env);
+          final var klassDescriptor = klassDescriptorMap.get(targetType.cname());
           final var methodDescriptors = klassDescriptor.methods().get(de.id());
           final var methodDescriptor =
               methodDescriptors.stream()
-                  .filter(
-                      m ->
-                          isCompatible(
-                              argTypes,
-                              m.argTypes().stream()
-                                  .map(Type.Basic::type)
-                                  .collect(Collectors.toUnmodifiableList())))
+                  .filter(m -> isCompatible(argTypes, m.argTypes()))
                   .findFirst()
                   .get();
           final var returnType = jlitec.ast.Type.fromChecker(methodDescriptor.returnType());
@@ -391,7 +379,7 @@ public class ParseTreeStaticChecker {
               methodDescriptor.argTypes().stream()
                   .map(jlitec.ast.Type::fromChecker)
                   .collect(Collectors.toUnmodifiableList());
-          yield new MethodReference(targetType.type(), de.id(), returnType, astArgTypes);
+          yield new MethodReference(targetType.cname(), de.id(), returnType, astArgTypes);
         } catch (SemanticException e) {
           // should not throw, checks have already been performed
           throw new RuntimeException(e);
@@ -439,9 +427,9 @@ public class ParseTreeStaticChecker {
         for (final var arg : ce.args()) {
           args.add(toAst(arg, klassDescriptorMap, env));
         }
-        final var argTypes = new ArrayList<String>();
+        final var argTypes = new ArrayList<Type>();
         for (final var arg : ce.args()) {
-          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+          argTypes.add(typecheck(arg, klassDescriptorMap, env));
         }
         final var methodReference =
             lookupMethodReference(ce.target(), argTypes, klassDescriptorMap, env);
@@ -455,21 +443,15 @@ public class ParseTreeStaticChecker {
     };
   }
 
-  private static TypeAnnotation toAst(Type.Basic basicType) {
-    final var type = basicType.type();
-    if (type.equals(JliteType.STRING.print(0))) {
-      return new TypeAnnotation.Primitive(TypeAnnotation.Annotation.STRING);
-    } else if (type.equals(JliteType.INT.print(0))) {
-      return new TypeAnnotation.Primitive(TypeAnnotation.Annotation.INT);
-    } else if (type.equals(JliteType.BOOL.print(0))) {
-      return new TypeAnnotation.Primitive(TypeAnnotation.Annotation.BOOL);
-    } else if (type.equals(JliteType.VOID.print(0))) {
-      return new TypeAnnotation.Primitive(TypeAnnotation.Annotation.VOID);
-    } else if (basicType.equals(Type.Basic.NULL)) {
-      return new TypeAnnotation.Null();
-    } else {
-      return new TypeAnnotation.Klass(type);
-    }
+  private static TypeAnnotation toAst(Type type) {
+    return switch (type.typeEnum()) {
+      case INT -> new TypeAnnotation.Primitive(TypeAnnotation.Annotation.INT);
+      case VOID -> new TypeAnnotation.Primitive(TypeAnnotation.Annotation.VOID);
+      case STRING -> new TypeAnnotation.Primitive(TypeAnnotation.Annotation.STRING);
+      case BOOL -> new TypeAnnotation.Primitive(TypeAnnotation.Annotation.BOOL);
+      case NULL -> new TypeAnnotation.Null();
+      case CLASS -> new TypeAnnotation.Klass(((Type.Klass) type).cname());
+    };
   }
 
   public static void typecheck(Program program, Map<String, KlassDescriptor> klassDescriptorMap)
@@ -485,7 +467,7 @@ public class ParseTreeStaticChecker {
       throws SemanticException {
     final var klassName = klass.name().id();
     env = env.augment(new Environment(klassDescriptorMap.get(klassName)));
-    env = env.augment("this", new Type.Basic(klassName));
+    env = env.augment("this", new Type.Klass(klassName));
     for (final var method : klass.methods()) {
       typecheck(method, klassDescriptorMap, env);
     }
@@ -495,13 +477,13 @@ public class ParseTreeStaticChecker {
       Method method, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
     for (final var arg : method.args()) {
-      env = env.augment(arg.name().id(), new Type.Basic(arg.type().print(0)));
+      env = env.augment(arg.name().id(), Type.fromParseTree(arg.type()));
     }
     for (final var variables : method.vars()) {
-      env = env.augment(variables.name().id(), new Type.Basic(variables.type().print(0)));
+      env = env.augment(variables.name().id(), Type.fromParseTree(variables.type()));
     }
     // check statements
-    final var expectedReturnType = new Type.Basic(method.type().print(0));
+    final var expectedReturnType = Type.fromParseTree(method.type());
     final var returnType =
         typecheck(method.stmtList(), expectedReturnType, klassDescriptorMap, env);
     final var signature =
@@ -514,31 +496,31 @@ public class ParseTreeStaticChecker {
           "Incompatible return type for method `"
               + signature
               + "'. Expected `"
-              + expectedReturnType.type()
+              + expectedReturnType.friendlyName()
               + "' but encountered `"
-              + returnType.type()
+              + returnType.friendlyName()
               + "'",
           "Incompatible return type",
           List.of(method.type()));
     }
   }
 
-  private static Type.Basic typecheck(
+  private static Type typecheck(
       List<Stmt> stmts,
-      Type.Basic expectedReturnType,
+      Type expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env)
       throws SemanticException {
-    Type.Basic type = new Type.Basic(JliteType.VOID);
+    Type type = new Type.Basic(Type.TypeEnum.VOID);
     for (final var stmt : stmts) {
       type = typecheck(stmt, expectedReturnType, klassDescriptorMap, env);
     }
     return type;
   }
 
-  private static Type.Basic typecheck(
+  private static Type typecheck(
       Stmt stmt,
-      Type.Basic expectedReturnType,
+      Type expectedReturnType,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env)
       throws SemanticException {
@@ -557,25 +539,35 @@ public class ParseTreeStaticChecker {
         if (!isCompatible(expectedType, rhsType)) {
           throw new SemanticException(
               "Incompatible types, trying to assign expression of type `"
-                  + rhsType.type()
+                  + rhsType.friendlyName()
                   + "' to variable `"
                   + vas.lhsId()
                   + "' of type `"
-                  + expectedType.type()
+                  + expectedType.friendlyName()
                   + "'",
               "incompatible types",
               List.of(vas));
         }
-        yield new Type.Basic(JliteType.VOID);
+        yield new Type.Basic(Type.TypeEnum.VOID);
       }
       case STMT_FIELD_ASSIGN -> {
         final var fas = (FieldAssignStmt) stmt;
         final var lhsClassType = typecheck(fas.lhsTarget(), klassDescriptorMap, env);
-        final var klass = klassDescriptorMap.get(lhsClassType.type());
+        if (!(lhsClassType instanceof Type.Klass)) {
+          throw new SemanticException(
+              "Accessing a field of a non-class type `" + lhsClassType.friendlyName() + "'",
+              "accessing a field of a non-class type",
+              List.of(fas.lhsTarget()));
+        }
+        final var klass = klassDescriptorMap.get(((Type.Klass) lhsClassType).cname());
         final var maybeFieldType = Optional.ofNullable(klass.fields().get(fas.lhsId()));
         if (maybeFieldType.isEmpty()) {
           throw new SemanticException(
-              "Field `" + fas.lhsId() + "' does not exist in class `" + lhsClassType.type() + "'",
+              "Field `"
+                  + fas.lhsId()
+                  + "' does not exist in class `"
+                  + lhsClassType.friendlyName()
+                  + "'",
               "non-existent field `" + fas.lhsId() + "'",
               List.of(fas));
         }
@@ -584,26 +576,26 @@ public class ParseTreeStaticChecker {
         if (!isCompatible(expectedType, rhsType)) {
           throw new SemanticException(
               "Incompatible types, trying to assign expression of type `"
-                  + rhsType.type()
+                  + rhsType.friendlyName()
                   + "' to field `"
                   + fas.lhsId()
                   + "' of class `"
-                  + lhsClassType.type()
+                  + lhsClassType.friendlyName()
                   + "' of type `"
-                  + expectedType.type()
+                  + expectedType.friendlyName()
                   + "'",
               "incompatible types",
               List.of(fas));
         }
-        yield new Type.Basic(JliteType.VOID);
+        yield new Type.Basic(Type.TypeEnum.VOID);
       }
       case STMT_IF -> {
         final var is = (IfStmt) stmt;
         final var conditionType = typecheck(is.condition(), klassDescriptorMap, env);
-        if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
+        if (conditionType.typeEnum() != Type.TypeEnum.BOOL) {
           throw new SemanticException(
               "If condition expression must be of type `Bool', but encountered `"
-                  + conditionType.type()
+                  + conditionType.friendlyName()
                   + "'",
               "condition type is not `Bool'",
               List.of(is.condition()));
@@ -615,9 +607,9 @@ public class ParseTreeStaticChecker {
         if (!isCompatible(thenType, elseType)) {
           throw new SemanticException(
               "The types of then and else blocks of conditionals must be compatible, then block type is `"
-                  + thenType.type()
+                  + thenType.friendlyName()
                   + "', else block type is `"
-                  + elseType.type()
+                  + elseType.friendlyName()
                   + "'",
               "incompatible then and else type",
               List.of(is));
@@ -627,10 +619,10 @@ public class ParseTreeStaticChecker {
       case STMT_WHILE -> {
         final var ws = (WhileStmt) stmt;
         final var conditionType = typecheck(ws.condition(), klassDescriptorMap, env);
-        if (!conditionType.equals(new Type.Basic(JliteType.BOOL))) {
+        if (conditionType.typeEnum() != Type.TypeEnum.BOOL) {
           throw new SemanticException(
               "While condition expression must be of type `Bool', but encountered `"
-                  + conditionType.type()
+                  + conditionType.friendlyName()
                   + "'",
               "condition type is not `Bool'",
               List.of(ws.condition()));
@@ -647,36 +639,36 @@ public class ParseTreeStaticChecker {
               List.of(rs));
         }
         final var varType = maybeVarType.get();
-        if (!Set.of(JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
-            .contains(varType.type())) {
+        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
+            .contains(varType.typeEnum())) {
           throw new SemanticException(
               "Type of variable passed to `readln' must be `Int', `Bool', or `String', but encountered `"
-                  + varType.type()
+                  + varType.friendlyName()
                   + "'",
               "incompatible type",
               List.of(rs));
         }
-        yield new Type.Basic(JliteType.VOID);
+        yield new Type.Basic(Type.TypeEnum.VOID);
       }
       case STMT_PRINTLN -> {
         final var ps = (PrintlnStmt) stmt;
         final var psType = typecheck(ps.expr(), klassDescriptorMap, env);
-        if (!Set.of(JliteType.INT.print(0), JliteType.BOOL.print(0), JliteType.STRING.print(0))
-            .contains(psType.type())) {
+        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
+            .contains(psType.typeEnum())) {
           throw new SemanticException(
               "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
-                  + psType.type()
+                  + psType.friendlyName()
                   + "'",
               "incompatible type",
               List.of(ps));
         }
-        yield new Type.Basic(JliteType.VOID);
+        yield new Type.Basic(Type.TypeEnum.VOID);
       }
       case STMT_CALL -> {
         final var cs = (CallStmt) stmt;
-        final var argTypes = new ArrayList<String>();
+        final var argTypes = new ArrayList<Type>();
         for (final var arg : cs.args()) {
-          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+          argTypes.add(typecheck(arg, klassDescriptorMap, env));
         }
         yield lookupMethodReturnType(cs.target(), argTypes, klassDescriptorMap, env);
       }
@@ -684,24 +676,24 @@ public class ParseTreeStaticChecker {
         final var rs = (ReturnStmt) stmt;
         final var maybeExpr = rs.maybeExpr();
         if (maybeExpr.isEmpty()) {
-          if (!expectedReturnType.equals(new Type.Basic(JliteType.VOID))) {
+          if (expectedReturnType.typeEnum() != Type.TypeEnum.VOID) {
             throw new SemanticException(
                 "Returning `Void' for a method that expects return type `"
-                    + expectedReturnType.type()
+                    + expectedReturnType.friendlyName()
                     + "'",
                 "invalid return type",
                 List.of(rs));
           }
-          yield new Type.Basic(JliteType.VOID);
+          yield new Type.Basic(Type.TypeEnum.VOID);
         }
         final var expr = maybeExpr.get();
         final var exprType = typecheck(expr, klassDescriptorMap, env);
         if (!isCompatible(expectedReturnType, exprType)) {
           throw new SemanticException(
               "Returning `"
-                  + exprType.type()
+                  + exprType.friendlyName()
                   + "' for a method that expects return type `"
-                  + expectedReturnType.type()
+                  + expectedReturnType.friendlyName()
                   + "'",
               "invalid return type",
               List.of(rs));
@@ -711,7 +703,7 @@ public class ParseTreeStaticChecker {
     };
   }
 
-  private static Type.Basic typecheck(
+  private static Type typecheck(
       Expr expr, Map<String, KlassDescriptor> klassDescriptorMap, Environment env)
       throws SemanticException {
     return switch (expr.getExprType()) {
@@ -731,18 +723,24 @@ public class ParseTreeStaticChecker {
         }
         yield maybeType.get();
       }
-      case EXPR_INT_LITERAL -> new Type.Basic(JliteType.INT);
-      case EXPR_BOOL_LITERAL -> new Type.Basic(JliteType.BOOL);
-      case EXPR_STRING_LITERAL -> new Type.Basic(JliteType.STRING);
+      case EXPR_INT_LITERAL -> new Type.Basic(Type.TypeEnum.INT);
+      case EXPR_BOOL_LITERAL -> new Type.Basic(Type.TypeEnum.BOOL);
+      case EXPR_STRING_LITERAL -> new Type.Basic(Type.TypeEnum.STRING);
       case EXPR_DOT -> {
         final var de = (DotExpr) expr;
         final var targetType = typecheck(de.target(), klassDescriptorMap, env);
-        final var klassDescriptor = klassDescriptorMap.get(targetType.type());
+        if (!(targetType instanceof Type.Klass)) {
+          throw new SemanticException(
+              "Accessing a field of a non-class type `" + targetType.friendlyName() + "'",
+              "accessing a field of a non-class type",
+              List.of(de.target()));
+        }
+        final var klassDescriptor = klassDescriptorMap.get(((Type.Klass) targetType).cname());
         final var maybeFieldType =
             Optional.ofNullable(klassDescriptor.fields().getOrDefault(de.id(), null));
         if (maybeFieldType.isEmpty()) {
           throw new SemanticException(
-              "Field `" + de.id() + "' does not exist in class `" + targetType.type() + "'",
+              "Field `" + de.id() + "' does not exist in class `" + targetType.friendlyName() + "'",
               "non-existent field `" + de.id() + "'",
               List.of(de));
         }
@@ -756,13 +754,13 @@ public class ParseTreeStaticChecker {
               "instantiation of non-existent class `" + ne.cname() + "'",
               List.of(ne));
         }
-        yield new Type.Basic(((NewExpr) expr).cname());
+        yield new Type.Klass(((NewExpr) expr).cname());
       }
       case EXPR_CALL -> {
         final var ce = (CallExpr) expr;
-        final var argTypes = new ArrayList<String>();
+        final var argTypes = new ArrayList<Type>();
         for (final var arg : ce.args()) {
-          argTypes.add(typecheck(arg, klassDescriptorMap, env).type());
+          argTypes.add(typecheck(arg, klassDescriptorMap, env));
         }
         yield lookupMethodReturnType(ce.target(), argTypes, klassDescriptorMap, env);
       }
@@ -772,25 +770,24 @@ public class ParseTreeStaticChecker {
         final var rhsType = typecheck(be.rhs(), klassDescriptorMap, env);
         yield switch (be.op()) {
           case PLUS -> {
-            if (lhsType.equals(new Type.Basic(JliteType.INT))) {
-              if (!rhsType.equals(new Type.Basic(JliteType.INT))) {
+            final var stringTypes = Set.of(Type.TypeEnum.STRING, Type.TypeEnum.NULL);
+            if (lhsType.typeEnum() == Type.TypeEnum.INT) {
+              if (rhsType.typeEnum() != Type.TypeEnum.INT) {
                 throw new SemanticException(
                     "Arithmetic binary operator `+' second operand must be `Int' but encountered `"
-                        + rhsType.type()
+                        + rhsType.friendlyName()
                         + "'",
                     "wrong operand type for arithmetic binary operator",
                     List.of(be.rhs()));
               }
-              yield new Type.Basic(JliteType.INT);
-            } else if (lhsType.equals(new Type.Basic(JliteType.STRING))
-                || lhsType.equals(Type.Basic.NULL)) {
-              if (rhsType.equals(new Type.Basic(JliteType.STRING))
-                  || rhsType.equals(Type.Basic.NULL)) {
-                yield new Type.Basic(JliteType.STRING);
+              yield new Type.Basic(Type.TypeEnum.INT);
+            } else if (stringTypes.contains(lhsType.typeEnum())) {
+              if (stringTypes.contains(rhsType.typeEnum())) {
+                yield new Type.Basic(Type.TypeEnum.STRING);
               } else {
                 throw new SemanticException(
                     "String concatenation operator `+' second operand must be `String' or `null' but encountered `"
-                        + rhsType.type()
+                        + rhsType.friendlyName()
                         + "'",
                     "wrong operand type for string concatenation",
                     List.of(be.rhs()));
@@ -798,80 +795,80 @@ public class ParseTreeStaticChecker {
             } else {
               throw new SemanticException(
                   "Invalid first operand type for binary operator `+', expected either `Int', `String', or `null' but encountered `"
-                      + lhsType.type()
+                      + lhsType.friendlyName()
                       + "'",
                   "wrong operand type for `+'",
                   List.of(be));
             }
           }
           case MINUS, MULT, DIV -> {
-            if (!lhsType.equals(new Type.Basic(JliteType.INT))) {
+            if (lhsType.typeEnum() != Type.TypeEnum.INT) {
               throw new SemanticException(
                   "Arithmetic binary operator `"
                       + be.op().toString()
                       + "' first operand must be `Int' but encountered `"
-                      + lhsType.type()
+                      + lhsType.friendlyName()
                       + "'",
                   "wrong operand type for arithmetic binary operator",
                   List.of(be.lhs()));
             }
-            if (!rhsType.equals(new Type.Basic(JliteType.INT))) {
+            if (rhsType.typeEnum() != Type.TypeEnum.INT) {
               throw new SemanticException(
                   "Arithmetic binary operator `"
                       + be.op().toString()
                       + "' second operand must be `Int' but encountered `"
-                      + rhsType.type()
+                      + rhsType.friendlyName()
                       + "'",
                   "wrong operand type for arithmetic binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(JliteType.INT);
+            yield new Type.Basic(Type.TypeEnum.INT);
           }
           case LT, GT, LEQ, GEQ, EQ, NEQ -> {
-            if (!lhsType.equals(new Type.Basic(JliteType.INT))) {
+            if (lhsType.typeEnum() != Type.TypeEnum.INT) {
               throw new SemanticException(
                   "Comparison binary operator `"
                       + be.op().toString()
                       + "' first operand must be `Int' but encountered `"
-                      + lhsType.type()
+                      + lhsType.friendlyName()
                       + "'",
                   "wrong operand type for comparison binary operator",
                   List.of(be.lhs()));
             }
-            if (!rhsType.equals(new Type.Basic(JliteType.INT))) {
+            if (rhsType.typeEnum() != Type.TypeEnum.INT) {
               throw new SemanticException(
                   "Comparison binary operator `"
                       + be.op().toString()
                       + "' second operand must be `Int' but encountered `"
-                      + rhsType.type()
+                      + rhsType.friendlyName()
                       + "'",
                   "wrong operand type for comparison binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(JliteType.BOOL);
+            yield new Type.Basic(Type.TypeEnum.BOOL);
           }
           case AND, OR -> {
-            if (!lhsType.equals(new Type.Basic(JliteType.BOOL))) {
+            if (lhsType.typeEnum() != Type.TypeEnum.BOOL) {
               throw new SemanticException(
                   "Boolean binary operator `"
                       + be.op().toString()
                       + "' first operand must be `Bool' but encountered `"
-                      + lhsType.type()
+                      + lhsType.friendlyName()
                       + "'",
                   "wrong operand type for boolean binary operator",
                   List.of(be.lhs()));
             }
-            if (!rhsType.equals(new Type.Basic(JliteType.BOOL))) {
+            if (rhsType.typeEnum() != Type.TypeEnum.BOOL) {
               throw new SemanticException(
                   "Boolean binary operator `"
                       + be.op().toString()
                       + "' second operand must be `Bool' but encountered `"
-                      + rhsType.type()
+                      + rhsType.friendlyName()
                       + "'",
                   "wrong operand type for boolean binary operator",
                   List.of(be.rhs()));
             }
-            yield new Type.Basic(JliteType.BOOL);
+            yield new Type.Basic(Type.TypeEnum.BOOL);
           }
         };
       }
@@ -880,36 +877,36 @@ public class ParseTreeStaticChecker {
         final var exprType = typecheck(ue.expr(), klassDescriptorMap, env);
         yield switch (ue.op()) {
           case NEGATIVE -> {
-            if (!exprType.equals(new Type.Basic(JliteType.INT))) {
+            if (exprType.typeEnum() != Type.TypeEnum.INT) {
               throw new SemanticException(
                   "Negation can only be applied to `Int` type, but encountered `"
-                      + exprType.type()
+                      + exprType.friendlyName()
                       + "'",
                   "invalid type for negation",
                   List.of(ue));
             }
-            yield new Type.Basic(JliteType.INT);
+            yield new Type.Basic(Type.TypeEnum.INT);
           }
           case NOT -> {
-            if (!exprType.equals(new Type.Basic(JliteType.BOOL))) {
+            if (exprType.typeEnum() != Type.TypeEnum.BOOL) {
               throw new SemanticException(
                   "Complement can only be applied to `Bool` type, but encountered `"
-                      + exprType.type()
+                      + exprType.friendlyName()
                       + "'",
                   "invalid type for negation",
                   List.of(ue));
             }
-            yield new Type.Basic(JliteType.BOOL);
+            yield new Type.Basic(Type.TypeEnum.BOOL);
           }
         };
       }
-      case EXPR_NULL -> Type.Basic.NULL;
+      case EXPR_NULL -> Type.NULL;
     };
   }
 
-  private static Type.Basic lookupMethodReturnType(
+  private static Type lookupMethodReturnType(
       Expr target,
-      List<String> argTypes,
+      List<Type> argTypes,
       Map<String, KlassDescriptor> klassDescriptorMap,
       Environment env)
       throws SemanticException {
@@ -919,10 +916,14 @@ public class ParseTreeStaticChecker {
         // LocalCall
       case EXPR_ID -> {
         final var ie = (IdExpr) target;
-        final var klassDescriptor = klassDescriptorMap.get(env.lookup("this").get().type());
+        // `this` must exist in the env
+        final var cname = ((Type.Klass) env.lookup("this").get()).cname();
+        final var klassDescriptor = klassDescriptorMap.get(cname);
         final var maybeMethods = Optional.ofNullable(klassDescriptor.methods().get(ie.id()));
+        final var friendlyArgTypes =
+            argTypes.stream().map(Type::friendlyName).collect(Collectors.toUnmodifiableList());
+        final var signature = ie.id() + "(" + String.join(", ", friendlyArgTypes) + ")";
         if (maybeMethods.isEmpty()) {
-          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
           throw new SemanticException(
               "Local method `" + signature + "' does not exist.",
               "non-existent local method `" + signature + "'",
@@ -930,23 +931,15 @@ public class ParseTreeStaticChecker {
         }
         final var returnTypes =
             maybeMethods.get().stream()
-                .filter(
-                    m ->
-                        isCompatible(
-                            argTypes,
-                            m.argTypes().stream()
-                                .map(Type.Basic::type)
-                                .collect(Collectors.toUnmodifiableList())))
+                .filter(m -> isCompatible(argTypes, m.argTypes()))
                 .collect(Collectors.toUnmodifiableList());
         if (returnTypes.isEmpty()) {
-          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
           throw new SemanticException(
               "Local method `" + signature + "' does not exist.",
               "non-existent method `" + signature + "'",
               List.of(ie));
         }
         if (returnTypes.size() > 1) {
-          final var signature = ie.id() + "(" + String.join(", ", argTypes) + ")";
           final var possibleMethods =
               returnTypes.stream()
                   .map(
@@ -954,7 +947,7 @@ public class ParseTreeStaticChecker {
                           ie.id()
                               + "("
                               + m.argTypes().stream()
-                                  .map(Type.Basic::type)
+                                  .map(Type::friendlyName)
                                   .collect(Collectors.joining(", "))
                               + ")")
                   .collect(Collectors.joining(", "));
@@ -972,38 +965,46 @@ public class ParseTreeStaticChecker {
       case EXPR_DOT -> {
         final var de = (DotExpr) target;
         final var targetType = typecheck(de.target(), klassDescriptorMap, env);
-        if (targetType.equals(Type.Basic.NULL)) {
+        if (targetType.equals(Type.NULL)) {
           throw new SemanticException(
               "Trying to access a method of `null'", "calling a method on `null'", List.of(target));
         }
-        final var klassDescriptor = klassDescriptorMap.get(targetType.type());
-        final var maybeMethods = Optional.ofNullable(klassDescriptor.methods().get(de.id()));
-        if (maybeMethods.isEmpty()) {
-          final var signature = de.id() + "(" + String.join(", ", argTypes) + ")";
+        if (!(targetType instanceof Type.Klass)) {
           throw new SemanticException(
-              "Method `" + signature + "' is not found on class `" + targetType.type() + "'",
+              "Accessing a method of a non-class type`" + targetType.friendlyName() + "'",
+              "accessing a method of a non-class type",
+              List.of(de.target()));
+        }
+        final var klassDescriptor = klassDescriptorMap.get(((Type.Klass) targetType).cname());
+        final var maybeMethods = Optional.ofNullable(klassDescriptor.methods().get(de.id()));
+        final var friendlyArgTypes =
+            argTypes.stream().map(Type::friendlyName).collect(Collectors.toUnmodifiableList());
+        final var signature = de.id() + "(" + String.join(", ", friendlyArgTypes) + ")";
+        if (maybeMethods.isEmpty()) {
+          throw new SemanticException(
+              "Method `"
+                  + signature
+                  + "' is not found on class `"
+                  + targetType.friendlyName()
+                  + "'",
               "non-existent method `" + signature + "'",
               List.of(de));
         }
         final var returnTypes =
             maybeMethods.get().stream()
-                .filter(
-                    m ->
-                        isCompatible(
-                            argTypes,
-                            m.argTypes().stream()
-                                .map(Type.Basic::type)
-                                .collect(Collectors.toUnmodifiableList())))
+                .filter(m -> isCompatible(argTypes, m.argTypes()))
                 .collect(Collectors.toUnmodifiableList());
         if (returnTypes.isEmpty()) {
-          final var signature = de.id() + "(" + String.join(", ", argTypes) + ")";
           throw new SemanticException(
-              "Method `" + signature + "' is not found on class `" + targetType.type() + "'",
+              "Method `"
+                  + signature
+                  + "' is not found on class `"
+                  + targetType.friendlyName()
+                  + "'",
               "non-existent method `" + signature + "'",
               List.of(de));
         }
         if (returnTypes.size() > 1) {
-          final var signature = de.id() + "(" + String.join(", ", argTypes) + ")";
           final var possibleMethods =
               returnTypes.stream()
                   .map(
@@ -1011,7 +1012,7 @@ public class ParseTreeStaticChecker {
                           de.id()
                               + "("
                               + m.argTypes().stream()
-                                  .map(Type.Basic::type)
+                                  .map(Type::friendlyName)
                                   .collect(Collectors.joining(", "))
                               + ")")
                   .collect(Collectors.joining(", "));
@@ -1019,7 +1020,7 @@ public class ParseTreeStaticChecker {
               "Call with signature `"
                   + signature
                   + "' on class `"
-                  + targetType.type()
+                  + targetType.friendlyName()
                   + "' is ambiguous. Possible method overloads: "
                   + possibleMethods,
               "ambiguous method call `" + signature + "'",
@@ -1032,51 +1033,27 @@ public class ParseTreeStaticChecker {
     };
   }
 
-  private static boolean isCompatible(List<String> actualTypes, List<String> expectedTypes) {
+  private record TypeTuple(Type type1, Type type2) {}
+
+  private static boolean isCompatible(List<Type> actualTypes, List<Type> expectedTypes) {
     if (actualTypes.size() != expectedTypes.size()) {
       return false;
     }
-    final var primitiveType = Set.of(JliteType.BOOL.print(0), JliteType.INT.print(0));
-    for (int i = 0; i < actualTypes.size(); i++) {
-      final var actualType = actualTypes.get(i);
-      final var expectedType = expectedTypes.get(i);
 
-      if (primitiveType.contains(expectedType)) {
-        if (!expectedType.equals(actualType)) {
-          return false;
-        }
-      } else if (expectedType.equals(JliteType.STRING.print(0))) {
-        if (!Set.of(JliteType.STRING.print(0), Type.Basic.NULL.type()).contains(actualType)) {
-          return false;
-        }
-      } else {
-        // Must be non-string, non-primitive, class type
-        if (!actualType.equals(Type.Basic.NULL.type()) && !actualType.equals(expectedType)) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return Streams.zip(actualTypes.stream(), expectedTypes.stream(), TypeTuple::new)
+        .allMatch(tuple -> isCompatible(tuple.type1, tuple.type2));
   }
 
-  private static boolean isCompatible(Type.Basic type1, Type.Basic type2) {
-    if (type1.equals(type2)) {
-      return true;
-    }
-    final var primitiveType = Set.of(JliteType.BOOL.print(0), JliteType.INT.print(0));
-    // if types are not equal
-    if (primitiveType.contains(type1.type())) {
-      // primitive types must be equal
-      return false;
-    } else if (type1.type().equals(JliteType.STRING.print(0))) {
-      final var stringLikeType = Set.of(JliteType.STRING.print(0), Type.Basic.NULL.type());
-      return stringLikeType.contains(type2.type());
-    } else if (type1.equals(Type.Basic.NULL)) {
-      return !primitiveType.contains(type2.type());
-    } else {
-      // must be non-string, non-primitive, class type
-      return type2.equals(Type.Basic.NULL);
-    }
+  private static boolean isCompatible(Type type1, Type type2) {
+    return switch (type1.typeEnum()) {
+        // primitive types must be equal
+      case VOID, INT, BOOL -> type1.equals(type2);
+        // null can only match non-primitive types
+      case NULL -> !Set.of(Type.TypeEnum.VOID, Type.TypeEnum.INT, Type.TypeEnum.BOOL)
+          .contains(type2.typeEnum());
+        // objects can only match other object of the same type or null
+      case STRING, CLASS -> type1.equals(type2) || type2.typeEnum() == Type.TypeEnum.NULL;
+    };
   }
 
   public static void distinctNameCheck(Program program) throws SemanticException {
