@@ -76,6 +76,10 @@ class B {
     return new B();
   }
 
+  B h() {
+    return null;
+  }
+
   Int a(Int a) {
     while (true) {
       if (a == 10) {
