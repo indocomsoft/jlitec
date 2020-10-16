@@ -14,7 +14,6 @@ import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
 import jlitec.ast.expr.ThisExpr;
 import jlitec.ast.expr.UnaryOp;
-import jlitec.backend.c.expr.ExprType;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Klass;
 import jlitec.parsetree.KlassType;

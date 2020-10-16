@@ -99,8 +99,8 @@ public class CCodeGen {
               new CallStmt(
                   "scanf", List.of(new StringLiteralExpr("%d"), new AddrExpr(rs.dest().id()))));
           case CHAR_ARRAY -> List.of(
-              new CallStmt(
-                  "scanf", List.of(new StringLiteralExpr("%s"), new IdExpr(rs.dest().id()))));
+              new VarAssignStmt(
+                  rs.dest().id(), new CallExpr("getline_without_newline", List.of())));
           case BOOL -> {
             final var tempVar = gen.gen(Type.INT);
             yield List.of(

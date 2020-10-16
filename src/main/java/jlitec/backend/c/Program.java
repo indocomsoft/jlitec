@@ -14,9 +14,23 @@ public record Program(List<Struct> structs, List<Method> methods) implements Pri
   @Override
   public String print(int indent) {
     final var sb = new StringBuilder();
-    sb.append("#include <stdio.h>\n");
-    sb.append("#include <stdlib.h>\n");
-    sb.append("#include <string.h>\n");
+    sb.append(
+            """
+            #include <stdio.h>
+            #include <stdlib.h>
+            #include <string.h>
+
+            char* getline_without_newline() {
+              char* result = NULL;
+              size_t n = 0;
+              ssize_t len;
+              len = getline(&result, &n, stdin);
+              result[len - 1] = 0;
+              return realloc(result, len - 1);
+            }
+            """)
+        .append("\n");
+
     for (final var struct : structs) {
       sb.append(struct.print(indent)).append("\n");
     }
