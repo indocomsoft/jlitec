@@ -14,6 +14,7 @@ import jlitec.ast.TypeAnnotation;
 import jlitec.ast.expr.BinaryOp;
 import jlitec.ast.expr.ThisExpr;
 import jlitec.ast.expr.UnaryOp;
+import jlitec.backend.c.expr.ExprType;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Klass;
 import jlitec.parsetree.KlassType;
@@ -298,8 +299,14 @@ public class ParseTreeStaticChecker {
         yield new jlitec.ast.stmt.WhileStmt(condition, stmtList);
       }
       case STMT_READLN -> new jlitec.ast.stmt.ReadlnStmt(((ReadlnStmt) stmt).id());
-      case STMT_PRINTLN -> new jlitec.ast.stmt.PrintlnStmt(
-          toAst(((PrintlnStmt) stmt).expr(), klassDescriptorMap, env));
+      case STMT_PRINTLN -> {
+        final var ps = (PrintlnStmt) stmt;
+        final var expr = toAst(ps.expr(), klassDescriptorMap, env);
+        if (expr.typeAnnotation().annotation() == TypeAnnotation.Annotation.NULL) {
+          yield new jlitec.ast.stmt.PrintlnStmt(new jlitec.ast.expr.StringLiteralExpr(""));
+        }
+        yield new jlitec.ast.stmt.PrintlnStmt(expr);
+      }
       case STMT_VAR_ASSIGN -> {
         final var vas = (VarAssignStmt) stmt;
         final var rhs = toAst(vas.rhs(), klassDescriptorMap, env);
@@ -643,7 +650,7 @@ public class ParseTreeStaticChecker {
       case STMT_PRINTLN -> {
         final var ps = (PrintlnStmt) stmt;
         final var psType = typecheck(ps.expr(), klassDescriptorMap, env);
-        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
+        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING, Type.TypeEnum.NULL)
             .contains(psType.typeEnum())) {
           throw new SemanticException(
               "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
