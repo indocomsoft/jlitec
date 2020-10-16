@@ -202,9 +202,6 @@ public class CCodeGen {
     return switch (expr.getExprType()) {
       case BINARY -> {
         final var be = (jlitec.ir3.expr.BinaryExpr) expr;
-        final var lhsChunk = gen(be.lhs(), typeMap, gen);
-        final var rhsChunk = gen(be.rhs(), typeMap, gen);
-
         if (be.op() == jlitec.ir3.expr.BinaryOp.PLUS) {
           final var isLhsString =
               switch (be.lhs().getRvalExprType()) {
@@ -267,7 +264,8 @@ public class CCodeGen {
                     .build());
           }
         }
-
+        final var lhsChunk = gen(be.lhs(), typeMap, gen);
+        final var rhsChunk = gen(be.rhs(), typeMap, gen);
         yield new ExprChunk(
             new BinaryExpr(BinaryOp.fromIr3(be.op()), lhsChunk.expr(), rhsChunk.expr()),
             ImmutableList.<Stmt>builder()
