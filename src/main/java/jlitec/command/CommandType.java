@@ -7,7 +7,8 @@ public enum CommandType {
   PARSE_TREE(new ParseTreeCommand()),
   PRETTY_PRINT(new PrettyPrintCommand()),
   CHECK(new CheckCommand()),
-  IR3(new Ir3Command());
+  IR3(new Ir3Command()),
+  C(new CCommand());
 
   public final Command command;
 
