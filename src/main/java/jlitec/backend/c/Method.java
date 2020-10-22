@@ -22,7 +22,14 @@ public record Method(
     final var methodName = name.equals("main") ? "realmain" : name;
 
     indent(sb, indent);
-    sb.append(returnType.print(indent)).append(" ").append(methodName).append("(");
+    if (methodName.equals("realmain")) {
+      sb.append("inline ");
+    }
+    sb.append("static ")
+        .append(returnType.print(indent))
+        .append(" ")
+        .append(methodName)
+        .append("(");
     if (!methodName.equals("realmain")) {
       sb.append(
           args.stream()
