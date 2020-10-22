@@ -30,14 +30,11 @@ public record Program(List<Struct> structs, List<Method> methods) implements Pri
     for (final var method : methods) {
       final var name = method.name().equals("main") ? "realmain" : method.name();
       indent(sb, indent);
+      sb.append("static ");
       if (name.equals("realmain")) {
         sb.append("inline ");
       }
-      sb.append("static ")
-          .append(method.returnType().print(indent))
-          .append(" ")
-          .append(name)
-          .append("(");
+      sb.append(method.returnType().print(indent)).append(" ").append(name).append("(");
       if (!name.equals("realmain")) {
         sb.append(
             method.args().stream()
