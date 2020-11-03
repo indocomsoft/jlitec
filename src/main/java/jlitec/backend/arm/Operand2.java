@@ -1,16 +1,28 @@
 package jlitec.backend.arm;
 
+import jlitec.Printable;
+
 /*
 Not implemented:
   - opsh
   - rotate/shift by register
  */
-public interface Operand2 {
-  record Register(Register reg) implements Operand2 {}
+public interface Operand2 extends Printable {
+  record Register(Register reg) implements Operand2 {
+    @Override
+    public String print(int indent) {
+      return reg.print(indent);
+    }
+  }
 
   record Immediate(int value) implements Operand2 {
     public Immediate {
       throwOnInvalid(value);
+    }
+
+    @Override
+    public String print(int indent) {
+      return "#" + value;
     }
 
     public static boolean isValid(int value) {

@@ -1,10 +1,20 @@
 package jlitec.backend.arm;
 
-public enum Size {
+import jlitec.Printable;
+
+public enum Size implements Printable {
   WORD, /* WORD, the default, hence omitted */
   B, /* BYTE */
   SB, /* SIGNED BYTE */
   H, /* HALFWORD */
   SH, /* SIGNED HALFWORD */
-  D /* DOUBLEWORD */
+  D; /* DOUBLEWORD */
+
+  @Override
+  public String print(int indent) {
+    return switch (this) {
+      case WORD -> "";
+      case B, SB, H, SH, D -> this.name();
+    };
+  }
 }

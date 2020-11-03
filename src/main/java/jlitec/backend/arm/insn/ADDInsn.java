@@ -7,4 +7,9 @@ import jlitec.backend.arm.Register;
 
 public record ADDInsn(
     Condition condition, boolean updateConditionFlags, Register dst, Register src, Operand2 op2)
-    implements DataBinaryInsn {}
+    implements DataBinaryInsn {
+  @Override
+  public Type type() {
+    return Type.ADD;
+  }
+}

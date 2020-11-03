@@ -1,3 +1,5 @@
 package jlitec.backend.arm;
 
-public interface Insn {}
+import jlitec.Printable;
+
+public interface Insn extends Printable {}

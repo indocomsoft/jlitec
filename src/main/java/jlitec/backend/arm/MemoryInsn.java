@@ -5,5 +5,22 @@ public interface MemoryInsn extends ARMInsn {
 
   Register register();
 
-  AddressingMode addressingMode();
+  MemoryAddress memoryAddress();
+
+  Type type();
+
+  enum Type {
+    STR,
+    LDR;
+  }
+
+  @Override
+  default String print(int indent) {
+    return type().name()
+        + size().print(0)
+        + " "
+        + register().name()
+        + ", "
+        + memoryAddress().print(0);
+  }
 }
