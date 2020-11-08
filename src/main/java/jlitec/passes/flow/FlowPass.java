@@ -79,10 +79,7 @@ public class FlowPass implements Pass<jlitec.ir3.Program, Map<jlitec.ir3.Method,
       final var block = (Block.Basic) blocks.get(i);
       for (final var stmt : block.stmtList()) {
         if (stmt instanceof ReturnStmt) {
-          System.out.println(i);
-          System.out.println(edges);
           edges.put(i, blocks.size() - 1);
-          System.out.println(edges);
           break;
         }
       }

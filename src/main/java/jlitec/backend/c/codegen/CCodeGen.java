@@ -74,7 +74,7 @@ public class CCodeGen {
                 method.args().stream().map(CCodeGen::gen))
             .collect(Collectors.toUnmodifiableList());
     final var typeMap =
-        method.vars().stream()
+        Stream.concat(method.vars().stream(), method.args().stream())
             .map(CCodeGen::gen)
             .collect(Collectors.toUnmodifiableMap(Var::id, Var::type));
     final var stmtList =
