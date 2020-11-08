@@ -9,7 +9,8 @@ public enum CommandType {
   CHECK(new CheckCommand()),
   IR3(new Ir3Command()),
   C(new CCommand()),
-  FLOW(new FlowCommand());
+  FLOW(new FlowCommand()),
+  SIMPLE(new SimpleCommand());
 
   public final Command command;
 
