@@ -8,7 +8,8 @@ public enum CommandType {
   PRETTY_PRINT(new PrettyPrintCommand()),
   CHECK(new CheckCommand()),
   IR3(new Ir3Command()),
-  C(new CCommand());
+  C(new CCommand()),
+  FLOW(new FlowCommand());
 
   public final Command command;
 
