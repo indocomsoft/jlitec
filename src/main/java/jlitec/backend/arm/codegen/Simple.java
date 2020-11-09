@@ -61,6 +61,7 @@ import jlitec.ir3.stmt.FieldAssignStmt;
 import jlitec.ir3.stmt.GotoStmt;
 import jlitec.ir3.stmt.LabelStmt;
 import jlitec.ir3.stmt.PrintlnStmt;
+import jlitec.ir3.stmt.ReadlnStmt;
 import jlitec.ir3.stmt.ReturnStmt;
 import jlitec.ir3.stmt.Stmt;
 import jlitec.ir3.stmt.VarAssignStmt;
@@ -172,7 +173,7 @@ public class Simple {
             Register.R4,
             new MemoryAddress.ImmediateOffset(Register.SP, 4)));
     // ssize_t len = getline(&result, &n, stdin);
-    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.PC)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.SP)));
     insnList.add(
         new ADDInsn(Condition.AL, false, Register.R1, Register.R0, new Operand2.Immediate(4)));
     insnList.add(
@@ -206,12 +207,14 @@ public class Simple {
 
     // Store generated strings.
     for (final var label : stringGen.getStringToId().values()) {
+      insnList.add(new AssemblerDirective("align", "2"));
       insnList.add(new LabelInsn(label));
       insnList.add(new AssemblerDirective("word", label + "S"));
     }
     for (final var entry : stringGen.getStringToId().entrySet()) {
       final var string = entry.getKey();
       final var label = entry.getValue();
+      insnList.add(new AssemblerDirective("align", "2"));
       insnList.add(new AssemblerDirective("section", ".rodata"));
       insnList.add(new LabelInsn(label + "S"));
       insnList.add(
@@ -299,7 +302,29 @@ public class Simple {
         final var gs = (GotoStmt) stmt;
         yield List.of(new BInsn(Condition.AL, gs.dest().label()));
       }
-      case READLN -> null;
+      case READLN -> {
+        final var rs = (ReadlnStmt) stmt;
+        final var offset = stackDesc.get(rs.dest().id()).offset();
+        yield switch (typeMap.get(rs.dest().id()).type()) {
+          case VOID, CLASS -> throw new RuntimeException("should have failed typecheck");
+          case INT, BOOL -> List.of(
+              new LDRInsn(
+                  Condition.AL,
+                  Size.WORD,
+                  Register.R0,
+                  new MemoryAddress.PCRelative(stringGen.gen("%d"))),
+              new ADDInsn(
+                  Condition.AL, false, Register.R1, Register.SP, new Operand2.Immediate(offset)),
+              new BLInsn(Condition.AL, "__isoc99_scanf"));
+          case STRING -> List.of(
+              new BLInsn(Condition.AL, "getline_without_newline"),
+              new STRInsn(
+                  Condition.AL,
+                  Size.WORD,
+                  Register.R0,
+                  new MemoryAddress.ImmediateOffset(Register.SP, offset)));
+        };
+      }
       case PRINTLN -> {
         final var ps = (PrintlnStmt) stmt;
         final var rval = ps.rval();
