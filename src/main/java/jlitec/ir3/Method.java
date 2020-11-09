@@ -1,5 +1,6 @@
 package jlitec.ir3;
 
+import com.google.common.collect.ImmutableList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -13,6 +14,13 @@ public record Method(
     this.args = Collections.unmodifiableList(args);
     this.vars = Collections.unmodifiableList(vars);
     this.stmtList = Collections.unmodifiableList(stmtList);
+  }
+
+  public List<Var> argsWithThis() {
+    return ImmutableList.<Var>builder()
+        .add(new Var(new Type.KlassType(cname), "this"))
+        .addAll(args)
+        .build();
   }
 
   @Override
