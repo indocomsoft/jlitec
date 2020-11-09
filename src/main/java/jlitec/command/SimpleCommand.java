@@ -10,7 +10,6 @@ import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Program;
-import jlitec.passes.flow.FlowPass;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
@@ -59,8 +58,7 @@ public class SimpleCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final var flowOutput = new FlowPass().pass(ir3Program);
-    final var armProgram = Simple.gen(ir3Program, flowOutput);
+    final var armProgram = Simple.gen(ir3Program);
     System.out.println(armProgram.print(0));
   }
 }

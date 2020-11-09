@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import jlitec.Printable;
+import jlitec.backend.c.stmt.LabelStmt;
 import jlitec.backend.c.stmt.Stmt;
 
 public record Method(
@@ -42,6 +43,12 @@ public record Method(
 
     for (final var stmt : stmtList) {
       sb.append(stmt.print(indent + 1));
+    }
+
+    final var finalStmt = stmtList.get(stmtList.size() - 1);
+    if (finalStmt instanceof LabelStmt) {
+      indent(sb, indent + 1);
+      sb.append(";\n");
     }
 
     indent(sb, indent);

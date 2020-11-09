@@ -1,11 +1,10 @@
 package jlitec.passes;
 
+import java.util.Map;
 import jlitec.ir3.Method;
 import jlitec.ir3.Program;
 import jlitec.passes.flow.FlowGraph;
 import jlitec.passes.flow.FlowPass;
-
-import java.util.Map;
 
 public class PassManager {
   // Prevent instantiation

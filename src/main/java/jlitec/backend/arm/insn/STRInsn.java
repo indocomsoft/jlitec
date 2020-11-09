@@ -10,8 +10,11 @@ public record STRInsn(
     Condition condition, Size size, Register register, MemoryAddress memoryAddress)
     implements MemoryInsn {
   public STRInsn {
-    if (!isValid(size)) {
+    if (!isValidSize(size)) {
       throw new RuntimeException("Invalid size for STR: `" + size.print(0) + "'");
+    }
+    if (!isValidMemoryAddress(memoryAddress)) {
+      throw new RuntimeException("Cannot use PC-relative memory address for STR");
     }
   }
 
@@ -20,10 +23,14 @@ public record STRInsn(
     return Type.STR;
   }
 
-  public static boolean isValid(Size size) {
+  public static boolean isValidSize(Size size) {
     return switch (size) {
       case WORD, B, H, D -> true;
       case SB, SH -> false;
     };
+  }
+
+  private static boolean isValidMemoryAddress(MemoryAddress memoryAddress) {
+    return !(memoryAddress instanceof MemoryAddress.PCRelative);
   }
 }

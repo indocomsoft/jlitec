@@ -8,10 +8,10 @@ Not implemented:
   - rotate/shift by register
  */
 public interface Operand2 extends Printable {
-  record Register(Register reg) implements Operand2 {
+  record Register(jlitec.backend.arm.Register reg) implements Operand2 {
     @Override
     public String print(int indent) {
-      return reg.print(indent);
+      return reg.name();
     }
   }
 

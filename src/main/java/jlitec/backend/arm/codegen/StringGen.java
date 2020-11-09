@@ -8,7 +8,6 @@ public class StringGen {
   private Map<String, String> stringToId = new HashMap<>();
 
   /**
-   *
    * @param string the string to use
    * @return the label for the string
    */
@@ -16,7 +15,7 @@ public class StringGen {
     if (stringToId.containsKey(string)) {
       return stringToId.get(string);
     }
-    final var label = "S" + counter;
+    final var label = ".S" + counter;
     counter += 1;
     stringToId.put(string, label);
     return label;
