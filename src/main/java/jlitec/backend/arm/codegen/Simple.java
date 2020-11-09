@@ -743,7 +743,8 @@ public class Simple {
                   new ANDInsn(
                       Condition.AL, false, dest, Register.R4, new Operand2.Register(Register.R5)));
               case MULT -> List.of(
-                  new MULInsn(Condition.AL, false, dest, Register.R4, Register.R5));
+                  new MULInsn(Condition.AL, false, Register.R6, Register.R4, Register.R5),
+                      new MOVInsn(Condition.AL, dest, new Operand2.Register(Register.R6)));
               case DIV -> List.of(new SDIVInsn(Condition.AL, dest, Register.R4, Register.R5));
             };
         yield ImmutableList.<Insn>builder().add(lhs).add(rhs).addAll(insnList).build();
