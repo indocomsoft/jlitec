@@ -49,7 +49,7 @@ public interface Operand2 extends Printable {
                 + length
                 + "-bit value.");
       }
-      if ((trailing & 1) == 1) {
+      if (length == 8 && (trailing & 1) == 1) {
         throw new RuntimeException(
             "Operand2 immediate value can only be rotated by an even number of bits, instead found `"
                 + value

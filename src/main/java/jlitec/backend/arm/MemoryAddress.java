@@ -14,7 +14,7 @@ public interface MemoryAddress extends Printable {
       implements MemoryAddress {
     @Override
     public String print(int indent) {
-      final var offset = maybeOffset.map(o -> ", #" + o).orElse("");
+      final var offset = maybeOffset.filter(o -> o != 0).map(o -> ", #" + o).orElse("");
       return "[" + register.name() + offset + "]" + (writeback ? "!" : "");
     }
   }
