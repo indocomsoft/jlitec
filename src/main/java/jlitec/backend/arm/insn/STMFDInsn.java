@@ -12,6 +12,15 @@ import jlitec.backend.arm.Register;
 */
 public record STMFDInsn(Register register, EnumSet<Register> registers, boolean writeback)
     implements ARMInsn {
+  public STMFDInsn {
+    if ((registers.size() & 1) == 1) {
+      throw new RuntimeException(
+          "Stack must be 8-byte aligned, instead STMFD received "
+              + (registers.size())
+              + " registers.");
+    }
+  }
+
   @Override
   public Condition condition() {
     return Condition.AL;

@@ -225,7 +225,12 @@ public class Simple {
   }
 
   private record StackDescriptor(
-      Map<String, LocationDescriptor.Stack> varToLocation, int totalOffset) {}
+      Map<String, LocationDescriptor.Stack> varToLocation, int totalOffset) {
+    public StackDescriptor {
+      // 8-byte alignment
+      this.totalOffset = totalOffset == 0 ? 0 : ((totalOffset - 1) / 8 + 1) * 8;
+    }
+  }
 
   private static StackDescriptor buildStackDesc(Method method) {
     final var result = new HashMap<String, LocationDescriptor.Stack>();
@@ -744,7 +749,7 @@ public class Simple {
                       Condition.AL, false, dest, Register.R4, new Operand2.Register(Register.R5)));
               case MULT -> List.of(
                   new MULInsn(Condition.AL, false, Register.R6, Register.R4, Register.R5),
-                      new MOVInsn(Condition.AL, dest, new Operand2.Register(Register.R6)));
+                  new MOVInsn(Condition.AL, dest, new Operand2.Register(Register.R6)));
               case DIV -> List.of(new SDIVInsn(Condition.AL, dest, Register.R4, Register.R5));
             };
         yield ImmutableList.<Insn>builder().add(lhs).add(rhs).addAll(insnList).build();
