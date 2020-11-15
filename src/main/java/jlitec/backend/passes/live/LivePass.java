@@ -5,6 +5,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -59,7 +60,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
             .map(this::calculateDefUse)
             .collect(Collectors.toUnmodifiableList());
     final var inOut = dataflow(defUseList, input.flowGraph());
-    final var blockWithDefUseList =
+    final var blockWithLiveList =
         IntStream.range(0, input.flowGraph().blocks().size())
             .boxed()
             .map(
@@ -71,12 +72,48 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
                 })
             .collect(Collectors.toUnmodifiableList());
 
+    final var stmtWithLiveList = calculateStmtLive(blockWithLiveList);
+
     return new Method(
         input.method().returnType(),
         input.method().id(),
         input.method().argsWithThis(),
         input.method().vars(),
-        blockWithDefUseList);
+        blockWithLiveList,
+        stmtWithLiveList);
+  }
+
+  private List<StmtWithLive> calculateStmtLive(List<BlockWithLive> blockWithLiveList) {
+    final var result = new ArrayList<StmtWithLive>();
+
+    for (final var blockWithLive : blockWithLiveList) {
+      final List<StmtWithLive> stmtList =
+          switch (blockWithLive.block().type()) {
+            case EXIT -> List.of();
+            case BASIC -> {
+              final var bb = (Block.Basic) blockWithLive.block();
+              final var reversedBlockStmt = new ArrayList<StmtWithLive>();
+              Set<String> currentLiveOut = blockWithLive.liveOut();
+              for (final var stmt : Lists.reverse(bb.stmtList())) {
+                // OUT[S] = U_{S a successor of B] IN[S]
+                // And the only successor is the statement after (or live out of the block)
+                final var liveOut = currentLiveOut;
+                // IN[S] = (OUT[B] - def_B) U use_B
+                final var liveIn = new HashSet<String>();
+                liveIn.addAll(currentLiveOut);
+                final var stmtDefUse = calculateDefUse(stmt);
+                liveIn.removeAll(stmtDefUse.def());
+                liveIn.addAll(stmtDefUse.use());
+                reversedBlockStmt.add(new StmtWithLive(stmt, liveIn, liveOut));
+                currentLiveOut = Collections.unmodifiableSet(liveIn);
+              }
+              yield Lists.reverse(reversedBlockStmt);
+            }
+          };
+      result.addAll(stmtList);
+    }
+
+    return Collections.unmodifiableList(result);
   }
 
   private InOut dataflow(List<DefUse> defUseList, FlowGraph flowGraph) {

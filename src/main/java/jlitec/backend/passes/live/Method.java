@@ -10,10 +10,12 @@ public record Method(
     String id,
     List<Var> argsWithThis,
     List<Var> vars,
-    List<BlockWithLive> blockWithLiveList) {
+    List<BlockWithLive> blockWithLiveList,
+    List<StmtWithLive> stmtWithLiveList) {
   public Method {
     this.argsWithThis = Collections.unmodifiableList(argsWithThis);
     this.vars = Collections.unmodifiableList(vars);
     this.blockWithLiveList = Collections.unmodifiableList(blockWithLiveList);
+    this.stmtWithLiveList = Collections.unmodifiableList(stmtWithLiveList);
   }
 }
