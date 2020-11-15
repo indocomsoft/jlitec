@@ -47,7 +47,7 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
         }
           // Any instruction that immediately follows a conditional or unconditional jump is a
           // leader.
-        case CMP, GOTO -> {
+        case CMP, GOTO, RETURN -> {
           if (i + 1 < stmtList.size()) {
             leaders.set(i + 1);
           }
@@ -75,12 +75,6 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
     final var edges = HashMultimap.<Integer, Integer>create();
     for (int i = 0; i < blocks.size() - 1; i++) {
       final var block = (Block.Basic) blocks.get(i);
-      for (final var stmt : block.stmtList()) {
-        if (stmt instanceof ReturnStmt) {
-          edges.put(i, blocks.size() - 1);
-          break;
-        }
-      }
       final var lastStmt = block.stmtList().get(block.stmtList().size() - 1);
       switch (lastStmt.getStmtType()) {
         case GOTO -> {
@@ -95,6 +89,9 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
           if (i + 1 < blocks.size()) {
             edges.put(i, i + 1);
           }
+        }
+        case RETURN -> {
+          edges.put(i, blocks.size() - 1);
         }
         default -> {
           if (i + 1 < blocks.size()) {

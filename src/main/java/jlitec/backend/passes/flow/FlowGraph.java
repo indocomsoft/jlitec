@@ -18,25 +18,11 @@ public record FlowGraph(List<Block> blocks, Multimap<Integer, Integer> edges) {
     final var sb = new StringBuilder();
     sb.append("digraph G {\n");
     sb.append("  ENTRY -> B0;\n");
-    for (int i = 0; i < blocks.size(); i++) {
-      final var block = blocks.get(i);
-      final var blockName = switch(block.type()) {
-        case EXIT -> "EXIT";
-        case BASIC -> "B" + i;
-      };
-      final var printed = switch(block.type()) {
-        case EXIT -> "EXIT";
-        case BASIC -> {
-          final var bb = (Block.Basic) block;
-          yield bb.stmtList().stream().map(s -> s.print(0)).collect(Collectors.joining("\n"));
-        }
-      };
-      sb.append("  ").append(blockName);
-      sb.append("[xlabel=\"").append(blockName).append("\", label=\"").append(StringEscapeUtils.escapeJava(printed)).append("\"");
-      if (block.type() == Block.Type.BASIC) {
-        sb.append(", shape=box");
-      }
-      sb.append("];\n");
+    for (int i = 0; i < blocks.size() - 1; i++) {
+      final var bb = (Block.Basic) blocks.get(i);
+      final var blockName = "B" + i;
+      final var printed = bb.stmtList().stream().map(s -> s.print(0)).collect(Collectors.joining("\n"));
+      sb.append("  ").append(blockName).append("[xlabel=\"").append(blockName).append("\", label=\"").append(StringEscapeUtils.escapeJava(printed)).append("\", shape=box];\n");
     }
     for (final var edgeEntry : edges.entries()) {
       final var src = edgeEntry.getKey();
