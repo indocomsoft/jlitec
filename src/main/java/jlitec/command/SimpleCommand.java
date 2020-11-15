@@ -2,7 +2,7 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
-import jlitec.backend.arm.codegen.Simple;
+import jlitec.backend.arch.arm.codegen.Simple;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;

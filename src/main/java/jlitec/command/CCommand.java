@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Map;
 import java.util.Optional;
-import jlitec.backend.c.codegen.CCodeGen;
+import jlitec.backend.arch.c.codegen.CCodeGen;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -71,7 +71,7 @@ public class CCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final jlitec.backend.c.Program cProgram = CCodeGen.gen(ir3Program);
+    final jlitec.backend.arch.c.Program cProgram = CCodeGen.gen(ir3Program);
     final var cOutput = cProgram.print(0);
     final var maybeCC = Optional.ofNullable(parsed.getString("cc"));
 

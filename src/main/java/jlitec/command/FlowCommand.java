@@ -2,6 +2,8 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
+
+import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -9,7 +11,7 @@ import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Program;
-import jlitec.passes.flow.FlowPass;
+import jlitec.backend.passes.flow.FlowPass;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
@@ -58,6 +60,10 @@ public class FlowCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    System.out.println(new FlowPass().pass(ir3Program).values());
+    final ProgramWithFlow programWithFlow = new FlowPass().pass(ir3Program);
+    // System.out.println(programWithFlow.methodToFlow().values());
+    for (final var flow : programWithFlow.methodToFlow().values()) {
+      System.out.println(flow.generateDot());
+    }
   }
 }
