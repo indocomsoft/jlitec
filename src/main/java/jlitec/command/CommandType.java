@@ -10,6 +10,7 @@ public enum CommandType {
   IR3(new Ir3Command()),
   C(new CCommand()),
   FLOW(new FlowCommand()),
+  LIVE(new LiveCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;

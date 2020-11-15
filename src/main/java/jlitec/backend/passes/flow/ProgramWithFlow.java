@@ -1,10 +1,9 @@
 package jlitec.backend.passes.flow;
 
-import jlitec.ir3.Method;
-import jlitec.ir3.Program;
-
 import java.util.Collections;
 import java.util.Map;
+import jlitec.ir3.Method;
+import jlitec.ir3.Program;
 
 public record ProgramWithFlow(Program program, Map<Method, FlowGraph> methodToFlow) {
   public ProgramWithFlow {

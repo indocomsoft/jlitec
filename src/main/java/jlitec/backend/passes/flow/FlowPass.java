@@ -7,13 +7,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import jlitec.backend.passes.Pass;
 import jlitec.ir3.Program;
 import jlitec.ir3.stmt.CmpStmt;
 import jlitec.ir3.stmt.GotoStmt;
 import jlitec.ir3.stmt.LabelStmt;
-import jlitec.ir3.stmt.ReturnStmt;
 import jlitec.ir3.stmt.Stmt;
-import jlitec.backend.passes.Pass;
 
 public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
   @Override
