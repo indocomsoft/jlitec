@@ -2,6 +2,7 @@ package jlitec.parsetree.expr;
 
 import java.util.Optional;
 import java_cup.runtime.ComplexSymbolFactory.Location;
+import org.apache.commons.text.StringEscapeUtils;
 
 public record StringLiteralExpr(String value, Location leftLocation, Location rightLocation)
     implements Expr {
@@ -23,6 +24,6 @@ public record StringLiteralExpr(String value, Location leftLocation, Location ri
 
   @Override
   public String print(int indent) {
-    return '"' + value + '"';
+    return '"' + StringEscapeUtils.escapeJava(value) + '"';
   }
 }
