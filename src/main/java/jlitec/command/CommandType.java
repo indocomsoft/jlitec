@@ -11,6 +11,7 @@ public enum CommandType {
   C(new CCommand()),
   FLOW(new FlowCommand()),
   LIVE(new LiveCommand()),
+  INTERFERENCE(new InterferenceCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;

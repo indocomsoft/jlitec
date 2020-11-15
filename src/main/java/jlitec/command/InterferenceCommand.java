@@ -1,10 +1,10 @@
 package jlitec.command;
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.SetMultimap;
 import java.io.IOException;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.live.LivePass;
@@ -19,10 +19,10 @@ import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class LiveCommand implements Command {
+public class InterferenceCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Runs the live pass and output in DOT format";
+    return "Generates interference graphs in DOT format";
   }
 
   @Override
@@ -68,21 +68,29 @@ public class LiveCommand implements Command {
     for (final var method : programWithFlow.program().methodList()) {
       final var flow = programWithFlow.methodToFlow().get(method);
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
-      final var prefix =
-          IntStream.range(0, flow.blocks().size())
-              .boxed()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Function.identity(),
-                      i -> "liveIn = " + output.blockWithLiveList().get(i).liveIn()));
-      final var suffix =
-          IntStream.range(0, flow.blocks().size())
-              .boxed()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Function.identity(),
-                      i -> "liveOut = " + output.blockWithLiveList().get(i).liveOut()));
-      System.out.println(flow.generateDot(prefix, suffix));
+      final SetMultimap<String, String> edges = HashMultimap.create();
+      for (final var stmtWithLive : output.stmtWithLiveList()) {
+        final var in =
+            stmtWithLive.liveIn().stream().sorted().collect(Collectors.toUnmodifiableList());
+        for (int i = 0; i < in.size() - 1; i++) {
+          edges.putAll(in.get(i), in.subList(i + 1, in.size()));
+        }
+        final var out =
+            stmtWithLive.liveOut().stream().sorted().collect(Collectors.toUnmodifiableList());
+        for (int i = 0; i < out.size() - 1; i++) {
+          edges.putAll(out.get(i), out.subList(i + 1, out.size()));
+        }
+      }
+
+      final var sb = new StringBuilder();
+      sb.append("graph G {\n");
+      for (final var edgeEntry : edges.entries()) {
+        final var src = edgeEntry.getKey();
+        final var dst = edgeEntry.getValue();
+        sb.append("  ").append(src).append(" -- ").append(dst).append(";\n");
+      }
+      sb.append("}");
+      System.out.println(sb.toString());
     }
   }
 }
