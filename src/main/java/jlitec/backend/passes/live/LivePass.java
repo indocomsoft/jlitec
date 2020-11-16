@@ -9,11 +9,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.Pass;
@@ -24,6 +22,7 @@ import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
+import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
@@ -164,6 +163,10 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
 
   public static DefUse calculateDefUse(LowerStmt stmt) {
     return switch (stmt.stmtExtensionType()) {
+      case IMMEDIATE -> {
+        final var is = (ImmediateLowerStmt) stmt;
+        yield new DefUse(Set.of(), Set.of(toNode(is.dest())));
+      }
       case LABEL, GOTO, RETURN, POP_STACK -> DefUse.EMPTY;
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
@@ -193,16 +196,8 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
       }
       case MOV -> {
         final var ms = (MovLowerStmt) stmt;
-        final var use =
-            Stream.of(ms.src())
-                .map(LivePass::toNode)
-                .flatMap(Optional::stream)
-                .collect(Collectors.toUnmodifiableSet());
-        final var def =
-            Stream.of(ms.dst())
-                .map(LivePass::toNode)
-                .flatMap(Optional::stream)
-                .collect(Collectors.toUnmodifiableSet());
+        final var use = Set.of(toNode(ms.src()));
+        final var def = Set.of(toNode(ms.dst()));
         yield new DefUse(use, def);
       }
       case PUSH_STACK -> {
@@ -221,21 +216,15 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
     };
   }
 
-  private static Optional<Node> toNode(Addressable addressable) {
+  private static Node toNode(Addressable addressable) {
     return switch (addressable.type()) {
-      case RVAL -> {
-        final var a = (Addressable.Rval) addressable;
-        yield switch (a.rvalExpr().getRvalExprType()) {
-          case ID -> {
-            final var idRvalExpr = (IdRvalExpr) a.rvalExpr();
-            yield Optional.of(new Node.Id(idRvalExpr.id()));
-          }
-          case STRING, NULL, INT, BOOL -> Optional.empty();
-        };
+      case ID_RVAL -> {
+        final var a = (Addressable.IdRval) addressable;
+        yield new Node.Id(a.idRvalExpr());
       }
       case REG -> {
         final var a = (Addressable.Reg) addressable;
-        yield Optional.of(new Node.Reg(a.reg()));
+        yield new Node.Reg(a.reg());
       }
     };
   }

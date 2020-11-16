@@ -2,12 +2,12 @@ package jlitec.backend.passes.lower.stmt;
 
 import jlitec.Printable;
 import jlitec.backend.arch.arm.Register;
-import jlitec.ir3.expr.rval.RvalExpr;
+import jlitec.ir3.expr.rval.IdRvalExpr;
 
 public interface Addressable extends Printable {
   enum Type {
     REG,
-    RVAL;
+    ID_RVAL;
   }
 
   Type type();
@@ -24,15 +24,15 @@ public interface Addressable extends Printable {
     }
   }
 
-  record Rval(RvalExpr rvalExpr) implements Addressable {
+  record IdRval(IdRvalExpr idRvalExpr) implements Addressable {
     @Override
     public String print(int indent) {
-      return rvalExpr.print(indent);
+      return idRvalExpr.print(indent);
     }
 
     @Override
     public Type type() {
-      return Type.RVAL;
+      return Type.ID_RVAL;
     }
   }
 }

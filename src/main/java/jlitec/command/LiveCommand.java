@@ -76,14 +76,24 @@ public class LiveCommand implements Command {
               .collect(
                   Collectors.toUnmodifiableMap(
                       Function.identity(),
-                      i -> "liveIn = " + output.blockWithLiveList().get(i).liveIn()));
+                      i ->
+                          "liveIn = ["
+                              + output.blockWithLiveList().get(i).liveIn().stream()
+                                  .map(n -> n.print(0))
+                                  .collect(Collectors.joining(", "))
+                              + "]"));
       final var suffix =
           IntStream.range(0, flow.blocks().size())
               .boxed()
               .collect(
                   Collectors.toUnmodifiableMap(
                       Function.identity(),
-                      i -> "liveOut = " + output.blockWithLiveList().get(i).liveOut()));
+                      i ->
+                          "liveOut = ["
+                              + output.blockWithLiveList().get(i).liveOut().stream()
+                                  .map(n -> n.print(0))
+                                  .collect(Collectors.joining(", "))
+                              + "]"));
       System.out.println(flow.generateDot(prefix, suffix));
     }
   }

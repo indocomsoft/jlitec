@@ -7,6 +7,7 @@ public enum LowerStmtType {
   FIELD_ACCESS,
   FIELD_ASSIGN,
   GOTO,
+  IMMEDIATE,
   LABEL,
   MOV,
   RETURN,
