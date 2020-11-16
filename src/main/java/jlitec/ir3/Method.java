@@ -17,6 +17,7 @@ public record Method(
   }
 
   public List<Var> argsWithThis() {
+    if (id.equals("main")) return args;
     return ImmutableList.<Var>builder()
         .add(new Var(new Type.KlassType(cname), "this"))
         .addAll(args)

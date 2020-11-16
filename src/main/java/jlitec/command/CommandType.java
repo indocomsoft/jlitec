@@ -13,6 +13,7 @@ public enum CommandType {
   LIVE(new LiveCommand()),
   INTERFERENCE(new InterferenceCommand()),
   LOWER(new LowerCommand()),
+  REG(new RegCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;

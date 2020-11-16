@@ -217,7 +217,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
               }
             }
-            final var stackArgs = ce.args().subList(4, ce.args().size());
+            final List<RvalExpr> stackArgs =
+                ce.args().size() > 4 ? ce.args().subList(4, ce.args().size()) : List.of();
             if (!stackArgs.isEmpty()) {
               result.addAll(generatePushStackLowerStmt(stackArgs, gen));
             }
@@ -353,7 +354,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
           }
         }
-        final var stackArgs = cs.args().subList(4, cs.args().size());
+        final List<RvalExpr> stackArgs =
+            cs.args().size() > 4 ? cs.args().subList(4, cs.args().size()) : List.of();
         if (!stackArgs.isEmpty()) {
           result.addAll(generatePushStackLowerStmt(stackArgs, gen));
         }
