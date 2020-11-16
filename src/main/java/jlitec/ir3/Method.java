@@ -42,7 +42,6 @@ public record Method(
       sb.append(variable.type().print(0)).append(' ').append(variable.id()).append(";\n");
     }
 
-    // TODO print stmtList
     for (final var stmt : stmtList) {
       sb.append(stmt.print(indent + 1));
     }

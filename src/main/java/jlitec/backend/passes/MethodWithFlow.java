@@ -1,4 +1,4 @@
-package jlitec.backend.passes.live;
+package jlitec.backend.passes;
 
 import jlitec.backend.passes.flow.FlowGraph;
 

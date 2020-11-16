@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowGraph;
@@ -33,7 +34,7 @@ import jlitec.ir3.stmt.Stmt;
 import jlitec.ir3.stmt.VarAssignStmt;
 
 public class LivePass implements Pass<MethodWithFlow, Method> {
-  private record DefUse(Set<String> use, Set<String> def) {
+  public record DefUse(Set<String> use, Set<String> def) {
     public static DefUse EMPTY = new DefUse(Set.of(), Set.of());
 
     public DefUse {
@@ -57,7 +58,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
   public Method pass(MethodWithFlow input) {
     final var defUseList =
         input.flowGraph().blocks().stream()
-            .map(this::calculateDefUse)
+            .map(LivePass::calculateDefUse)
             .collect(Collectors.toUnmodifiableList());
     final var inOut = dataflow(defUseList, input.flowGraph());
     final var blockWithLiveList =
@@ -145,7 +146,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
     return new InOut(in, out);
   }
 
-  private DefUse calculateDefUse(Block block) {
+  private static DefUse calculateDefUse(Block block) {
     return switch (block.type()) {
       case EXIT -> DefUse.EMPTY;
       case BASIC -> {
@@ -163,7 +164,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
     };
   }
 
-  private DefUse calculateDefUse(Stmt stmt) {
+  public static DefUse calculateDefUse(Stmt stmt) {
     return switch (stmt.getStmtType()) {
       case LABEL, GOTO -> DefUse.EMPTY;
       case CMP -> {
@@ -190,21 +191,23 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
       }
       case CALL -> {
         final var cs = (CallStmt) stmt;
-        yield cs.args().stream().map(this::calculateDefUse).reduce(DefUse.EMPTY, DefUse::combine);
+        yield cs.args().stream()
+            .map(LivePass::calculateDefUse)
+            .reduce(DefUse.EMPTY, DefUse::combine);
       }
       case RETURN -> {
         final var rs = (ReturnStmt) stmt;
-        yield rs.maybeValue().map(this::calculateDefUse).orElse(DefUse.EMPTY);
+        yield rs.maybeValue().map(LivePass::calculateDefUse).orElse(DefUse.EMPTY);
       }
     };
   }
 
-  private DefUse calculateDefUse(Expr expr) {
+  private static DefUse calculateDefUse(Expr expr) {
     return switch (expr.getExprType()) {
       case BINARY -> {
         final var be = (BinaryExpr) expr;
         yield Stream.of(be.lhs(), be.rhs())
-            .map(this::calculateDefUse)
+            .map(LivePass::calculateDefUse)
             .reduce(DefUse.EMPTY, DefUse::combine);
       }
       case UNARY -> {
@@ -227,7 +230,9 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
       }
       case CALL -> {
         final var ce = (CallExpr) expr;
-        yield ce.args().stream().map(this::calculateDefUse).reduce(DefUse.EMPTY, DefUse::combine);
+        yield ce.args().stream()
+            .map(LivePass::calculateDefUse)
+            .reduce(DefUse.EMPTY, DefUse::combine);
       }
       case NEW -> DefUse.EMPTY;
     };

@@ -9,9 +9,18 @@ import jlitec.ir3.Var;
 public class TempVarGen {
   private int counter = 1;
   private List<Var> vars = new ArrayList<>();
+  private final String prefix;
+
+  public TempVarGen() {
+    prefix = "_t";
+  }
+
+  public TempVarGen(String prefix) {
+    this.prefix = prefix;
+  }
 
   public Var gen(Type type) {
-    final var result = new Var(type, "_t" + counter);
+    final var result = new Var(type, prefix + counter);
     counter++;
     vars.add(result);
     return result;

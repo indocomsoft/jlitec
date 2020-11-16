@@ -1,14 +1,17 @@
 package jlitec.command;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.live.LivePass;
-import jlitec.backend.passes.live.MethodWithFlow;
+import jlitec.backend.passes.live.StmtWithLive;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -68,20 +71,7 @@ public class InterferenceCommand implements Command {
     for (final var method : programWithFlow.program().methodList()) {
       final var flow = programWithFlow.methodToFlow().get(method);
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
-      final SetMultimap<String, String> edges = HashMultimap.create();
-      for (final var stmtWithLive : output.stmtWithLiveList()) {
-        final var in =
-            stmtWithLive.liveIn().stream().sorted().collect(Collectors.toUnmodifiableList());
-        for (int i = 0; i < in.size() - 1; i++) {
-          edges.putAll(in.get(i), in.subList(i + 1, in.size()));
-        }
-        final var out =
-            stmtWithLive.liveOut().stream().sorted().collect(Collectors.toUnmodifiableList());
-        for (int i = 0; i < out.size() - 1; i++) {
-          edges.putAll(out.get(i), out.subList(i + 1, out.size()));
-        }
-      }
-
+      final var edges = buildInterferenceGraph(output.stmtWithLiveList());
       final var sb = new StringBuilder();
       sb.append("graph G {\n");
       for (final var edgeEntry : edges.entries()) {
@@ -92,5 +82,22 @@ public class InterferenceCommand implements Command {
       sb.append("}");
       System.out.println(sb.toString());
     }
+  }
+
+  private SetMultimap<String, String> buildInterferenceGraph(List<StmtWithLive> stmtWithLiveList) {
+    final SetMultimap<String, String> edges = HashMultimap.create();
+    for (final var stmtWithLive : stmtWithLiveList) {
+      final var in =
+          stmtWithLive.liveIn().stream().sorted().collect(Collectors.toUnmodifiableList());
+      for (int i = 0; i < in.size() - 1; i++) {
+        edges.putAll(in.get(i), in.subList(i + 1, in.size()));
+      }
+      final var out =
+          stmtWithLive.liveOut().stream().sorted().collect(Collectors.toUnmodifiableList());
+      for (int i = 0; i < out.size() - 1; i++) {
+        edges.putAll(out.get(i), out.subList(i + 1, out.size()));
+      }
+    }
+    return Multimaps.unmodifiableSetMultimap(edges);
   }
 }

@@ -2,13 +2,7 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import jlitec.backend.passes.MethodWithFlow;
-import jlitec.backend.passes.flow.FlowPass;
-import jlitec.backend.passes.flow.ProgramWithFlow;
-import jlitec.backend.passes.live.LivePass;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -19,10 +13,10 @@ import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class LiveCommand implements Command {
+public class LowerCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Runs the live pass and output in DOT format";
+    return "Runs the lower pass";
   }
 
   @Override
@@ -64,25 +58,7 @@ public class LiveCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(ir3Program);
-    for (final var method : programWithFlow.program().methodList()) {
-      final var flow = programWithFlow.methodToFlow().get(method);
-      final var output = new LivePass().pass(new MethodWithFlow(method, flow));
-      final var prefix =
-          IntStream.range(0, flow.blocks().size())
-              .boxed()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Function.identity(),
-                      i -> "liveIn = " + output.blockWithLiveList().get(i).liveIn()));
-      final var suffix =
-          IntStream.range(0, flow.blocks().size())
-              .boxed()
-              .collect(
-                  Collectors.toUnmodifiableMap(
-                      Function.identity(),
-                      i -> "liveOut = " + output.blockWithLiveList().get(i).liveOut()));
-      System.out.println(flow.generateDot(prefix, suffix));
-    }
+    final var output = new LowerPass().pass(ir3Program);
+    System.out.println(output.print(0));
   }
 }

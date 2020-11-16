@@ -9,6 +9,10 @@ public record Data(String cname, List<Var> fields) implements Printable {
     this.fields = Collections.unmodifiableList(fields);
   }
 
+  public int sizeof() {
+    return fields.size() * 4;
+  }
+
   @Override
   public String print(int indent) {
     final var sb = new StringBuilder();
