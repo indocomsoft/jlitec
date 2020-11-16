@@ -24,7 +24,7 @@ public class FlowPass implements Pass<Program, ProgramWithFlow> {
     return new ProgramWithFlow(input, result);
   }
 
-  private FlowGraph process(List<LowerStmt> lowerStmtList) {
+  public static FlowGraph process(List<LowerStmt> lowerStmtList) {
     final var usedLabels =
         lowerStmtList.stream()
             .flatMap(s -> s instanceof LabelLowerStmt ls ? Stream.of(ls.label()) : Stream.empty())

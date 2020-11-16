@@ -30,7 +30,7 @@ import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.RvalExpr;
 
-public class LivePass implements Pass<MethodWithFlow, Method> {
+public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
   public record DefUse(Set<Node> use, Set<Node> def) {
     public static DefUse EMPTY = new DefUse(Set.of(), Set.of());
 
@@ -52,7 +52,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
   }
 
   @Override
-  public Method pass(MethodWithFlow input) {
+  public MethodWithLive pass(MethodWithFlow input) {
     final var defUseList =
         input.flowGraph().blocks().stream()
             .map(LivePass::calculateDefUse)
@@ -72,7 +72,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
 
     final var stmtWithLiveList = calculateStmtLive(blockWithLiveList);
 
-    return new Method(
+    return new MethodWithLive(
         input.method().returnType(),
         input.method().id(),
         input.method().argsWithThis(),

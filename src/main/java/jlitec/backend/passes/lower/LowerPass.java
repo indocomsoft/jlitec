@@ -85,7 +85,10 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     for (final var stmt : method.stmtList()) {
       stmtList.addAll(pass(stmt, typeMap, gen, cnameToData));
     }
-    return new Method(method.returnType(), method.id(), argsWithThis, method.vars(), stmtList);
+    final var vars =
+        Stream.concat(method.vars().stream(), gen.getVars().stream())
+            .collect(Collectors.toUnmodifiableList());
+    return new Method(method.returnType(), method.id(), argsWithThis, vars, stmtList);
   }
 
   private static List<LowerStmt> pass(
@@ -308,7 +311,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
               }
             }
-            final var stackArgs = ce.args().subList(4, ce.args().size());
+            final List<RvalExpr> stackArgs =
+                ce.args().size() > 4 ? ce.args().subList(4, ce.args().size()) : List.of();
             if (!stackArgs.isEmpty()) {
               result.addAll(generatePushStackLowerStmt(stackArgs, gen));
             }
