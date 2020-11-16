@@ -2,4 +2,4 @@ package jlitec.backend.passes;
 
 import jlitec.backend.passes.flow.FlowGraph;
 
-public record MethodWithFlow(jlitec.ir3.Method method, FlowGraph flowGraph) {}
+public record MethodWithFlow(jlitec.backend.passes.lower.Method method, FlowGraph flowGraph) {}

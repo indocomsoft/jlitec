@@ -11,11 +11,11 @@ public record Method(
     List<Var> argsWithThis,
     List<Var> vars,
     List<BlockWithLive> blockWithLiveList,
-    List<StmtWithLive> stmtWithLiveList) {
+    List<LowerStmtWithLive> lowerStmtWithLiveList) {
   public Method {
     this.argsWithThis = Collections.unmodifiableList(argsWithThis);
     this.vars = Collections.unmodifiableList(vars);
     this.blockWithLiveList = Collections.unmodifiableList(blockWithLiveList);
-    this.stmtWithLiveList = Collections.unmodifiableList(stmtWithLiveList);
+    this.lowerStmtWithLiveList = Collections.unmodifiableList(lowerStmtWithLiveList);
   }
 }

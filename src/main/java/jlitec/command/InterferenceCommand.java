@@ -11,7 +11,9 @@ import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.live.LivePass;
-import jlitec.backend.passes.live.StmtWithLive;
+import jlitec.backend.passes.live.LowerStmtWithLive;
+import jlitec.backend.passes.live.Node;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -67,16 +69,17 @@ public class InterferenceCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(ir3Program);
+    final var lowerProgram = new LowerPass().pass(ir3Program);
+    final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
     for (final var method : programWithFlow.program().methodList()) {
       final var flow = programWithFlow.methodToFlow().get(method);
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
-      final var edges = buildInterferenceGraph(output.stmtWithLiveList());
+      final var edges = buildInterferenceGraph(output.lowerStmtWithLiveList());
       final var sb = new StringBuilder();
       sb.append("graph G {\n");
       for (final var edgeEntry : edges.entries()) {
-        final var src = edgeEntry.getKey();
-        final var dst = edgeEntry.getValue();
+        final var src = edgeEntry.getKey().print(0);
+        final var dst = edgeEntry.getValue().print(0);
         sb.append("  ").append(src).append(" -- ").append(dst).append(";\n");
       }
       sb.append("}");
@@ -84,9 +87,10 @@ public class InterferenceCommand implements Command {
     }
   }
 
-  private SetMultimap<String, String> buildInterferenceGraph(List<StmtWithLive> stmtWithLiveList) {
-    final SetMultimap<String, String> edges = HashMultimap.create();
-    for (final var stmtWithLive : stmtWithLiveList) {
+  private SetMultimap<Node, Node> buildInterferenceGraph(
+      List<LowerStmtWithLive> lowerStmtWithLiveList) {
+    final SetMultimap<Node, Node> edges = HashMultimap.create();
+    for (final var stmtWithLive : lowerStmtWithLiveList) {
       final var in =
           stmtWithLive.liveIn().stream().sorted().collect(Collectors.toUnmodifiableList());
       for (int i = 0; i < in.size() - 1; i++) {

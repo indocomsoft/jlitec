@@ -14,7 +14,7 @@ import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
-import jlitec.backend.passes.lower.stmt.FieldAccessStmt;
+import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
@@ -187,7 +187,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           }
           case FIELD -> {
             final var fe = (FieldExpr) vas.rhs();
-            yield List.of(new FieldAccessStmt(vas.lhs(), fe.target(), fe.field()));
+            yield List.of(new FieldAccessLowerStmt(vas.lhs(), fe.target(), fe.field()));
           }
           case RVAL -> List.of(
               new MovLowerStmt(
@@ -267,7 +267,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           case FIELD -> {
             final var fe = (FieldExpr) fas.rhs();
             yield List.of(
-                new FieldAccessStmt(idRvalExpr, fe.target(), fe.field()),
+                new FieldAccessLowerStmt(idRvalExpr, fe.target(), fe.field()),
                 new FieldAssignLowerStmt(fas.lhsId().id(), fas.lhsField(), idRvalExpr));
           }
           case RVAL -> List.of(

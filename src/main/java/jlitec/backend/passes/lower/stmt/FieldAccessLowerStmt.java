@@ -2,7 +2,7 @@ package jlitec.backend.passes.lower.stmt;
 
 import jlitec.ir3.expr.rval.IdRvalExpr;
 
-public record FieldAccessStmt(IdRvalExpr lhs, IdRvalExpr rhsId, String rhsTarget)
+public record FieldAccessLowerStmt(IdRvalExpr lhs, IdRvalExpr rhsId, String rhsField)
     implements LowerStmt {
   @Override
   public LowerStmtType stmtExtensionType() {
@@ -17,7 +17,7 @@ public record FieldAccessStmt(IdRvalExpr lhs, IdRvalExpr rhsId, String rhsTarget
         .append(" = ")
         .append(rhsId.print(0))
         .append(".")
-        .append(rhsTarget)
+        .append(rhsField)
         .append(";\n");
     return sb.toString();
   }

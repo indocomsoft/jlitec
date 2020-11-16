@@ -9,32 +9,30 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowGraph;
-import jlitec.ir3.expr.BinaryExpr;
-import jlitec.ir3.expr.CallExpr;
-import jlitec.ir3.expr.Expr;
-import jlitec.ir3.expr.FieldExpr;
-import jlitec.ir3.expr.UnaryExpr;
+import jlitec.backend.passes.lower.stmt.Addressable;
+import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
+import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
+import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
+import jlitec.backend.passes.lower.stmt.LowerStmt;
+import jlitec.backend.passes.lower.stmt.MovLowerStmt;
+import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
+import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.RvalExpr;
-import jlitec.ir3.stmt.CallStmt;
-import jlitec.ir3.stmt.CmpStmt;
-import jlitec.ir3.stmt.FieldAssignStmt;
-import jlitec.ir3.stmt.PrintlnStmt;
-import jlitec.ir3.stmt.ReadlnStmt;
-import jlitec.ir3.stmt.ReturnStmt;
-import jlitec.ir3.stmt.Stmt;
-import jlitec.ir3.stmt.VarAssignStmt;
 
 public class LivePass implements Pass<MethodWithFlow, Method> {
-  public record DefUse(Set<String> use, Set<String> def) {
+  public record DefUse(Set<Node> use, Set<Node> def) {
     public static DefUse EMPTY = new DefUse(Set.of(), Set.of());
 
     public DefUse {
@@ -47,7 +45,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
     }
   }
 
-  private record InOut(SetMultimap<Integer, String> in, SetMultimap<Integer, String> out) {
+  private record InOut(SetMultimap<Integer, Node> in, SetMultimap<Integer, Node> out) {
     public InOut {
       this.in = Multimaps.unmodifiableSetMultimap(in);
       this.out = Multimaps.unmodifiableSetMultimap(out);
@@ -84,28 +82,28 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
         stmtWithLiveList);
   }
 
-  private List<StmtWithLive> calculateStmtLive(List<BlockWithLive> blockWithLiveList) {
-    final var result = new ArrayList<StmtWithLive>();
+  private List<LowerStmtWithLive> calculateStmtLive(List<BlockWithLive> blockWithLiveList) {
+    final var result = new ArrayList<LowerStmtWithLive>();
 
     for (final var blockWithLive : blockWithLiveList) {
-      final List<StmtWithLive> stmtList =
+      final List<LowerStmtWithLive> stmtList =
           switch (blockWithLive.block().type()) {
             case EXIT -> List.of();
             case BASIC -> {
               final var bb = (Block.Basic) blockWithLive.block();
-              final var reversedBlockStmt = new ArrayList<StmtWithLive>();
-              Set<String> currentLiveOut = blockWithLive.liveOut();
-              for (final var stmt : Lists.reverse(bb.stmtList())) {
+              final var reversedBlockStmt = new ArrayList<LowerStmtWithLive>();
+              Set<Node> currentLiveOut = blockWithLive.liveOut();
+              for (final var lowerStmt : Lists.reverse(bb.lowerStmtList())) {
                 // OUT[S] = U_{S a successor of B] IN[S]
                 // And the only successor is the statement after (or live out of the block)
                 final var liveOut = currentLiveOut;
                 // IN[S] = (OUT[B] - def_B) U use_B
-                final var liveIn = new HashSet<String>();
+                final var liveIn = new HashSet<Node>();
                 liveIn.addAll(currentLiveOut);
-                final var stmtDefUse = calculateDefUse(stmt);
+                final var stmtDefUse = calculateDefUse(lowerStmt);
                 liveIn.removeAll(stmtDefUse.def());
                 liveIn.addAll(stmtDefUse.use());
-                reversedBlockStmt.add(new StmtWithLive(stmt, liveIn, liveOut));
+                reversedBlockStmt.add(new LowerStmtWithLive(lowerStmt, liveIn, liveOut));
                 currentLiveOut = Collections.unmodifiableSet(liveIn);
               }
               yield Lists.reverse(reversedBlockStmt);
@@ -118,8 +116,8 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
   }
 
   private InOut dataflow(List<DefUse> defUseList, FlowGraph flowGraph) {
-    final var in = HashMultimap.<Integer, String>create();
-    final var out = HashMultimap.<Integer, String>create();
+    final var in = HashMultimap.<Integer, Node>create();
+    final var out = HashMultimap.<Integer, Node>create();
     boolean changed = true;
     while (changed) {
       changed = false;
@@ -130,7 +128,7 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
         final var use = defUse.use();
 
         // OUT[B] = U_{S a successor of B} IN[S];
-        final var newOut = new HashSet<String>();
+        final var newOut = new HashSet<Node>();
         for (final var j : flowGraph.edges().get(i)) {
           newOut.addAll(in.get(j));
         }
@@ -151,9 +149,9 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
       case EXIT -> DefUse.EMPTY;
       case BASIC -> {
         final var bb = (Block.Basic) block;
-        final var use = new HashSet<String>();
-        final var def = new HashSet<String>();
-        for (final var stmt : Lists.reverse(bb.stmtList())) {
+        final var use = new HashSet<Node>();
+        final var def = new HashSet<Node>();
+        for (final var stmt : Lists.reverse(bb.lowerStmtList())) {
           final var defUse = calculateDefUse(stmt);
           use.removeAll(defUse.def());
           use.addAll(defUse.use());
@@ -164,77 +162,91 @@ public class LivePass implements Pass<MethodWithFlow, Method> {
     };
   }
 
-  public static DefUse calculateDefUse(Stmt stmt) {
-    return switch (stmt.getStmtType()) {
-      case LABEL, GOTO -> DefUse.EMPTY;
+  public static DefUse calculateDefUse(LowerStmt stmt) {
+    return switch (stmt.stmtExtensionType()) {
+      case LABEL, GOTO, RETURN, POP_STACK -> DefUse.EMPTY;
+      case BINARY -> {
+        final var bs = (BinaryLowerStmt) stmt;
+        yield new DefUse(
+            Set.of(new Node.Id(bs.lhs()), new Node.Id(bs.rhs())), Set.of(new Node.Id(bs.dest())));
+      }
+      case BRANCH_LINK -> {
+        final Set<Node> paramRegNodes =
+            IntStream.range(0, 4)
+                .boxed()
+                .map(Register::fromInt)
+                .map(Node.Reg::new)
+                .collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(paramRegNodes, paramRegNodes);
+      }
       case CMP -> {
-        final var cs = (CmpStmt) stmt;
-        yield calculateDefUse(cs.condition());
+        final var cs = (CmpLowerStmt) stmt;
+        yield DefUse.combine(calculateDefUse(cs.lhs()), calculateDefUse(cs.rhs()));
       }
-      case READLN -> {
-        final var rs = (ReadlnStmt) stmt;
-        yield new DefUse(Set.of(), Set.of(rs.dest().id()));
-      }
-      case PRINTLN -> {
-        final var ps = (PrintlnStmt) stmt;
-        yield calculateDefUse(ps.rval());
-      }
-      case VAR_ASSIGN -> {
-        final var vas = (VarAssignStmt) stmt;
-        yield DefUse.combine(
-            new DefUse(Set.of(), Set.of(vas.lhs().id())), calculateDefUse(vas.rhs()));
+      case FIELD_ACCESS -> {
+        final var fas = (FieldAccessLowerStmt) stmt;
+        yield new DefUse(Set.of(new Node.Id(fas.rhsId())), Set.of(new Node.Id(fas.lhs())));
       }
       case FIELD_ASSIGN -> {
-        final var fas = (FieldAssignStmt) stmt;
-        yield DefUse.combine(
-            new DefUse(Set.of(fas.lhsId().id()), Set.of()), calculateDefUse(fas.rhs()));
+        final var fas = (FieldAssignLowerStmt) stmt;
+        yield new DefUse(Set.of(new Node.Id(fas.lhsId()), new Node.Id(fas.rhs())), Set.of());
       }
-      case CALL -> {
-        final var cs = (CallStmt) stmt;
-        yield cs.args().stream()
-            .map(LivePass::calculateDefUse)
-            .reduce(DefUse.EMPTY, DefUse::combine);
+      case MOV -> {
+        final var ms = (MovLowerStmt) stmt;
+        final var use =
+            Stream.of(ms.src())
+                .map(LivePass::toNode)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
+        final var def =
+            Stream.of(ms.dst())
+                .map(LivePass::toNode)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(use, def);
       }
-      case RETURN -> {
-        final var rs = (ReturnStmt) stmt;
-        yield rs.maybeValue().map(LivePass::calculateDefUse).orElse(DefUse.EMPTY);
+      case PUSH_STACK -> {
+        final var pss = (PushStackLowerStmt) stmt;
+        final Set<Node> use =
+            pss.elements().stream()
+                .map(IdRvalExpr::id)
+                .map(Node.Id::new)
+                .collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(use, Set.of());
+      }
+      case UNARY -> {
+        final var us = (UnaryLowerStmt) stmt;
+        yield new DefUse(Set.of(new Node.Id(us.expr())), Set.of(new Node.Id(us.dest())));
       }
     };
   }
 
-  private static DefUse calculateDefUse(Expr expr) {
-    return switch (expr.getExprType()) {
-      case BINARY -> {
-        final var be = (BinaryExpr) expr;
-        yield Stream.of(be.lhs(), be.rhs())
-            .map(LivePass::calculateDefUse)
-            .reduce(DefUse.EMPTY, DefUse::combine);
-      }
-      case UNARY -> {
-        final var ue = (UnaryExpr) expr;
-        yield calculateDefUse(ue.rval());
-      }
-      case FIELD -> {
-        final var fe = (FieldExpr) expr;
-        yield new DefUse(Set.of(fe.target().id()), Set.of());
-      }
+  private static Optional<Node> toNode(Addressable addressable) {
+    return switch (addressable.type()) {
       case RVAL -> {
-        final var re = (RvalExpr) expr;
-        yield switch (re.getRvalExprType()) {
+        final var a = (Addressable.Rval) addressable;
+        yield switch (a.rvalExpr().getRvalExprType()) {
           case ID -> {
-            final var ire = (IdRvalExpr) re;
-            yield new DefUse(Set.of(ire.id()), Set.of());
+            final var idRvalExpr = (IdRvalExpr) a.rvalExpr();
+            yield Optional.of(new Node.Id(idRvalExpr.id()));
           }
-          case STRING, INT, BOOL, NULL -> DefUse.EMPTY;
+          case STRING, NULL, INT, BOOL -> Optional.empty();
         };
       }
-      case CALL -> {
-        final var ce = (CallExpr) expr;
-        yield ce.args().stream()
-            .map(LivePass::calculateDefUse)
-            .reduce(DefUse.EMPTY, DefUse::combine);
+      case REG -> {
+        final var a = (Addressable.Reg) addressable;
+        yield Optional.of(new Node.Reg(a.reg()));
       }
-      case NEW -> DefUse.EMPTY;
+    };
+  }
+
+  private static DefUse calculateDefUse(RvalExpr expr) {
+    return switch (expr.getRvalExprType()) {
+      case ID -> {
+        final var ire = (IdRvalExpr) expr;
+        yield new DefUse(Set.of(new Node.Id(ire.id())), Set.of());
+      }
+      case STRING, NULL, INT, BOOL -> DefUse.EMPTY;
     };
   }
 }

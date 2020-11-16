@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.flow.ProgramWithFlow;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -73,7 +74,8 @@ public class FlowCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(ir3Program);
+    final var lowerProgram = new LowerPass().pass(ir3Program);
+    final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
     for (final var entry : programWithFlow.methodToFlow().entrySet()) {
       final var methodName = entry.getKey().id();
       final var flow = entry.getValue();

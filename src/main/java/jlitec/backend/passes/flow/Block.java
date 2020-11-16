@@ -2,7 +2,7 @@ package jlitec.backend.passes.flow;
 
 import java.util.Collections;
 import java.util.List;
-import jlitec.ir3.stmt.Stmt;
+import jlitec.backend.passes.lower.stmt.LowerStmt;
 
 public interface Block {
   enum Type {
@@ -12,9 +12,9 @@ public interface Block {
 
   Type type();
 
-  record Basic(List<Stmt> stmtList) implements Block {
+  record Basic(List<LowerStmt> lowerStmtList) implements Block {
     public Basic {
-      this.stmtList = Collections.unmodifiableList(stmtList);
+      this.lowerStmtList = Collections.unmodifiableList(lowerStmtList);
     }
 
     @Override

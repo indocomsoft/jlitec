@@ -9,6 +9,7 @@ import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.live.LivePass;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -64,7 +65,8 @@ public class LiveCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(ir3Program);
+    final var lowerProgram = new LowerPass().pass(ir3Program);
+    final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
     for (final var method : programWithFlow.program().methodList()) {
       final var flow = programWithFlow.methodToFlow().get(method);
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));

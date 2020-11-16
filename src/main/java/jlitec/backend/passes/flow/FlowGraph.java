@@ -27,7 +27,7 @@ public record FlowGraph(List<Block> blocks, SetMultimap<Integer, Integer> edges)
       final var bb = (Block.Basic) blocks.get(i);
       final var blockName = "B" + i;
       final var printedStmt =
-          bb.stmtList().stream().map(s -> s.print(0)).collect(Collectors.joining());
+          bb.lowerStmtList().stream().map(s -> s.print(0)).collect(Collectors.joining());
       final var printedPrefix = Optional.ofNullable(prefix.get(i)).orElse("");
       final var printedSuffix = Optional.ofNullable(suffix.get(i)).orElse("");
       final var printed = "(" + printedPrefix + ")\n" + printedStmt + "(" + printedSuffix + ")";

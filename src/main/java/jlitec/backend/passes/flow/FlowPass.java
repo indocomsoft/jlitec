@@ -8,38 +8,38 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.backend.passes.Pass;
-import jlitec.ir3.Program;
-import jlitec.ir3.stmt.CmpStmt;
-import jlitec.ir3.stmt.GotoStmt;
-import jlitec.ir3.stmt.LabelStmt;
-import jlitec.ir3.stmt.Stmt;
+import jlitec.backend.passes.lower.Program;
+import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
+import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
+import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
+import jlitec.backend.passes.lower.stmt.LowerStmt;
 
-public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
+public class FlowPass implements Pass<Program, ProgramWithFlow> {
   @Override
   public ProgramWithFlow pass(Program input) {
-    final var result = new HashMap<jlitec.ir3.Method, FlowGraph>();
-    for (final var ir3Method : input.methodList()) {
-      result.put(ir3Method, process(ir3Method.stmtList()));
+    final var result = new HashMap<jlitec.backend.passes.lower.Method, FlowGraph>();
+    for (final var lowerMethod : input.methodList()) {
+      result.put(lowerMethod, process(lowerMethod.lowerStmtList()));
     }
     return new ProgramWithFlow(input, result);
   }
 
-  private FlowGraph process(List<Stmt> stmtList) {
+  private FlowGraph process(List<LowerStmt> lowerStmtList) {
     final var usedLabels =
-        stmtList.stream()
-            .flatMap(s -> s instanceof LabelStmt ls ? Stream.of(ls.label()) : Stream.empty())
+        lowerStmtList.stream()
+            .flatMap(s -> s instanceof LabelLowerStmt ls ? Stream.of(ls.label()) : Stream.empty())
             .collect(Collectors.toUnmodifiableSet());
-    final var leaders = new BitSet(stmtList.size());
+    final var leaders = new BitSet(lowerStmtList.size());
 
     // The first three-address instruction is a leader.
     leaders.set(0);
 
-    for (int i = 0; i < stmtList.size(); i++) {
-      final var stmt = stmtList.get(i);
-      switch (stmt.getStmtType()) {
+    for (int i = 0; i < lowerStmtList.size(); i++) {
+      final var stmt = lowerStmtList.get(i);
+      switch (stmt.stmtExtensionType()) {
           // Any instruction that is the target of a conditional or unconditional jump is a leader.
         case LABEL -> {
-          final var ls = (LabelStmt) stmt;
+          final var ls = (LabelLowerStmt) stmt;
           if (usedLabels.contains(ls.label())) {
             leaders.set(i);
           }
@@ -47,7 +47,7 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
           // Any instruction that immediately follows a conditional or unconditional jump is a
           // leader.
         case CMP, GOTO, RETURN -> {
-          if (i + 1 < stmtList.size()) {
+          if (i + 1 < lowerStmtList.size()) {
             leaders.set(i + 1);
           }
         }
@@ -57,16 +57,16 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
     final var blocks = new ArrayList<Block>();
     for (int i = leaders.nextSetBit(0); i != -1; i = leaders.nextSetBit(i + 1)) {
       final var next = leaders.nextSetBit(i + 1);
-      final var startOfNextBlock = next == -1 ? stmtList.size() : next;
-      blocks.add(new Block.Basic(stmtList.subList(i, startOfNextBlock)));
+      final var startOfNextBlock = next == -1 ? lowerStmtList.size() : next;
+      blocks.add(new Block.Basic(lowerStmtList.subList(i, startOfNextBlock)));
     }
 
     final var labelToBlock = new HashMap<String, Integer>();
     blocks.add(new Block.Exit());
     for (int i = 0; i < blocks.size() - 1; i++) {
       final var b = (Block.Basic) blocks.get(i);
-      final var firstStmt = b.stmtList().get(0);
-      if (firstStmt instanceof LabelStmt ls) {
+      final var firstStmt = b.lowerStmtList().get(0);
+      if (firstStmt instanceof LabelLowerStmt ls) {
         labelToBlock.put(ls.label(), i);
       }
     }
@@ -74,16 +74,16 @@ public class FlowPass implements Pass<jlitec.ir3.Program, ProgramWithFlow> {
     final var edges = HashMultimap.<Integer, Integer>create();
     for (int i = 0; i < blocks.size() - 1; i++) {
       final var block = (Block.Basic) blocks.get(i);
-      final var lastStmt = block.stmtList().get(block.stmtList().size() - 1);
-      switch (lastStmt.getStmtType()) {
+      final var lastStmt = block.lowerStmtList().get(block.lowerStmtList().size() - 1);
+      switch (lastStmt.stmtExtensionType()) {
         case GOTO -> {
-          final var gs = (GotoStmt) lastStmt;
-          final var destBlock = labelToBlock.get(gs.dest().label());
+          final var gs = (GotoLowerStmt) lastStmt;
+          final var destBlock = labelToBlock.get(gs.dest());
           edges.put(i, destBlock);
         }
         case CMP -> {
-          final var cs = (CmpStmt) lastStmt;
-          final var destBlock = labelToBlock.get(cs.dest().label());
+          final var cs = (CmpLowerStmt) lastStmt;
+          final var destBlock = labelToBlock.get(cs.dest());
           edges.put(i, destBlock);
           if (i + 1 < blocks.size()) {
             edges.put(i, i + 1);
