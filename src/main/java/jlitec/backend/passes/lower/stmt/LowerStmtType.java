@@ -9,6 +9,8 @@ public enum LowerStmtType {
   GOTO,
   IMMEDIATE,
   LABEL,
+  LDR_SPILL,
+  STR_SPILL,
   MOV,
   RETURN,
   PUSH_STACK,

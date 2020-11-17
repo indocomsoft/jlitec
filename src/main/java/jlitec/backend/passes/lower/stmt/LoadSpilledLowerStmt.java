@@ -2,19 +2,17 @@ package jlitec.backend.passes.lower.stmt;
 
 import jlitec.ir3.expr.rval.IdRvalExpr;
 
-public record PushStackLowerStmt(IdRvalExpr idRvalExpr) implements LowerStmt {
+public record LoadSpilledLowerStmt(IdRvalExpr dst, String varName) implements LowerStmt {
   @Override
   public LowerStmtType stmtExtensionType() {
-    return LowerStmtType.PUSH_STACK;
+    return LowerStmtType.LDR_SPILL;
   }
 
   @Override
   public String print(int indent) {
     final var sb = new StringBuilder();
     indent(sb, indent);
-    sb.append("PUSH ");
-    sb.append(idRvalExpr.print(0));
-    sb.append(";\n");
+    sb.append("LDR ").append(dst.print(0)).append(" <- ").append(varName).append(";\n");
     return sb.toString();
   }
 }

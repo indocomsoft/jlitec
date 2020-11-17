@@ -13,11 +13,13 @@ public record Method(
     String id,
     List<Var> argsWithThis,
     List<Var> vars,
+    List<Var> spilled,
     List<LowerStmt> lowerStmtList)
     implements Printable {
   public Method {
     this.argsWithThis = Collections.unmodifiableList(argsWithThis);
     this.vars = Collections.unmodifiableList(vars);
+    this.spilled = Collections.unmodifiableList(spilled);
     this.lowerStmtList = Collections.unmodifiableList(lowerStmtList);
   }
 
@@ -31,6 +33,16 @@ public record Method(
             .map(v -> v.type().print(0) + " " + v.id())
             .collect(Collectors.joining(", ")));
     sb.append(") {\n");
+
+    indent(sb, indent + 1);
+    sb.append("// START OF SPILLED TO STACK\n");
+    for (final var variable : spilled) {
+      indent(sb, indent + 1);
+      sb.append(variable.type().print(0)).append(' ').append(variable.id()).append(";\n");
+    }
+    indent(sb, indent + 1);
+    sb.append("// END OF SPILLED TO STACK\n");
+
     for (final var variable : vars) {
       indent(sb, indent + 1);
       sb.append(variable.type().print(0)).append(' ').append(variable.id()).append(";\n");
