@@ -62,7 +62,10 @@ public class RegCommand implements Command {
     final var lowerProgram = new LowerPass().pass(ir3Program);
     for (final var method : lowerProgram.methodList()) {
       System.out.println(method.id());
-      new RegAllocPass().pass(method);
+      final var output = new RegAllocPass().pass(method);
+      System.out.println(output.color());
+      System.out.println(method.print(0));
+      System.out.println("===");
     }
   }
 }
