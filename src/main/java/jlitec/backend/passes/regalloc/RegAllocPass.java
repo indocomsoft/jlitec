@@ -52,13 +52,13 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   private MethodWithLive methodWithLive;
 
   /* Node work lists, sets, and stacks */
-  private Set<Node> simplifyWorklist;
-  private Set<Node> freezeWorklist;
-  private Set<Node> spillWorklist;
-  private Set<Node> spilledNodes;
+  private Set<Node.Id> simplifyWorklist;
+  private Set<Node.Id> freezeWorklist;
+  private Set<Node.Id> spillWorklist;
+  private Set<Node.Id> spilledNodes;
   private Set<Node> coalescedNodes;
-  private Set<Node> coloredNodes;
-  private Stack<Node> selectStack;
+  private Set<Node.Id> coloredNodes;
+  private Stack<Node.Id> selectStack;
 
   /* Move sets */
   private Set<MovLowerStmt> coalescedMoves;
@@ -130,21 +130,21 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       makeWorklist(initial);
 
       do {
-        System.out.println("---- BEFORE");
-        System.out.println("simplifyWorklist = " + simplifyWorklist);
-        System.out.println("freezeWorklist = " + freezeWorklist);
-        System.out.println("spillWorklist = " + spillWorklist);
-        System.out.println("spilledNodes = " + spilledNodes);
-        System.out.println("coalescedNodes = " + coalescedNodes);
-        System.out.println("coloredNodes = " + coloredNodes);
-        System.out.println("selectStack = " + selectStack);
-        System.out.println("");
-        System.out.println("coalescedMoves = " + coalescedMoves);
-        System.out.println("constainedMoves = " + constrainedMoves);
-        System.out.println("frozenMoves = " + frozenMoves);
-        System.out.println("worklistMoves = " + worklistMoves);
-        System.out.println("activeMoves = " + activeMoves);
-        System.out.println("----");
+//        System.out.println("---- BEFORE");
+//        System.out.println("simplifyWorklist = " + simplifyWorklist);
+//        System.out.println("freezeWorklist = " + freezeWorklist);
+//        System.out.println("spillWorklist = " + spillWorklist);
+//        System.out.println("spilledNodes = " + spilledNodes);
+//        System.out.println("coalescedNodes = " + coalescedNodes);
+//        System.out.println("coloredNodes = " + coloredNodes);
+//        System.out.println("selectStack = " + selectStack);
+//        System.out.println("");
+//        System.out.println("coalescedMoves = " + coalescedMoves);
+//        System.out.println("constainedMoves = " + constrainedMoves);
+//        System.out.println("frozenMoves = " + frozenMoves);
+//        System.out.println("worklistMoves = " + worklistMoves);
+//        System.out.println("activeMoves = " + activeMoves);
+//        System.out.println("----");
         if (!simplifyWorklist.isEmpty()) {
           simplify();
         } else if (!worklistMoves.isEmpty()) {
@@ -154,21 +154,21 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         } else if (!spillWorklist.isEmpty()) {
           selectSpill(nodeDefUse);
         }
-        System.out.println("---- AFTER");
-        System.out.println("simplifyWorklist = " + simplifyWorklist);
-        System.out.println("freezeWorklist = " + freezeWorklist);
-        System.out.println("spillWorklist = " + spillWorklist);
-        System.out.println("spilledNodes = " + spilledNodes);
-        System.out.println("coalescedNodes = " + coalescedNodes);
-        System.out.println("coloredNodes = " + coloredNodes);
-        System.out.println("selectStack = " + selectStack);
-        System.out.println("");
-        System.out.println("coalescedMoves = " + coalescedMoves);
-        System.out.println("constainedMoves = " + constrainedMoves);
-        System.out.println("frozenMoves = " + frozenMoves);
-        System.out.println("worklistMoves = " + worklistMoves);
-        System.out.println("activeMoves = " + activeMoves);
-        System.out.println("----");
+//        System.out.println("---- AFTER");
+//        System.out.println("simplifyWorklist = " + simplifyWorklist);
+//        System.out.println("freezeWorklist = " + freezeWorklist);
+//        System.out.println("spillWorklist = " + spillWorklist);
+//        System.out.println("spilledNodes = " + spilledNodes);
+//        System.out.println("coalescedNodes = " + coalescedNodes);
+//        System.out.println("coloredNodes = " + coloredNodes);
+//        System.out.println("selectStack = " + selectStack);
+//        System.out.println("");
+//        System.out.println("coalescedMoves = " + coalescedMoves);
+//        System.out.println("constainedMoves = " + constrainedMoves);
+//        System.out.println("frozenMoves = " + frozenMoves);
+//        System.out.println("worklistMoves = " + worklistMoves);
+//        System.out.println("activeMoves = " + activeMoves);
+//        System.out.println("----");
       } while (!simplifyWorklist.isEmpty()
           || !worklistMoves.isEmpty()
           || !freezeWorklist.isEmpty()
@@ -222,13 +222,13 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     }
     adjSet.put(u, v);
     adjSet.put(v, u);
-    if (!precolored.contains(u)) {
-      adjList.put(u, v);
-      degree.put(u, degree.getOrDefault(u, 0) + 1);
+    if (u instanceof Node.Id uid) {
+      adjList.put(uid, v);
+      degree.put(uid, degree.getOrDefault(uid, 0) + 1);
     }
-    if (!precolored.contains(v)) {
-      adjList.put(v, u);
-      degree.put(v, degree.getOrDefault(v, 0) + 1);
+    if (v instanceof Node.Id vid) {
+      adjList.put(vid, u);
+      degree.put(vid, degree.getOrDefault(vid, 0) + 1);
     }
   }
 
@@ -266,15 +266,18 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   }
 
   private void decrementDegree(Node m) {
+    System.out.println(m);
     final var d = degree.get(m);
     degree.put(m, d - 1);
     if (d == NUM_REG) {
       enableMoves(Sets.union(Set.of(m), adjacent(m)));
       spillWorklist.remove(m);
       if (moveRelated(m)) {
-        freezeWorklist.add(m);
+        // TODO
+        freezeWorklist.add((Node.Id)m);
       } else {
-        simplifyWorklist.add(m);
+        // TODO
+        simplifyWorklist.add((Node.Id)m);
       }
     }
   }
@@ -291,9 +294,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   }
 
   private void addWorkList(Node u) {
-    if (u.type() != Node.Type.REG && !moveRelated(u) && degree.get(u) < NUM_REG) {
-      freezeWorklist.remove(u);
-      simplifyWorklist.add(u);
+    if (u instanceof Node.Id uid && !moveRelated(uid) && degree.get(uid) < NUM_REG) {
+      freezeWorklist.remove(uid);
+      simplifyWorklist.add(uid);
     }
   }
 
@@ -349,9 +352,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       addEdge(t, u);
       decrementDegree(t);
     }
-    if (degree.get(u) >= NUM_REG && freezeWorklist.contains(u)) {
-      freezeWorklist.remove(u);
-      spillWorklist.add(u);
+    if (degree.get(u) >= NUM_REG && u instanceof Node.Id uid && freezeWorklist.contains(uid)) {
+      freezeWorklist.remove(uid);
+      spillWorklist.add(uid);
     }
   }
 
@@ -377,9 +380,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       final var v = getAlias(y).equals(getAlias(u)) ? getAlias(x) : getAlias(y);
       activeMoves.remove(m);
       frozenMoves.add(m);
-      if (freezeWorklist.contains(v) && nodeMoves(v).isEmpty()) {
-        freezeWorklist.remove(v);
-        simplifyWorklist.add(v);
+      if (v instanceof Node.Id vid && freezeWorklist.contains(vid) && nodeMoves(v).isEmpty()) {
+        freezeWorklist.remove(vid);
+        simplifyWorklist.add(vid);
       }
     }
   }
@@ -440,6 +443,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         color.put(n, c);
       }
     }
+    System.out.println(coalescedNodes);
     for (final var n : coalescedNodes) {
       color.put(n, color.get(getAlias(n)));
     }
