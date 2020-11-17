@@ -41,4 +41,25 @@ public enum Register {
       default -> throw new RuntimeException("Invalid register number");
     };
   }
+
+  public int toInt() {
+    return switch (this) {
+      case R0 -> 0;
+      case R1 -> 1;
+      case R2 -> 2;
+      case R3 -> 3;
+      case R4 -> 4;
+      case R5 -> 5;
+      case R6 -> 6;
+      case R7 -> 7;
+      case R8 -> 8;
+      case R9 -> 9;
+      case R10 -> 10;
+      case R11 -> 11;
+      case R12 -> 12;
+      case SP -> 13;
+      case LR -> 14;
+      case PC -> 15;
+    };
+  }
 }
