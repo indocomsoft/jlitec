@@ -157,21 +157,19 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
           || !spillWorklist.isEmpty());
       assignColors();
       if (!spilledNodes.isEmpty()) {
-        System.out.println("spilledNodes = " + spilledNodes);
         method = rewriteProgram(method);
-        System.out.println(method.print(0));
         continue;
       }
       break;
     }
 
-    System.out.println(
+    final var outputColor =
         color.entrySet().stream()
-            .filter(e -> e.getKey().type() != Node.Type.REG)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-    System.out.println(method.print(0));
-
-    return null;
+            .filter(e -> e.getKey() instanceof Node.Id)
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    e -> ((Node.Id) e.getKey()).id(), e -> Register.fromInt(e.getValue())));
+    return new Output(outputColor, method);
   }
 
   private void build() {
