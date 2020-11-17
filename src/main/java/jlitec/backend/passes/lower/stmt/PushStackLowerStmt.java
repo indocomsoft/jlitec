@@ -3,9 +3,9 @@ package jlitec.backend.passes.lower.stmt;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-import jlitec.ir3.expr.rval.IdRvalExpr;
+import jlitec.ir3.expr.rval.RvalExpr;
 
-public record PushStackLowerStmt(List<IdRvalExpr> elements) implements LowerStmt {
+public record PushStackLowerStmt(List<RvalExpr> elements) implements LowerStmt {
   public PushStackLowerStmt {
     this.elements = Collections.unmodifiableList(elements);
   }
@@ -20,7 +20,7 @@ public record PushStackLowerStmt(List<IdRvalExpr> elements) implements LowerStmt
     final var sb = new StringBuilder();
     indent(sb, indent);
     sb.append("PUSH ");
-    sb.append(elements.stream().map(IdRvalExpr::id).collect(Collectors.joining(", ")));
+    sb.append(elements.stream().map(e -> e.print(0)).collect(Collectors.joining(", ")));
     sb.append(";\n");
     return sb.toString();
   }

@@ -61,6 +61,7 @@ public class RegCommand implements Command {
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
     for (final var method : lowerProgram.methodList()) {
+      System.out.println(method.id());
       new RegAllocPass().pass(method);
     }
   }

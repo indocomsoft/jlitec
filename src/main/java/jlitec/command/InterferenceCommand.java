@@ -72,6 +72,7 @@ public class InterferenceCommand implements Command {
     final var lowerProgram = new LowerPass().pass(ir3Program);
     final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
     for (final var method : programWithFlow.program().methodList()) {
+      System.out.println(method.id());
       final var flow = programWithFlow.methodToFlow().get(method);
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
       final var edges = buildInterferenceGraph(output.lowerStmtWithLiveList());

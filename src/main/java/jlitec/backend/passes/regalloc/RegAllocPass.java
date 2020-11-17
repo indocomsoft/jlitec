@@ -5,6 +5,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -26,13 +28,15 @@ import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.live.MethodWithLive;
 import jlitec.backend.passes.live.Node;
 import jlitec.backend.passes.lower.Method;
+import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.ir3.Var;
+import jlitec.ir3.codegen.TempVarGen;
 
 public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, RegAllocPass.Output> {
-  private static int NUM_REG = 13;
-  private static Set<Node> precolored =
-      IntStream.range(0, 13)
+  private static final int NUM_REG = 4;
+  private static final Set<Node> precolored =
+      IntStream.range(0, NUM_REG)
           .boxed()
           .map(Register::fromInt)
           .map(Node.Reg::new)
@@ -75,6 +79,13 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   public Output pass(Method input) {
     var method = input;
     while (true) {
+      final var nodeDefUse = calculateNodeDefUse(method);
+      final var initial =
+          Stream.concat(method.argsWithThis().stream(), method.vars().stream())
+              .map(Var::id)
+              .map(Node.Id::new)
+              .collect(Collectors.toUnmodifiableSet());
+
       // initialize Node work lists, sets, and stacks
       simplifyWorklist = new HashSet<>();
       freezeWorklist = new HashSet<>();
@@ -95,7 +106,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       adjList = HashMultimap.create();
       adjSet = HashMultimap.create();
       degree =
-          new HashMap<>(precolored.stream().collect(Collectors.toMap(Function.identity(), n -> 0)));
+          new HashMap<>(
+              Stream.concat(precolored.stream(), initial.stream())
+                  .collect(Collectors.toMap(Function.identity(), n -> 0)));
       moveList = HashMultimap.create();
       alias = new HashMap<>();
       color =
@@ -114,14 +127,24 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       build();
 
       // MakeWorklist()
-      final var initial =
-          Stream.concat(method.argsWithThis().stream(), method.vars().stream())
-              .map(Var::id)
-              .map(Node.Id::new)
-              .collect(Collectors.toUnmodifiableSet());
       makeWorklist(initial);
 
       do {
+        System.out.println("---- BEFORE");
+        System.out.println("simplifyWorklist = " + simplifyWorklist);
+        System.out.println("freezeWorklist = " + freezeWorklist);
+        System.out.println("spillWorklist = " + spillWorklist);
+        System.out.println("spilledNodes = " + spilledNodes);
+        System.out.println("coalescedNodes = " + coalescedNodes);
+        System.out.println("coloredNodes = " + coloredNodes);
+        System.out.println("selectStack = " + selectStack);
+        System.out.println("");
+        System.out.println("coalescedMoves = " + coalescedMoves);
+        System.out.println("constainedMoves = " + constrainedMoves);
+        System.out.println("frozenMoves = " + frozenMoves);
+        System.out.println("worklistMoves = " + worklistMoves);
+        System.out.println("activeMoves = " + activeMoves);
+        System.out.println("----");
         if (!simplifyWorklist.isEmpty()) {
           simplify();
         } else if (!worklistMoves.isEmpty()) {
@@ -129,14 +152,30 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         } else if (!freezeWorklist.isEmpty()) {
           freeze();
         } else if (!spillWorklist.isEmpty()) {
-          selectSpill(method);
+          selectSpill(nodeDefUse);
         }
+        System.out.println("---- AFTER");
+        System.out.println("simplifyWorklist = " + simplifyWorklist);
+        System.out.println("freezeWorklist = " + freezeWorklist);
+        System.out.println("spillWorklist = " + spillWorklist);
+        System.out.println("spilledNodes = " + spilledNodes);
+        System.out.println("coalescedNodes = " + coalescedNodes);
+        System.out.println("coloredNodes = " + coloredNodes);
+        System.out.println("selectStack = " + selectStack);
+        System.out.println("");
+        System.out.println("coalescedMoves = " + coalescedMoves);
+        System.out.println("constainedMoves = " + constrainedMoves);
+        System.out.println("frozenMoves = " + frozenMoves);
+        System.out.println("worklistMoves = " + worklistMoves);
+        System.out.println("activeMoves = " + activeMoves);
+        System.out.println("----");
       } while (!simplifyWorklist.isEmpty()
           || !worklistMoves.isEmpty()
           || !freezeWorklist.isEmpty()
           || !spillWorklist.isEmpty());
       assignColors();
       if (!spilledNodes.isEmpty()) {
+        System.out.println("spilledNodes = " + spilledNodes);
         throw new RuntimeException("Unimplemented");
         // TODO, also set the new method
         //        rewriteProgram(spilledNodes);
@@ -145,8 +184,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       break;
     }
 
-    System.out.println(method.id());
-    System.out.println(color);
+    System.out.println(color.entrySet().stream().filter(e -> e.getKey().type() != Node.Type.REG).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
 
     return null;
   }
@@ -318,11 +356,11 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   }
 
   private Node getAlias(Node n) {
-    if (coalescedNodes.contains(n)) {
-      return getAlias(alias.get(n));
-    } else {
-      return n;
+    Node current = n;
+    while (coalescedNodes.contains(current)) {
+      current = alias.get(current);
     }
+    return current;
   }
 
   private void freeze() {
@@ -346,7 +384,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     }
   }
 
-  private Map<Node.Id, Double> calculateSpillPriority(Method method) {
+  private Map<Node.Id, Integer> calculateNodeDefUse(Method method) {
     final Map<Node.Id, Integer> counter = new HashMap<>();
     for (final var stmt : method.lowerStmtList()) {
       final var defUse = LivePass.calculateDefUse(stmt);
@@ -361,14 +399,22 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         }
       }
     }
-    return counter.entrySet().stream()
-        .collect(
-            Collectors.toUnmodifiableMap(
-                Map.Entry::getKey, e -> (double) e.getValue() / (double) degree.get(e.getKey())));
+    return Collections.unmodifiableMap(counter);
   }
 
-  private void selectSpill(Method method) {
-    final var spillPriorityScore = calculateSpillPriority(method);
+  private Map<Node.Id, Double> calculateSpillPriority(Map<Node.Id, Integer> nodeDefUse) {
+    // Add the max score to temporary generated nodes to make them less prioritised (those have short lifetimes)
+    final var preliminaryScores = nodeDefUse.entrySet().stream()
+            .collect(
+                    Collectors.toUnmodifiableMap(
+                            Map.Entry::getKey, e -> (double) e.getValue() / (double) degree.get(e.getKey())));
+    final var maxScore = preliminaryScores.values().stream().filter(Double::isFinite).mapToDouble(Double::doubleValue).max().getAsDouble();
+    final var result = nodeDefUse.entrySet().stream().collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> e.getValue() + (e.getKey().id().startsWith("_") ? maxScore : 0)));
+    return result;
+  }
+
+  private void selectSpill(Map<Node.Id, Integer> nodeDefUse) {
+    final var spillPriorityScore = calculateSpillPriority(nodeDefUse);
     final var m = spillWorklist.stream().min(Comparator.comparing(spillPriorityScore::get)).get();
     spillWorklist.remove(m);
     simplifyWorklist.add(m);
@@ -398,4 +444,19 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       color.put(n, color.get(getAlias(n)));
     }
   }
+
+//  private Method rewriteProgram(Method method) {
+//    var newStmtList = method.lowerStmtList();
+//    for (final var v : spilledNodes) {
+//      final var id =
+//      final var newStmtList = new ArrayList<LowerStmt>();
+//      final var gen = new TempVarGen("@");
+//
+//    }
+//    for (final var stmt : method.lowerStmtList()) {
+//
+//    }
+//    final var vars = Stream.concat(method.vars().stream(), gen.getVars().stream()).collect(Collectors.toUnmodifiableList());
+//    return new Method(method.returnType(), method.id(), method.argsWithThis(), vars, newStmtList);
+//  }
 }

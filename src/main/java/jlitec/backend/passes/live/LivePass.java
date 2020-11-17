@@ -27,8 +27,10 @@ import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
+import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.RvalExpr;
+import jlitec.ir3.expr.rval.RvalExprType;
 
 public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
   public record DefUse(Set<Node> use, Set<Node> def) {
@@ -170,6 +172,11 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       case LABEL, GOTO, RETURN, POP_STACK -> DefUse.EMPTY;
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
+        if (bs.op() == BinaryOp.MULT) {
+          yield new DefUse(
+              Set.of(new Node.Id(bs.lhs()), new Node.Id(bs.rhs())),
+              Set.of(new Node.Id(bs.lhs()), new Node.Id(bs.rhs()), new Node.Id(bs.dest())));
+        }
         yield new DefUse(
             Set.of(new Node.Id(bs.lhs()), new Node.Id(bs.rhs())), Set.of(new Node.Id(bs.dest())));
       }
@@ -204,7 +211,8 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
         final var pss = (PushStackLowerStmt) stmt;
         final Set<Node> use =
             pss.elements().stream()
-                .map(IdRvalExpr::id)
+                    .filter(e -> e.getRvalExprType() == RvalExprType.ID)
+                .map(e -> (IdRvalExpr)e)
                 .map(Node.Id::new)
                 .collect(Collectors.toUnmodifiableSet());
         yield new DefUse(use, Set.of());
