@@ -171,7 +171,7 @@ public class Global {
             .anyMatch(s -> s instanceof BranchLinkLowerStmt);
     final Set<Register> ldmfdRegs, stmfdRegs;
     final var maxRegNum =
-        regAllocOutput.color().values().stream().mapToInt(Register::toInt).max().getAsInt();
+        regAllocOutput.color().values().stream().mapToInt(Register::toInt).max().orElseGet(() -> 3);
     if (maxRegNum >= 4) {
       // Involving callee-save registers
       // Push r3 too if number of registers are even (so it will be even with the addition of LR)
@@ -221,14 +221,14 @@ public class Global {
       result.add(new STMFDInsn(Register.SP, EnumSet.copyOf(stackDesc.stmfdRegs), true));
     }
 
-    if (!method.spilled().isEmpty()) {
+    if (!regAllocOutput.method().spilled().isEmpty()) {
       result.add(
           new SUBInsn(
               Condition.AL,
               false,
               Register.SP,
               Register.SP,
-              new Operand2.Immediate(method.spilled().size() * 4)));
+              new Operand2.Immediate(regAllocOutput.method().spilled().size() * 4)));
     }
 
     for (final var stmt : regAllocOutput.method().lowerStmtList()) {

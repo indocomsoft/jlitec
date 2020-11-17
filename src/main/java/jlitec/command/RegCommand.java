@@ -64,7 +64,7 @@ public class RegCommand implements Command {
       System.out.println(method.id());
       final var output = new RegAllocPass().pass(method);
       System.out.println(output.color());
-      System.out.println(method.print(0));
+      System.out.println(output.method().print(0));
       System.out.println("===");
     }
   }

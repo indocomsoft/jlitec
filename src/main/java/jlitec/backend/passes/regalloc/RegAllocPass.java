@@ -460,7 +460,11 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     for (final var v : spilledNodes) {
       final var id = v.id();
       final var type =
-          method.vars().stream().filter(va -> va.id().equals(id)).findFirst().get().type();
+          Stream.concat(method.vars().stream(), method.argsWithThis().stream())
+              .filter(va -> va.id().equals(id))
+              .findFirst()
+              .get()
+              .type();
       final var newStmtList = new ArrayList<LowerStmt>();
       final var gen = new TempVarGen("_@" + id);
       for (final var stmt : method.lowerStmtList()) {
@@ -492,7 +496,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 if (bs.dest() instanceof Addressable.IdRval a) {
                   operands.add(a.idRvalExpr().id());
                 }
-                if (operands.contains(id)) {
+                if (!operands.contains(id)) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);
@@ -683,7 +687,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 .collect(Collectors.toUnmodifiableSet())
             : Set.of();
     final var newSpilled =
-        method.vars().stream()
+        Stream.concat(method.argsWithThis().stream(), method.vars().stream())
             .filter(v -> spilledNodes.contains(new Node.Id(v.id())))
             .collect(Collectors.toUnmodifiableList());
     final var spilled =
