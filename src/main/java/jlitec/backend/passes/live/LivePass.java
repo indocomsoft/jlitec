@@ -25,6 +25,7 @@ import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
@@ -166,16 +167,24 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
 
   public static DefUse calculateDefUse(LowerStmt stmt) {
     return switch (stmt.stmtExtensionType()) {
+      case LOAD_STACK_ARG -> {
+        final var lsas = (LoadStackArgLowerStmt) stmt;
+        final Set<Node> def =
+            lsas.stackArgs().stream().map(Node.Id::new).collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(Set.of(), def);
+      }
       case IMMEDIATE -> {
         final var is = (ImmediateLowerStmt) stmt;
         yield new DefUse(Set.of(), Set.of(toNode(is.dest())));
       }
-      case LABEL, GOTO, RETURN, POP_STACK -> DefUse.EMPTY;
+      case LABEL, GOTO, RETURN, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         final Set<Node> use =
-            Stream.of(bs.lhs(), bs.rhs()).map(Node.Id::new).collect(Collectors.toUnmodifiableSet());
-        yield new DefUse(use, Set.of(new Node.Id(bs.dest())));
+            Stream.of(bs.lhs(), bs.rhs())
+                .map(Addressable::toNode)
+                .collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(use, Set.of(bs.dest().toNode()));
       }
       case BRANCH_LINK -> {
         final Set<Node> paramRegNodes =
@@ -197,8 +206,7 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       case FIELD_ASSIGN -> {
         final var fas = (FieldAssignLowerStmt) stmt;
         final Set<Node> use =
-            Stream.of(fas.lhsId(), fas.rhs().id())
-                .map(Node.Id::new)
+            Stream.of(new Node.Id(fas.lhsId()), fas.rhs().toNode())
                 .collect(Collectors.toUnmodifiableSet());
         yield new DefUse(use, Set.of());
       }

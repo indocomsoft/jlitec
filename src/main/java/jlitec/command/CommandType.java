@@ -14,6 +14,7 @@ public enum CommandType {
   INTERFERENCE(new InterferenceCommand()),
   LOWER(new LowerCommand()),
   REG(new RegCommand()),
+  ARM(new ArmCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;

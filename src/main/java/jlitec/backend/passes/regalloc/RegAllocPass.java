@@ -35,6 +35,7 @@ import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
@@ -43,7 +44,6 @@ import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Var;
 import jlitec.ir3.codegen.TempVarGen;
 import jlitec.ir3.expr.rval.IdRvalExpr;
-import jlitec.ir3.expr.rval.RvalExpr;
 
 public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, RegAllocPass.Output> {
   private static final int NUM_REG = 13;
@@ -466,24 +466,58 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       for (final var stmt : method.lowerStmtList()) {
         final List<LowerStmt> stmtChunk =
             switch (stmt.stmtExtensionType()) {
+              case LOAD_STACK_ARG -> {
+                final var lsas = (LoadStackArgLowerStmt) stmt;
+                if (!lsas.stackArgs().contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var newStackArgs =
+                    lsas.stackArgs().stream()
+                        .filter(a -> !a.equals(id))
+                        .collect(Collectors.toUnmodifiableList());
+                yield List.of(new LoadStackArgLowerStmt(newStackArgs));
+              }
               case BINARY -> {
                 final var bs = (BinaryLowerStmt) stmt;
-                if (!Set.of(bs.lhs().id(), bs.rhs().id(), bs.dest().id()).contains(id)) {
+                final var operands = new HashSet<String>();
+                final var loadOperands = new HashSet<String>();
+                if (bs.lhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
+                if (bs.rhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
+                if (bs.dest() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (operands.contains(id)) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);
                 final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                final var lhs = bs.lhs().id().equals(id) ? idRvalExpr : bs.lhs();
-                final var rhs = bs.rhs().id().equals(id) ? idRvalExpr : bs.rhs();
-                final var dest = bs.dest().id().equals(id) ? idRvalExpr : bs.dest();
+                final var idRvalExprAddressable = new Addressable.IdRval(idRvalExpr);
+                final var lhs =
+                    bs.lhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.lhs();
+                final var rhs =
+                    bs.rhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.rhs();
+                final var dest =
+                    bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.dest();
                 final var result = new ArrayList<LowerStmt>();
                 // Need to load
-                if (Set.of(bs.lhs().id(), bs.rhs().id()).contains(id)) {
+                if (loadOperands.contains(id)) {
                   result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
                 }
                 result.add(new BinaryLowerStmt(bs.op(), dest, lhs, rhs));
                 // Need to store
-                if (bs.dest().id().equals(id)) {
+                if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
                   result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
                 }
                 yield Collections.unmodifiableList(result);
@@ -496,11 +530,11 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 }
                 final var tempVar = gen.gen(type);
                 final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                final RvalExpr lhs =
+                final var lhs =
                     (cs.lhs() instanceof IdRvalExpr ire && ire.id().equals(id))
                         ? idRvalExpr
                         : cs.lhs();
-                final RvalExpr rhs =
+                final var rhs =
                     (cs.rhs() instanceof IdRvalExpr ire && ire.id().equals(id))
                         ? idRvalExpr
                         : cs.rhs();
@@ -531,13 +565,21 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               }
               case FIELD_ASSIGN -> {
                 final var fas = (FieldAssignLowerStmt) stmt;
-                if (!Set.of(fas.lhsId(), fas.rhs().id()).contains(id)) {
+                final var operands = new HashSet<String>();
+                operands.add(fas.lhsId().id());
+                if (fas.rhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (!operands.contains(id)) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);
                 final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                final var lhsId = fas.lhsId().equals(id) ? idRvalExpr.id() : fas.lhsId();
-                final var rhs = fas.rhs().id().equals(id) ? idRvalExpr : fas.rhs();
+                final var lhsId = fas.lhsId().id().equals(id) ? idRvalExpr : fas.lhsId();
+                final var rhs =
+                    fas.rhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? new Addressable.IdRval(idRvalExpr)
+                        : fas.rhs();
                 yield List.of(
                     new LoadSpilledLowerStmt(idRvalExpr, id),
                     new FieldAssignLowerStmt(lhsId, fas.lhsField(), rhs));
@@ -554,7 +596,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                     new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), is.value()),
                     new StoreSpilledLowerStmt(idRvalExpr, id));
               }
-              case LABEL, GOTO, RETURN, BRANCH_LINK, POP_STACK -> List.of(stmt);
+              case LABEL, GOTO, RETURN, BRANCH_LINK, POP_STACK, PUSH_PAD_STACK -> List.of(stmt);
               case LDR_SPILL -> {
                 final var ls = (LoadSpilledLowerStmt) stmt;
                 if (ls.dst().id().equals(id)) throw new RuntimeException("unimplemented");
@@ -635,12 +677,18 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       stmtList = Collections.unmodifiableList(newStmtList);
       vars = Collections.unmodifiableList(newVars);
     }
+    final Set<Var> stackArgs =
+        method.argsWithThis().size() > 4
+            ? method.argsWithThis().subList(4, method.argsWithThis().size()).stream()
+                .collect(Collectors.toUnmodifiableSet())
+            : Set.of();
     final var newSpilled =
         method.vars().stream()
             .filter(v -> spilledNodes.contains(new Node.Id(v.id())))
             .collect(Collectors.toUnmodifiableList());
     final var spilled =
         Stream.concat(method.spilled().stream(), newSpilled.stream())
+            .filter(v -> !stackArgs.contains(v))
             .collect(Collectors.toUnmodifiableList());
     return new Method(
         method.returnType(), method.id(), method.argsWithThis(), vars, spilled, stmtList);

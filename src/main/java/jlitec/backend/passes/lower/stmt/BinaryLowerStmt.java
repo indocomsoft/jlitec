@@ -1,9 +1,8 @@
 package jlitec.backend.passes.lower.stmt;
 
 import jlitec.ir3.expr.BinaryOp;
-import jlitec.ir3.expr.rval.IdRvalExpr;
 
-public record BinaryLowerStmt(BinaryOp op, IdRvalExpr dest, IdRvalExpr lhs, IdRvalExpr rhs)
+public record BinaryLowerStmt(BinaryOp op, Addressable dest, Addressable lhs, Addressable rhs)
     implements LowerStmt {
   @Override
   public LowerStmtType stmtExtensionType() {

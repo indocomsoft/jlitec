@@ -63,4 +63,17 @@ public enum BinaryOp implements Printable {
           "Invalid operator to get opposite");
     };
   }
+
+  public BinaryOp comparisonOpposite() {
+    return switch (this) {
+      case LT -> GEQ;
+      case GT -> LEQ;
+      case LEQ -> GT;
+      case GEQ -> LT;
+      case EQ -> EQ;
+      case NEQ -> NEQ;
+      case PLUS, MINUS, MULT, DIV, OR, AND -> throw new RuntimeException(
+          "Not a comparison operator");
+    };
+  }
 }

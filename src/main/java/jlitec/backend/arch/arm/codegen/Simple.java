@@ -86,7 +86,7 @@ public class Simple {
               .collect(Collectors.toUnmodifiableMap(Var::id, Var::type));
       final var stackDesc = buildStackDesc(method);
 
-      insnList.add(new AssemblerDirective("global", method.id().equals("main") ? "main" : "func"));
+      insnList.add(new AssemblerDirective("global", method.id()));
       insnList.add(new AssemblerDirective("type", method.id().replace("%", "") + ", %function"));
       insnList.add(new LabelInsn(method.id().replace("%", "")));
 

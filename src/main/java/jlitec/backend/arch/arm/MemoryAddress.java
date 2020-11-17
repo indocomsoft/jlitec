@@ -20,6 +20,10 @@ public interface MemoryAddress extends Printable {
       this(register, Optional.of(offset), false);
     }
 
+    public ImmediateOffset(Register register, int offset, boolean writeback) {
+      this(register, Optional.of(offset), writeback);
+    }
+
     @Override
     public String print(int indent) {
       final var offset = maybeOffset.filter(o -> o != 0).map(o -> ", #" + o).orElse("");

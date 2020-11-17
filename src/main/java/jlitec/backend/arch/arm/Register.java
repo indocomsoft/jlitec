@@ -18,8 +18,6 @@ public enum Register {
   LR,
   PC;
 
-  public static int USER_MAX = 12;
-
   public static Register fromInt(int i) {
     return switch (i) {
       case 0 -> R0;
