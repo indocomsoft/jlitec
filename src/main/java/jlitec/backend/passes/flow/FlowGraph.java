@@ -30,7 +30,10 @@ public record FlowGraph(List<Block> blocks, SetMultimap<Integer, Integer> edges)
           bb.lowerStmtList().stream().map(s -> s.print(0)).collect(Collectors.joining());
       final var printedPrefix = Optional.ofNullable(prefix.get(i)).orElse("");
       final var printedSuffix = Optional.ofNullable(suffix.get(i)).orElse("");
-      final var printed = "(" + printedPrefix + ")\n" + printedStmt + "(" + printedSuffix + ")";
+      final var printed =
+          (printedPrefix.isBlank() ? "" : ("(" + printedPrefix + ")\n"))
+              + printedStmt
+              + (printedSuffix.isBlank() ? "" : ("(" + printedSuffix + ")"));
       sb.append("  ")
           .append(blockName)
           .append("[xlabel=\"")

@@ -2,8 +2,7 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
-import jlitec.backend.arch.arm.codegen.Global;
+import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.optimization.deadcode.DeadcodeOptimizationPass;
 import jlitec.checker.KlassDescriptor;
@@ -16,21 +15,19 @@ import jlitec.parsetree.Program;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class ArmCommand implements Command {
+public class DeadcodeCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Compile JLite code to ARM assembly.";
+    return "Runs deadcode optimization pass and print flow graphs in DOT format";
   }
 
   @Override
   public void setUpArguments(Subparser subparser) {
     subparser.addArgument("filename").type(String.class).help("input filename");
-    subparser.addArgument("-O").type(Integer.class).help("optimization level");
   }
 
   @Override
   public void run(Namespace parsed) {
-    final var optLevel = Optional.ofNullable(parsed.getInt("O")).orElse(0);
     final String filename = parsed.getString("filename");
     final ParserWrapper parser;
     try {
@@ -64,16 +61,14 @@ public class ArmCommand implements Command {
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-
-    final var finalProgram = optLevel > 0 ? performOptPasses(lowerProgram) : lowerProgram;
-
-    final var armProgram = Global.gen(finalProgram);
-    System.out.println(armProgram.print(0));
-  }
-
-  private jlitec.backend.passes.lower.Program performOptPasses(
-      jlitec.backend.passes.lower.Program input) {
-    final var deadcodeOutput = new DeadcodeOptimizationPass().pass(input);
-    return deadcodeOutput;
+    final var optimizedProgram = new DeadcodeOptimizationPass().pass(lowerProgram);
+    for (final var method : optimizedProgram.methodList()) {
+      final var flow = new FlowPass().pass(method.lowerStmtList());
+      System.out.println("method.id() = " + method.id());
+      System.out.println(flow.generateDot());
+      System.out.println("---");
+      System.out.println(method.print(0));
+      System.out.println("======");
+    }
   }
 }

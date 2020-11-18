@@ -553,6 +553,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                           new Addressable.IdRval(idRvalExpr),
                           new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
                           be.rhs()))
+                  .add(
+                      new FieldAssignLowerStmt(
+                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
                   .build();
               case MULT, DIV -> {
                 final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
@@ -565,6 +568,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                             new Addressable.IdRval(idRvalExpr),
                             new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
                             new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
+                    .add(
+                        new FieldAssignLowerStmt(
+                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
                     .build();
               }
             };

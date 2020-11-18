@@ -22,6 +22,10 @@ class Main {
     div.dividend = dividend;
     div.divisor = divisor;
     div.perform();
+    println("Dividend = ");
+    println(dividend);
+    println("Divisor = ");
+    println(divisor);
     println("Quotient = ");
     println(div.quotient);
     println("Remainder = ");
@@ -59,7 +63,7 @@ class Div {
     } else {
       while (false) { }
     }
-      this.quotient = 0;
+    this.quotient = 0;
     while (dividend >= this.divisor) {
       dividend = dividend - this.divisor;
       this.quotient = this.quotient + 1;

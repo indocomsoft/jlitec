@@ -176,7 +176,8 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
         final var is = (ImmediateLowerStmt) stmt;
         yield new DefUse(Set.of(), Set.of(toNode(is.dest())));
       }
-      case LABEL, GOTO, RETURN, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
+      case LABEL, GOTO, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
+      case RETURN -> new DefUse(Set.of(new Node.Reg(Register.R0)), Set.of());
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         final var use = new HashSet<Node>();

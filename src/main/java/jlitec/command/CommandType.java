@@ -15,6 +15,7 @@ public enum CommandType {
   LOWER(new LowerCommand()),
   REG(new RegCommand()),
   ARM(new ArmCommand()),
+  DEADCODE(new DeadcodeCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;

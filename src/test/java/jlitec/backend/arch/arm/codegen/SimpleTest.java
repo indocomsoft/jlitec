@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 import jlitec.backend.passes.lower.LowerPass;
+import jlitec.backend.passes.optimization.deadcode.DeadcodeOptimizationPass;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.parser.ParserWrapper;
@@ -25,6 +26,8 @@ public class SimpleTest {
           final var ir3Program = Ir3CodeGen.generate(astProgram);
           final var lowerProgram = new LowerPass().pass(ir3Program);
           Global.gen(lowerProgram);
+          final var deadcodeProgram = new DeadcodeOptimizationPass().pass(lowerProgram);
+          Global.gen(deadcodeProgram);
           Simple.gen(ir3Program);
         });
   }
