@@ -70,6 +70,9 @@ public class Global {
   // Prevent instantiation
   private Global() {}
 
+  private static final Set<String> helperFunctions =
+      Set.of("readln_int_bool", "println_bool", "getline_without_newline");
+
   public static Program gen(jlitec.ir3.Program input) {
     final var program = new LowerPass().pass(input);
     final var insnList = new ArrayList<Insn>();
@@ -87,35 +90,29 @@ public class Global {
             .collect(Collectors.toUnmodifiableList());
     insnList.addAll(methodInsnList);
 
-    // TODO add helper functions: getline_without_newline, readln_int_bool, println_int,
-    // println_bool
-    /* println_int:
-     *    mov r1, r0
-     *    ldr r0, .PERCENTD
-     *    b printf
-     * */
-    insnList.add(new AssemblerDirective("global", "println_int"));
-    insnList.add(new AssemblerDirective("type", "println_int, %function"));
-    insnList.add(new LabelInsn("println_int"));
-    insnList.add(new MOVInsn(Condition.AL, Register.R1, new Operand2.Register(Register.R0)));
-    insnList.add(
-        new LDRInsn(
-            Condition.AL,
-            Size.WORD,
-            Register.R0,
-            new MemoryAddress.PCRelative(stringGen.gen("%d\n"))));
-    insnList.add(new BInsn(Condition.AL, "printf"));
+    final var helperFunctionsCalled =
+        methodInsnList.stream()
+            .flatMap(i -> i instanceof BLInsn bli ? Stream.of(bli.label()) : Stream.empty())
+            .filter(helperFunctions::contains)
+            .collect(Collectors.toUnmodifiableSet());
+    if (helperFunctionsCalled.contains("readln_int_bool")) {
+      addReadlnIntBool(insnList, stringGen);
+    }
+    if (helperFunctionsCalled.contains("println_bool")) {
+      addPrintlnBool(insnList, stringGen);
+    }
+    if (helperFunctionsCalled.contains("getline_without_newline")) {
+      addGetlineWithoutNewline(insnList);
+    }
 
     // Store generated strings.
     for (final var label : stringGen.getStringToId().values()) {
-      insnList.add(new AssemblerDirective("align", "2"));
       insnList.add(new LabelInsn(label));
       insnList.add(new AssemblerDirective("word", label + "S"));
     }
     for (final var entry : stringGen.getStringToId().entrySet()) {
       final var string = entry.getKey();
       final var label = entry.getValue();
-      insnList.add(new AssemblerDirective("align", "2"));
       insnList.add(new AssemblerDirective("section", ".rodata"));
       insnList.add(new LabelInsn(label + "S"));
       insnList.add(
@@ -133,7 +130,10 @@ public class Global {
   }
 
   private static record StackDescriptor(
-      Set<Register> stmfdRegs, Set<Register> ldmfdRegs, Map<String, Integer> offsets) {
+      Set<Register> stmfdRegs,
+      Set<Register> ldmfdRegs,
+      Map<String, Integer> offsets,
+      int totalOffset) {
     public StackDescriptor {
       if ((stmfdRegs.size() & 1) == 1) {
         throw new RuntimeException(
@@ -196,12 +196,15 @@ public class Global {
       final var variable = method.spilled().get(i);
       offsets.put(variable.id(), i * 4);
     }
-    final var stackArgOffset = (method.spilled().size() + stmfdRegs.size()) * 4;
+    final var totalOffsetOriginal = method.spilled().size() * 4;
+    final var totalOffsetAligned =
+        totalOffsetOriginal % 8 == 0 ? totalOffsetOriginal : totalOffsetOriginal + 4;
+    final var stackArgOffset = totalOffsetAligned + stmfdRegs.size() * 4;
     for (int i = 4; i < method.argsWithThis().size(); i++) {
       final var arg = method.argsWithThis().get(i);
       offsets.put(arg.id(), stackArgOffset + (i - 4) * 4);
     }
-    return new StackDescriptor(stmfdRegs, ldmfdRegs, offsets);
+    return new StackDescriptor(stmfdRegs, ldmfdRegs, offsets, totalOffsetAligned);
   }
 
   private static List<Insn> gen(Method method, StringGen stringGen, Map<String, Data> dataMap) {
@@ -214,21 +217,20 @@ public class Global {
 
     final var result = new ArrayList<Insn>();
 
-    result.add(new AssemblerDirective("global", method.id()));
-    result.add(new AssemblerDirective("type", method.id() + ", %function"));
-    result.add(new LabelInsn(method.id()));
+    addFunctionPreamble(result, method.id());
+
     if (!stackDesc.stmfdRegs.isEmpty()) {
       result.add(new STMFDInsn(Register.SP, EnumSet.copyOf(stackDesc.stmfdRegs), true));
     }
 
-    if (!regAllocOutput.method().spilled().isEmpty()) {
+    if (stackDesc.totalOffset != 0) {
       result.add(
           new SUBInsn(
               Condition.AL,
               false,
               Register.SP,
               Register.SP,
-              new Operand2.Immediate(regAllocOutput.method().spilled().size() * 4)));
+              new Operand2.Immediate(stackDesc.totalOffset)));
     }
 
     for (final var stmt : regAllocOutput.method().lowerStmtList()) {
@@ -425,10 +427,26 @@ public class Global {
                       new MemoryAddress.ImmediateOffset(Register.SP, offset)));
             }
             case RETURN -> {
-              if (stackDesc.ldmfdRegs.isEmpty()) {
-                yield List.of(new BXInsn(Condition.AL, Register.LR));
+              final var insnChunk = new ArrayList<Insn>();
+              if (method.id().equals("main")) {
+                insnChunk.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Immediate(0)));
               }
-              yield List.of(new LDMFDInsn(Register.SP, EnumSet.copyOf(stackDesc.ldmfdRegs), true));
+              if (stackDesc.totalOffset != 0) {
+                insnChunk.add(
+                    new ADDInsn(
+                        Condition.AL,
+                        false,
+                        Register.SP,
+                        Register.SP,
+                        new Operand2.Immediate(stackDesc.totalOffset)));
+              }
+              if (stackDesc.ldmfdRegs.isEmpty()) {
+                insnChunk.add(new BXInsn(Condition.AL, Register.LR));
+              } else {
+                insnChunk.add(
+                    new LDMFDInsn(Register.SP, EnumSet.copyOf(stackDesc.ldmfdRegs), true));
+              }
+              yield Collections.unmodifiableList(insnChunk);
             }
             case MOV -> {
               final var ms = (MovLowerStmt) stmt;
@@ -479,5 +497,168 @@ public class Global {
     }
 
     return Collections.unmodifiableList(result);
+  }
+
+  /**
+   * In ASM: <code>
+   * readln_int_bool:
+   *   stmfd sp!, {r4, lr}
+   *   sub sp, sp, #8
+   *   ldr r0, .PERCENTD
+   *   add r1, sp, #4
+   *   bl scanf
+   *   ldr r0, [sp, #4]
+   *   add sp, sp, #8
+   *   ldmfd sp!, {r4, pc}
+   * </code> In C: <code>
+   * int readln_int_bool()
+   * {
+   *   int a;
+   *   scanf("%d", &a);
+   *   return a;
+   * }
+   * </code>
+   *
+   * @param insnList instruction list to add instructions to.
+   */
+  private static void addReadlnIntBool(List<Insn> insnList, StringGen stringGen) {
+    addFunctionPreamble(insnList, "readln_int_bool");
+    insnList.add(new STMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.LR), true));
+    insnList.add(
+        new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.PCRelative(stringGen.gen("%d"))));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R1, Register.SP, new Operand2.Immediate(4)));
+    insnList.add(new BLInsn(Condition.AL, "scanf"));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.ImmediateOffset(Register.SP, 4)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(new LDMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.PC), true));
+  }
+
+  /**
+   * In ASM: <code>
+   * println_bool:
+   *   ldr r2, .TRUE
+   *   ldr r1, .FALSE
+   *   cmp r0, #1
+   *   moveq r1, r2
+   *   mov r0, r1
+   *   b puts
+   * </code> In C: <code>
+   * void println_bool(int a)
+   * {
+   *   puts(a == 1 ? "true" : "false");
+   * }
+   * </code>
+   *
+   * @param insnList instruction list to add instructions to.
+   */
+  private static void addPrintlnBool(List<Insn> insnList, StringGen stringGen) {
+    addFunctionPreamble(insnList, "println_bool");
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R2,
+            new MemoryAddress.PCRelative(stringGen.gen("true"))));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R1,
+            new MemoryAddress.PCRelative(stringGen.gen("false"))));
+    insnList.add(new CMPInsn(Condition.AL, Register.R0, new Operand2.Immediate(1)));
+    insnList.add(new MOVInsn(Condition.EQ, Register.R1, new Operand2.Register(Register.R2)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.R1)));
+    insnList.add(new BInsn(Condition.AL, "puts"));
+  }
+
+  /**
+   * In ASM: <code>
+   * getline_without_newline:
+   *   STMFD SP!, {R4, LR}
+   *   SUB SP, SP, #8
+   *   MOV R4, #0
+   *   STR R4, [SP]
+   *   STR R4, [SP, #4]
+   *   MOV R0, SP
+   *   ADD R1, R0, #4
+   *   LDR R3, .Lstdin
+   *   LDR R2, [R3]
+   *   BL getline
+   *   SUB R1, R0, #1
+   *   LDR R0, [SP]
+   *   STRB R4, [R0, R1]
+   *   BL realloc
+   *   ADD SP, SP, #8
+   *   LDMFD SP!, {R4, PC}
+   * </code> In C: <code>
+   * char* getline_without_newline() {
+   *   char* result = NULL;
+   *   size_t n = 0;
+   *   ssize_t len = getline(&result, &n, stdin);
+   *   result[len - 1] = 0;
+   *   return realloc(result, len - 1);
+   * }
+   * </code>
+   *
+   * @param insnList
+   */
+  private static void addGetlineWithoutNewline(List<Insn> insnList) {
+    addFunctionPreamble(insnList, "getline_without_newline");
+    insnList.add(new STMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.LR), true));
+    insnList.add(
+        new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R4, new Operand2.Immediate(0)));
+    insnList.add(
+        new STRInsn(
+            Condition.AL, Size.WORD, Register.R4, new MemoryAddress.ImmediateOffset(Register.SP)));
+    insnList.add(
+        new STRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R4,
+            new MemoryAddress.ImmediateOffset(Register.SP, 4)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.SP)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R1, Register.R0, new Operand2.Immediate(4)));
+    insnList.add(
+        new LDRInsn(Condition.AL, Size.WORD, Register.R3, new MemoryAddress.PCRelative(".Lstdin")));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL, Size.WORD, Register.R2, new MemoryAddress.ImmediateOffset(Register.R3)));
+    insnList.add(new BLInsn(Condition.AL, "getline"));
+    insnList.add(
+        new SUBInsn(Condition.AL, false, Register.R1, Register.R0, new Operand2.Immediate(1)));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL, Size.WORD, Register.R0, new MemoryAddress.ImmediateOffset(Register.SP)));
+    insnList.add(
+        new STRInsn(
+            Condition.AL,
+            Size.B,
+            Register.R4,
+            new MemoryAddress.RegisterOffset(Register.R0, Register.R1)));
+    insnList.add(new BLInsn(Condition.AL, "realloc"));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(new LDMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.PC), true));
+  }
+
+  private static void addFunctionPreamble(List<Insn> insnList, String methodName) {
+    insnList.add(new AssemblerDirective("global", methodName));
+    insnList.add(new AssemblerDirective("type", methodName + ", %function"));
+    insnList.add(new LabelInsn(methodName));
   }
 }

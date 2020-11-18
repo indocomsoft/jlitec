@@ -223,7 +223,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             yield switch (typeMap.get(ire.id()).type()) {
               case STRING -> List.of(movLowerStmt, new BranchLinkLowerStmt("puts"));
               case BOOL -> List.of(movLowerStmt, new BranchLinkLowerStmt("println_bool"));
-              case INT -> List.of(movLowerStmt, new BranchLinkLowerStmt("println_int"));
+              case INT -> List.of(
+                  new ImmediateLowerStmt(
+                      new Addressable.Reg(Register.R0), new StringRvalExpr("%d\n")),
+                  new MovLowerStmt(new Addressable.Reg(Register.R1), new Addressable.IdRval(ire)),
+                  new BranchLinkLowerStmt("printf"));
               case VOID, CLASS -> throw new RuntimeException("should have failed typecheck");
             };
           }

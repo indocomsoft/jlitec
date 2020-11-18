@@ -13,6 +13,7 @@ import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.live.LowerStmtWithLive;
 import jlitec.backend.passes.live.Node;
 import jlitec.backend.passes.lower.LowerPass;
+import jlitec.backend.passes.regalloc.RegAllocPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -20,6 +21,7 @@ import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Program;
+import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
@@ -32,6 +34,10 @@ public class InterferenceCommand implements Command {
   @Override
   public void setUpArguments(Subparser subparser) {
     subparser.addArgument("filename").type(String.class).help("input filename");
+    subparser
+        .addArgument("--after-reg-alloc")
+        .action(Arguments.storeTrue())
+        .help("Print interference graph after register allocation");
   }
 
   @Override
@@ -69,19 +75,37 @@ public class InterferenceCommand implements Command {
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-    for (final var method : lowerProgram.methodList()) {
-      final var flow = new FlowPass().pass(method.lowerStmtList());
-      final var output = new LivePass().pass(new MethodWithFlow(method, flow));
-      final var edges = buildInterferenceGraph(output.lowerStmtWithLiveList());
-      final var sb = new StringBuilder();
-      sb.append("graph G {\n");
-      for (final var edgeEntry : edges.entries()) {
-        final var src = edgeEntry.getKey().print(0);
-        final var dst = edgeEntry.getValue().print(0);
-        sb.append("  ").append(src).append(" -- ").append(dst).append(";\n");
+    if (parsed.getBoolean("after_reg_alloc")) {
+      for (final var method : lowerProgram.methodList()) {
+        final var regAllocOutput = new RegAllocPass().pass(method);
+        final var flow = new FlowPass().pass(regAllocOutput.method().lowerStmtList());
+        final var output = new LivePass().pass(new MethodWithFlow(regAllocOutput.method(), flow));
+        final var edges = buildInterferenceGraph(output.lowerStmtWithLiveList());
+        final var sb = new StringBuilder();
+        sb.append("graph G {\n");
+        for (final var edgeEntry : edges.entries()) {
+          final var src = edgeEntry.getKey().print(0).replace("@", "AT_");
+          final var dst = edgeEntry.getValue().print(0).replace("@", "AT_");
+          sb.append("  ").append(src).append(" -- ").append(dst).append(";\n");
+        }
+        sb.append("}");
+        System.out.println(sb.toString());
       }
-      sb.append("}");
-      System.out.println(sb.toString());
+    } else {
+      for (final var method : lowerProgram.methodList()) {
+        final var flow = new FlowPass().pass(method.lowerStmtList());
+        final var output = new LivePass().pass(new MethodWithFlow(method, flow));
+        final var edges = buildInterferenceGraph(output.lowerStmtWithLiveList());
+        final var sb = new StringBuilder();
+        sb.append("graph G {\n");
+        for (final var edgeEntry : edges.entries()) {
+          final var src = edgeEntry.getKey().print(0);
+          final var dst = edgeEntry.getValue().print(0);
+          sb.append("  ").append(src).append(" -- ").append(dst).append(";\n");
+        }
+        sb.append("}");
+        System.out.println(sb.toString());
+      }
     }
   }
 

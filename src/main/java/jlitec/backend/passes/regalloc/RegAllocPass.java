@@ -439,7 +439,6 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
 
   private void selectSpill(Map<Node.Id, Integer> nodeDefUse, Set<String> stackArgIdList) {
     final var spillPriorityScore = calculateSpillPriority(nodeDefUse, stackArgIdList);
-    System.out.println(spillPriorityScore);
     final var m = spillWorklist.stream().min(Comparator.comparing(spillPriorityScore::get)).get();
     spillWorklist.remove(m);
     simplifyWorklist.add(m);
@@ -615,12 +614,14 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               case LABEL, GOTO, RETURN, BRANCH_LINK, POP_STACK, PUSH_PAD_STACK -> List.of(stmt);
               case LDR_SPILL -> {
                 final var ls = (LoadSpilledLowerStmt) stmt;
-                if (ls.dst().id().equals(id)) throw new RuntimeException("unimplemented");
+                if (ls.dst().id().equals(id))
+                  throw new RuntimeException("No solution to register allocation");
                 yield List.of(stmt);
               }
               case STR_SPILL -> {
                 final var ss = (StoreSpilledLowerStmt) stmt;
-                if (ss.src().id().equals(id)) throw new RuntimeException("unimplemented");
+                if (ss.src().id().equals(id))
+                  throw new RuntimeException("No solution to register allocation");
                 yield List.of(stmt);
               }
               case MOV -> {
