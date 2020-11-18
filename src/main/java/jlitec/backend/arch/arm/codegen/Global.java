@@ -38,7 +38,6 @@ import jlitec.backend.arch.arm.insn.SDIVInsn;
 import jlitec.backend.arch.arm.insn.STMFDInsn;
 import jlitec.backend.arch.arm.insn.STRInsn;
 import jlitec.backend.arch.arm.insn.SUBInsn;
-import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
@@ -74,8 +73,7 @@ public class Global {
   private static final Set<String> helperFunctions =
       Set.of("readln_int_bool", "println_bool", "getline_without_newline");
 
-  public static Program gen(jlitec.ir3.Program input) {
-    final var program = new LowerPass().pass(input);
+  public static Program gen(jlitec.backend.passes.lower.Program program) {
     final var insnList = new ArrayList<Insn>();
 
     final var stringGen = new StringGen();

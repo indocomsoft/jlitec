@@ -3,6 +3,7 @@ package jlitec.command;
 import java.io.IOException;
 import java.util.Map;
 import jlitec.backend.arch.arm.codegen.Global;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -58,7 +59,8 @@ public class ArmCommand implements Command {
     }
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
-    final var armProgram = Global.gen(ir3Program);
+    final var lowerProgram = new LowerPass().pass(ir3Program);
+    final var armProgram = Global.gen(lowerProgram);
     System.out.println(armProgram.print(0));
   }
 }
