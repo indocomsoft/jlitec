@@ -2,6 +2,7 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
+import jlitec.backend.passes.PassManager;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.regalloc.RegAllocPass;
 import jlitec.checker.KlassDescriptor;
@@ -11,6 +12,7 @@ import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Program;
+import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
@@ -23,6 +25,10 @@ public class RegCommand implements Command {
   @Override
   public void setUpArguments(Subparser subparser) {
     subparser.addArgument("filename").type(String.class).help("input filename");
+    subparser
+        .addArgument("--opt")
+        .help("Run optimization passes first")
+        .action(Arguments.storeTrue());
   }
 
   @Override
@@ -58,9 +64,13 @@ public class RegCommand implements Command {
       return;
     }
 
+    final var opt = parsed.getBoolean("opt");
+
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-    for (final var method : lowerProgram.methodList()) {
+    final var finalProgram =
+        opt ? PassManager.performOptimizationPasses(lowerProgram) : lowerProgram;
+    for (final var method : finalProgram.methodList()) {
       System.out.println(method.id());
       final var output = new RegAllocPass().pass(method);
       System.out.println(output.color());

@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import jlitec.backend.arch.arm.codegen.Global;
+import jlitec.backend.arch.arm.codegen.PeepholeOptimizer;
+import jlitec.backend.passes.PassManager;
 import jlitec.backend.passes.lower.LowerPass;
-import jlitec.backend.passes.optimization.deadcode.DeadcodeOptimizationPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -65,15 +66,14 @@ public class ArmCommand implements Command {
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
 
-    final var finalProgram = optLevel > 0 ? performOptPasses(lowerProgram) : lowerProgram;
-
-    final var armProgram = Global.gen(finalProgram);
-    System.out.println(armProgram.print(0));
-  }
-
-  private jlitec.backend.passes.lower.Program performOptPasses(
-      jlitec.backend.passes.lower.Program input) {
-    final var deadcodeOutput = new DeadcodeOptimizationPass().pass(input);
-    return deadcodeOutput;
+    if (optLevel > 0) {
+      final var finalProgram = PassManager.performOptimizationPasses(lowerProgram);
+      final var armProgram = Global.gen(finalProgram);
+      final var peepholeOptimized = PeepholeOptimizer.pass(armProgram);
+      System.out.println(peepholeOptimized.print(0));
+    } else {
+      final var armProgram = Global.gen(lowerProgram);
+      System.out.println(armProgram.print(0));
+    }
   }
 }

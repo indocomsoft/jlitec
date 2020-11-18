@@ -2,10 +2,8 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
-import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.optimization.algebraic.AlgebraicPass;
-import jlitec.backend.passes.optimization.deadcode.DeadcodeOptimizationPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.checker.SemanticException;
@@ -13,23 +11,18 @@ import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.lexer.LexException;
 import jlitec.parser.ParserWrapper;
 import jlitec.parsetree.Program;
-import net.sourceforge.argparse4j.impl.Arguments;
 import net.sourceforge.argparse4j.inf.Namespace;
 import net.sourceforge.argparse4j.inf.Subparser;
 
-public class DeadcodeCommand implements Command {
+public class AlgCommand implements Command {
   @Override
   public String helpMessage() {
-    return "Runs deadcode optimization pass and print flow graphs in DOT format";
+    return "Runs algebraic identities optimization pass and print resulting code";
   }
 
   @Override
   public void setUpArguments(Subparser subparser) {
     subparser.addArgument("filename").type(String.class).help("input filename");
-    subparser
-        .addArgument("--alg")
-        .help("Run algebraic pass beforehand")
-        .action(Arguments.storeTrue());
   }
 
   @Override
@@ -65,18 +58,11 @@ public class DeadcodeCommand implements Command {
       return;
     }
 
-    final var shouldAlg = parsed.getBoolean("alg");
-
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-    final var optimizedProgram =
-        new DeadcodeOptimizationPass()
-            .pass(shouldAlg ? new AlgebraicPass().pass(lowerProgram) : lowerProgram);
+    final var optimizedProgram = new AlgebraicPass().pass(lowerProgram);
     for (final var method : optimizedProgram.methodList()) {
-      final var flow = new FlowPass().pass(method.lowerStmtList());
       System.out.println("method.id() = " + method.id());
-      System.out.println(flow.generateDot());
-      System.out.println("---");
       System.out.println(method.print(0));
       System.out.println("======");
     }

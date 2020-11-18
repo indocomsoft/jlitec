@@ -16,6 +16,7 @@ public enum CommandType {
   REG(new RegCommand()),
   ARM(new ArmCommand()),
   DEADCODE(new DeadcodeCommand()),
+  ALG(new AlgCommand()),
   SIMPLE(new SimpleCommand());
 
   public final Command command;
