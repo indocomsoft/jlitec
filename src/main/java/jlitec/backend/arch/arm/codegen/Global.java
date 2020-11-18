@@ -254,28 +254,28 @@ public class Global {
               final var dest = toRegister(bs.dest(), regAllocMap);
               yield switch (bs.op()) {
                 case LT -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.LT, dest, new Operand2.Immediate(1)));
                 case GT -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.GT, dest, new Operand2.Immediate(1)));
                 case LEQ -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.LE, dest, new Operand2.Immediate(1)));
                 case GEQ -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.GE, dest, new Operand2.Immediate(1)));
                 case EQ -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.EQ, dest, new Operand2.Immediate(1)));
                 case NEQ -> List.of(
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new CMPInsn(Condition.AL, lhs, new Operand2.Register(rhs)),
+                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.NE, dest, new Operand2.Immediate(1)));
                 case OR -> List.of(
                     new ORRInsn(Condition.AL, false, dest, lhs, new Operand2.Register(rhs)));
