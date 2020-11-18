@@ -7,7 +7,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.flow.FlowPass;
-import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
@@ -66,9 +65,8 @@ public class LiveCommand implements Command {
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
-    for (final var method : programWithFlow.program().methodList()) {
-      final var flow = programWithFlow.methodToFlow().get(method);
+    for (final var method : lowerProgram.methodList()) {
+      final var flow = new FlowPass().pass(method.lowerStmtList());
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
       final var prefix =
           IntStream.range(0, flow.blocks().size())

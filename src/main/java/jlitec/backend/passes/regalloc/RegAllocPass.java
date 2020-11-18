@@ -138,7 +138,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                           i -> new Node.Reg(Register.fromInt(i)), Function.identity())));
 
       // LivenessAnalysis()
-      flowGraph = FlowPass.process(method.lowerStmtList());
+      flowGraph = new FlowPass().pass(method.lowerStmtList());
       methodWithLive = new LivePass().pass(new MethodWithFlow(method, flowGraph));
 
       // Build()

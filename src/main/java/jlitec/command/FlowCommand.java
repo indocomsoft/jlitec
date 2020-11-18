@@ -5,7 +5,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
 import jlitec.backend.passes.flow.FlowPass;
-import jlitec.backend.passes.flow.ProgramWithFlow;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;
@@ -75,10 +74,9 @@ public class FlowCommand implements Command {
 
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
-    final ProgramWithFlow programWithFlow = new FlowPass().pass(lowerProgram);
-    for (final var entry : programWithFlow.methodToFlow().entrySet()) {
-      final var methodName = entry.getKey().id();
-      final var flow = entry.getValue();
+    for (final var method : lowerProgram.methodList()) {
+      final var methodName = method.id();
+      final var flow = new FlowPass().pass(method.lowerStmtList());
       final var path = Paths.get(outputDir, methodName + ".dot");
       try {
         Files.write(path, flow.generateDot().getBytes());

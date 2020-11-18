@@ -8,23 +8,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.backend.passes.Pass;
-import jlitec.backend.passes.lower.Program;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 
-public class FlowPass implements Pass<Program, ProgramWithFlow> {
+public class FlowPass implements Pass<List<LowerStmt>, FlowGraph> {
   @Override
-  public ProgramWithFlow pass(Program input) {
-    final var result = new HashMap<jlitec.backend.passes.lower.Method, FlowGraph>();
-    for (final var lowerMethod : input.methodList()) {
-      result.put(lowerMethod, process(lowerMethod.lowerStmtList()));
-    }
-    return new ProgramWithFlow(input, result);
-  }
-
-  public static FlowGraph process(List<LowerStmt> lowerStmtList) {
+  public FlowGraph pass(List<LowerStmt> lowerStmtList) {
     final var usedLabels =
         lowerStmtList.stream()
             .flatMap(s -> s instanceof LabelLowerStmt ls ? Stream.of(ls.label()) : Stream.empty())
