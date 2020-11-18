@@ -369,11 +369,38 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           }
           case UNARY -> {
             final var ue = (UnaryExpr) vas.rhs();
-            final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
-            yield ImmutableList.<LowerStmt>builder()
-                .addAll(idRvalExprChunk.lowerStmtList)
-                .add(new UnaryLowerStmt(ue.op(), vas.lhs(), idRvalExprChunk.idRvalExpr))
-                .build();
+            yield switch (ue.op()) {
+              case NOT -> switch (ue.rval().getRvalExprType()) {
+                case BOOL -> {
+                  final var bre = (BoolRvalExpr) ue.rval();
+                  yield List.of(
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(vas.lhs()), new BoolRvalExpr(!bre.value())));
+                }
+                case INT, ID, NULL, STRING -> {
+                  final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(idRvalExprChunk.lowerStmtList)
+                      .add(new UnaryLowerStmt(ue.op(), vas.lhs(), idRvalExprChunk.idRvalExpr))
+                      .build();
+                }
+              };
+              case NEGATIVE -> switch (ue.rval().getRvalExprType()) {
+                case INT -> {
+                  final var ire = (IntRvalExpr) ue.rval();
+                  yield List.of(
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(vas.lhs()), new IntRvalExpr(-ire.value())));
+                }
+                case BOOL, ID, NULL, STRING -> {
+                  final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(idRvalExprChunk.lowerStmtList)
+                      .add(new UnaryLowerStmt(ue.op(), vas.lhs(), idRvalExprChunk.idRvalExpr))
+                      .build();
+                }
+              };
+            };
           }
           case FIELD -> {
             final var fe = (FieldExpr) vas.rhs();
@@ -577,14 +604,49 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           }
           case UNARY -> {
             final var ue = (UnaryExpr) fas.rhs();
-            final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
-            yield ImmutableList.<LowerStmt>builder()
-                .addAll(idRvalExprChunk.lowerStmtList)
-                .add(new UnaryLowerStmt(ue.op(), idRvalExpr, idRvalExprChunk.idRvalExpr))
-                .add(
-                    new FieldAssignLowerStmt(
-                        fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                .build();
+
+            yield switch (ue.op()) {
+              case NOT -> switch (ue.rval().getRvalExprType()) {
+                case BOOL -> {
+                  final var bre = (BoolRvalExpr) ue.rval();
+                  yield List.of(
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(idRvalExpr), new BoolRvalExpr(!bre.value())),
+                      new FieldAssignLowerStmt(
+                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
+                }
+                case INT, ID, NULL, STRING -> {
+                  final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(idRvalExprChunk.lowerStmtList)
+                      .add(new UnaryLowerStmt(ue.op(), idRvalExpr, idRvalExprChunk.idRvalExpr))
+                      .add(
+                          new FieldAssignLowerStmt(
+                              fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
+                      .build();
+                }
+              };
+              case NEGATIVE -> switch (ue.rval().getRvalExprType()) {
+                case INT -> {
+                  final var ire = (IntRvalExpr) ue.rval();
+                  yield List.of(
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(idRvalExpr), new IntRvalExpr(-ire.value())),
+                      new FieldAssignLowerStmt(
+                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
+                }
+                case BOOL, ID, NULL, STRING -> {
+                  final var idRvalExprChunk = rvaltoIdRval(ue.rval(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(idRvalExprChunk.lowerStmtList)
+                      .add(new UnaryLowerStmt(ue.op(), idRvalExpr, idRvalExprChunk.idRvalExpr))
+                      .add(
+                          new FieldAssignLowerStmt(
+                              fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
+                      .build();
+                }
+              };
+            };
           }
           case FIELD -> {
             final var fe = (FieldExpr) fas.rhs();

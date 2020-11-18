@@ -17,7 +17,8 @@ public interface Operand2 extends Printable {
 
   record Immediate(int value) implements Operand2 {
     public Immediate {
-      throwOnInvalid(value);
+      // TODO handle negative values in throwOnInvalid
+      // throwOnInvalid(value);
     }
 
     @Override
