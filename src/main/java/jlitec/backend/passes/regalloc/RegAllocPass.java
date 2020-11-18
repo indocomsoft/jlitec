@@ -39,6 +39,7 @@ import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
+import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Var;
@@ -500,6 +501,49 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                   operands.add(a.idRvalExpr().id());
                   loadOperands.add(a.idRvalExpr().id());
                 }
+                if (bs.rhs() instanceof IdRvalExpr a) {
+                  operands.add(a.id());
+                  loadOperands.add(a.id());
+                }
+                if (bs.dest() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (!operands.contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                final var idRvalExprAddressable = new Addressable.IdRval(idRvalExpr);
+                final var lhs =
+                    bs.lhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.lhs();
+                final var rhs =
+                    bs.rhs() instanceof IdRvalExpr a && a.id().equals(id) ? idRvalExpr : bs.rhs();
+                final var dest =
+                    bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.dest();
+                final var result = new ArrayList<LowerStmt>();
+                // Need to load
+                if (loadOperands.contains(id)) {
+                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
+                }
+                result.add(new BinaryLowerStmt(bs.op(), dest, lhs, rhs));
+                // Need to store
+                if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
+                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
+                }
+                yield Collections.unmodifiableList(result);
+              }
+              case REG_BINARY -> {
+                final var bs = (RegBinaryLowerStmt) stmt;
+                final var operands = new HashSet<String>();
+                final var loadOperands = new HashSet<String>();
+                if (bs.lhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
                 if (bs.rhs() instanceof Addressable.IdRval a) {
                   operands.add(a.idRvalExpr().id());
                   loadOperands.add(a.idRvalExpr().id());
@@ -530,7 +574,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 if (loadOperands.contains(id)) {
                   result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
                 }
-                result.add(new BinaryLowerStmt(bs.op(), dest, lhs, rhs));
+                result.add(new RegBinaryLowerStmt(bs.op(), dest, lhs, rhs));
                 // Need to store
                 if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
                   result.add(new StoreSpilledLowerStmt(idRvalExpr, id));

@@ -2,19 +2,18 @@ package jlitec.backend.passes.lower.stmt;
 
 import java.util.EnumSet;
 import jlitec.ir3.expr.BinaryOp;
-import jlitec.ir3.expr.rval.RvalExpr;
 
-public record BinaryLowerStmt(BinaryOp op, Addressable dest, Addressable lhs, RvalExpr rhs)
+public record RegBinaryLowerStmt(BinaryOp op, Addressable dest, Addressable lhs, Addressable rhs)
     implements LowerStmt {
-  public BinaryLowerStmt {
-    if (EnumSet.of(BinaryOp.MULT, BinaryOp.DIV).contains(op)) {
-      throw new RuntimeException("Not a operand2 binary statement");
+  public RegBinaryLowerStmt {
+    if (!EnumSet.of(BinaryOp.MULT, BinaryOp.DIV).contains(op)) {
+      throw new RuntimeException("Not a register-only binary statement");
     }
   }
 
   @Override
   public LowerStmtType stmtExtensionType() {
-    return LowerStmtType.BINARY;
+    return LowerStmtType.REG_BINARY;
   }
 
   @Override

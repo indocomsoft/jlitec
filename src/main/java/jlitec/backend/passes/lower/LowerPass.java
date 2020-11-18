@@ -27,6 +27,7 @@ import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PopStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushPadStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
+import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReturnLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Data;
@@ -260,8 +261,6 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                           new Addressable.Reg(Register.R0),
                           new IntRvalExpr(maybeTotalLength.get())));
                 } else {
-                  final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
-                  final var idRvalExpr = new IdRvalExpr(tempVar.id());
                   if (maybeLhsLength.isPresent()) {
                     final var rhs = (IdRvalExpr) be.rhs();
                     result.add(
@@ -270,15 +269,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                     result.add(new BranchLinkLowerStmt("strlen"));
                     // Plus 1 to account for the null
                     result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.IdRval(idRvalExpr),
-                            new IntRvalExpr(maybeLhsLength.get() + 1)));
-                    result.add(
                         new BinaryLowerStmt(
                             BinaryOp.PLUS,
                             new Addressable.Reg(Register.R0),
                             new Addressable.Reg(Register.R0),
-                            new Addressable.IdRval(idRvalExpr)));
+                            new IntRvalExpr(maybeLhsLength.get() + 1)));
                   } else if (maybeRhsLength.isPresent()) {
                     final var lhs = (IdRvalExpr) be.lhs();
                     result.add(
@@ -287,15 +282,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                     result.add(new BranchLinkLowerStmt("strlen"));
                     // Plus 1 to account for the null
                     result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.IdRval(idRvalExpr),
-                            new IntRvalExpr(maybeRhsLength.get() + 1)));
-                    result.add(
                         new BinaryLowerStmt(
                             BinaryOp.PLUS,
                             new Addressable.Reg(Register.R0),
                             new Addressable.Reg(Register.R0),
-                            new Addressable.IdRval(idRvalExpr)));
+                            new IntRvalExpr(maybeRhsLength.get() + 1)));
                   } else {
                     throw new RuntimeException("should not be reached");
                   }
@@ -350,17 +341,31 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             }
 
             final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-            yield ImmutableList.<LowerStmt>builder()
-                .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                .add(
-                    new BinaryLowerStmt(
-                        be.op(),
-                        new Addressable.IdRval(vas.lhs()),
-                        new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                        new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
-                .build();
+            yield switch (be.op()) {
+              case LT, GT, LEQ, GEQ, EQ, NEQ, OR, AND, PLUS, MINUS -> ImmutableList
+                  .<LowerStmt>builder()
+                  .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                  .add(
+                      new BinaryLowerStmt(
+                          be.op(),
+                          new Addressable.IdRval(vas.lhs()),
+                          new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                          be.rhs()))
+                  .build();
+              case MULT, DIV -> {
+                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new RegBinaryLowerStmt(
+                            be.op(),
+                            new Addressable.IdRval(vas.lhs()),
+                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                            new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
+                    .build();
+              }
+            };
           }
           case UNARY -> {
             final var ue = (UnaryExpr) vas.rhs();
@@ -461,8 +466,6 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                           new Addressable.Reg(Register.R0),
                           new IntRvalExpr(maybeTotalLength.get())));
                 } else {
-                  final var tempVar2 = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
-                  final var idRvalExpr2 = new IdRvalExpr(tempVar2.id());
                   if (maybeLhsLength.isPresent()) {
                     final var rhs = (IdRvalExpr) be.rhs();
                     result.add(
@@ -471,15 +474,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                     result.add(new BranchLinkLowerStmt("strlen"));
                     // Plus 1 to account for the null
                     result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.IdRval(idRvalExpr2),
-                            new IntRvalExpr(maybeLhsLength.get() + 1)));
-                    result.add(
                         new BinaryLowerStmt(
                             BinaryOp.PLUS,
                             new Addressable.Reg(Register.R0),
                             new Addressable.Reg(Register.R0),
-                            new Addressable.IdRval(idRvalExpr2)));
+                            new IntRvalExpr(maybeLhsLength.get() + 1)));
                   } else if (maybeRhsLength.isPresent()) {
                     final var lhs = (IdRvalExpr) be.lhs();
                     result.add(
@@ -488,15 +487,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                     result.add(new BranchLinkLowerStmt("strlen"));
                     // Plus 1 to account for the null
                     result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.IdRval(idRvalExpr2),
-                            new IntRvalExpr(maybeRhsLength.get() + 1)));
-                    result.add(
                         new BinaryLowerStmt(
                             BinaryOp.PLUS,
                             new Addressable.Reg(Register.R0),
                             new Addressable.Reg(Register.R0),
-                            new Addressable.IdRval(idRvalExpr2)));
+                            new IntRvalExpr(maybeRhsLength.get() + 1)));
                   } else {
                     throw new RuntimeException("should not be reached");
                   }
@@ -547,20 +542,32 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             }
 
             final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-            yield ImmutableList.<LowerStmt>builder()
-                .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                .add(
-                    new BinaryLowerStmt(
-                        be.op(),
-                        new Addressable.IdRval(idRvalExpr),
-                        new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                        new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
-                .add(
-                    new FieldAssignLowerStmt(
-                        fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                .build();
+
+            yield switch (be.op()) {
+              case LT, GT, LEQ, GEQ, EQ, NEQ, OR, AND, PLUS, MINUS -> ImmutableList
+                  .<LowerStmt>builder()
+                  .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                  .add(
+                      new BinaryLowerStmt(
+                          be.op(),
+                          new Addressable.IdRval(idRvalExpr),
+                          new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                          be.rhs()))
+                  .build();
+              case MULT, DIV -> {
+                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new RegBinaryLowerStmt(
+                            be.op(),
+                            new Addressable.IdRval(idRvalExpr),
+                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                            new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
+                    .build();
+              }
+            };
           }
           case UNARY -> {
             final var ue = (UnaryExpr) fas.rhs();

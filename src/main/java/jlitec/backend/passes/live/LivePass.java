@@ -29,6 +29,7 @@ import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
+import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.expr.rval.IdRvalExpr;
@@ -178,6 +179,15 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       case LABEL, GOTO, RETURN, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
+        final var use = new HashSet<Node>();
+        use.add(bs.lhs().toNode());
+        if (bs.rhs() instanceof IdRvalExpr ire) {
+          use.add(new Node.Id(ire));
+        }
+        yield new DefUse(use, Set.of(bs.dest().toNode()));
+      }
+      case REG_BINARY -> {
+        final var bs = (RegBinaryLowerStmt) stmt;
         final Set<Node> use =
             Stream.of(bs.lhs(), bs.rhs())
                 .map(Addressable::toNode)
