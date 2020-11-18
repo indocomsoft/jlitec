@@ -1,6 +1,7 @@
 package jlitec.backend.passes.lower;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -87,11 +88,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               new Addressable.Reg(Register.fromInt(i))));
     }
     if (argsWithThis.size() > 4) {
-      final var stackArgs =
+      final var loadStackArgLowerStmts =
           argsWithThis.subList(4, argsWithThis.size()).stream()
-              .map(Var::id)
+              .map(LoadStackArgLowerStmt::new)
               .collect(Collectors.toUnmodifiableList());
-      stmtList.add(new LoadStackArgLowerStmt(stackArgs));
+      stmtList.addAll(loadStackArgLowerStmts);
     }
     for (final var stmt : method.stmtList()) {
       stmtList.addAll(pass(stmt, typeMap, gen, cnameToData));
@@ -679,7 +680,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     if ((rvalExprList.size() & 1) == 1) {
       result.add(new PushPadStackLowerStmt());
     }
-    for (final var rvalExpr : rvalExprList) {
+    for (final var rvalExpr : Lists.reverse(rvalExprList)) {
       final List<LowerStmt> stmtList =
           switch (rvalExpr.getRvalExprType()) {
             case ID -> List.of(new PushStackLowerStmt((IdRvalExpr) rvalExpr));

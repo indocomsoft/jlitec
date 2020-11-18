@@ -97,6 +97,12 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               .map(Var::id)
               .map(Node.Id::new)
               .collect(Collectors.toUnmodifiableSet());
+      final Set<String> stackArgIdList =
+          method.argsWithThis().size() > 4
+              ? method.argsWithThis().subList(4, method.argsWithThis().size()).stream()
+                  .map(Var::id)
+                  .collect(Collectors.toUnmodifiableSet())
+              : Set.of();
 
       // initialize Node work lists, sets, and stacks
       simplifyWorklist = new HashSet<>();
@@ -149,7 +155,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         } else if (!freezeWorklist.isEmpty()) {
           freeze();
         } else if (!spillWorklist.isEmpty()) {
-          selectSpill(nodeDefUse);
+          selectSpill(nodeDefUse, stackArgIdList);
         }
       } while (!simplifyWorklist.isEmpty()
           || !worklistMoves.isEmpty()
@@ -394,24 +400,33 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     return Collections.unmodifiableMap(counter);
   }
 
-  private Map<Node.Id, Double> calculateSpillPriority(Map<Node.Id, Integer> nodeDefUse) {
-    // Add the max score to temporary generated nodes to make them less prioritised (those have
-    // short lifetimes)
-    // Make already spilled temporaries even less likely to be chosen
+  private Map<Node.Id, Double> calculateSpillPriority(
+      Map<Node.Id, Integer> nodeDefUse, Set<String> stackArgIdList) {
     final var preliminaryScores =
         nodeDefUse.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey,
                     e -> (double) e.getValue() / (double) degree.get(e.getKey())));
+    // Prioritise already spilled stack arguments
+    final var stackArgZeroedScores =
+        preliminaryScores.entrySet().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    Map.Entry::getKey,
+                    e -> stackArgIdList.contains(e.getKey().id()) ? 0 : e.getValue()));
+    // Add the max score to temporary generated nodes to make them less prioritised (those have
+    // short lifetimes)
+    // Also, make already spilled temporaries score even higher so they are even less likely to be
+    // chosen.
     final var maxScore =
-        preliminaryScores.values().stream()
+        stackArgZeroedScores.values().stream()
             .filter(Double::isFinite)
             .mapToDouble(Double::doubleValue)
             .max()
             .getAsDouble();
     final var result =
-        nodeDefUse.entrySet().stream()
+        stackArgZeroedScores.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey,
@@ -422,8 +437,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     return result;
   }
 
-  private void selectSpill(Map<Node.Id, Integer> nodeDefUse) {
-    final var spillPriorityScore = calculateSpillPriority(nodeDefUse);
+  private void selectSpill(Map<Node.Id, Integer> nodeDefUse, Set<String> stackArgIdList) {
+    final var spillPriorityScore = calculateSpillPriority(nodeDefUse, stackArgIdList);
+    System.out.println(spillPriorityScore);
     final var m = spillWorklist.stream().min(Comparator.comparing(spillPriorityScore::get)).get();
     spillWorklist.remove(m);
     simplifyWorklist.add(m);
@@ -472,14 +488,10 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
             switch (stmt.stmtExtensionType()) {
               case LOAD_STACK_ARG -> {
                 final var lsas = (LoadStackArgLowerStmt) stmt;
-                if (!lsas.stackArgs().contains(id)) {
+                if (!lsas.stackArg().id().equals(id)) {
                   yield List.of(stmt);
                 }
-                final var newStackArgs =
-                    lsas.stackArgs().stream()
-                        .filter(a -> !a.equals(id))
-                        .collect(Collectors.toUnmodifiableList());
-                yield List.of(new LoadStackArgLowerStmt(newStackArgs));
+                yield List.of();
               }
               case BINARY -> {
                 final var bs = (BinaryLowerStmt) stmt;

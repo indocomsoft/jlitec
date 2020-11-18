@@ -1,9 +1,8 @@
 package jlitec.backend.passes.lower.stmt;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import jlitec.ir3.Var;
 
-public record LoadStackArgLowerStmt(List<String> stackArgs) implements LowerStmt {
+public record LoadStackArgLowerStmt(Var stackArg) implements LowerStmt {
   @Override
   public LowerStmtType stmtExtensionType() {
     return LowerStmtType.LOAD_STACK_ARG;
@@ -13,8 +12,7 @@ public record LoadStackArgLowerStmt(List<String> stackArgs) implements LowerStmt
   public String print(int indent) {
     final var sb = new StringBuilder();
     indent(sb, indent);
-    sb.append("LOAD_STACK_ARG ");
-    sb.append(stackArgs.stream().collect(Collectors.joining(", ")));
+    sb.append("LOAD_STACK_ARG ").append(stackArg.type().print(0)).append(" ").append(stackArg.id());
     sb.append(";\n");
     return sb.toString();
   }

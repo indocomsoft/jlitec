@@ -236,18 +236,14 @@ public class Global {
           switch (stmt.stmtExtensionType()) {
             case LOAD_STACK_ARG -> {
               final var lsas = (LoadStackArgLowerStmt) stmt;
-              final var insnList = new ArrayList<Insn>();
-              for (final var stackArg : lsas.stackArgs()) {
-                final var dest = regAllocMap.get(stackArg);
-                final var offset = stackDesc.offsets.get(stackArg);
-                insnList.add(
-                    new LDRInsn(
-                        Condition.AL,
-                        Size.WORD,
-                        dest,
-                        new MemoryAddress.ImmediateOffset(Register.SP, offset)));
-              }
-              yield insnList;
+              final var dest = regAllocMap.get(lsas.stackArg().id());
+              final var offset = stackDesc.offsets.get(lsas.stackArg().id());
+              yield List.of(
+                  new LDRInsn(
+                      Condition.AL,
+                      Size.WORD,
+                      dest,
+                      new MemoryAddress.ImmediateOffset(Register.SP, offset)));
             }
             case BINARY -> {
               final var bs = (BinaryLowerStmt) stmt;

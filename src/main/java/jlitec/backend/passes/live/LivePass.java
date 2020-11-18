@@ -169,9 +169,7 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
     return switch (stmt.stmtExtensionType()) {
       case LOAD_STACK_ARG -> {
         final var lsas = (LoadStackArgLowerStmt) stmt;
-        final Set<Node> def =
-            lsas.stackArgs().stream().map(Node.Id::new).collect(Collectors.toUnmodifiableSet());
-        yield new DefUse(Set.of(), def);
+        yield new DefUse(Set.of(), Set.of(new Node.Id(lsas.stackArg().id())));
       }
       case IMMEDIATE -> {
         final var is = (ImmediateLowerStmt) stmt;
