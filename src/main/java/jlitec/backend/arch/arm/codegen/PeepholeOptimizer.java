@@ -1,7 +1,12 @@
 package jlitec.backend.arch.arm.codegen;
 
 import java.util.ArrayList;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import jlitec.backend.arch.arm.BitInsn;
+import jlitec.backend.arch.arm.CompareInsn;
 import jlitec.backend.arch.arm.Condition;
+import jlitec.backend.arch.arm.DataBinaryInsn;
 import jlitec.backend.arch.arm.Insn;
 import jlitec.backend.arch.arm.Operand2;
 import jlitec.backend.arch.arm.Program;
@@ -16,6 +21,8 @@ import jlitec.backend.arch.arm.insn.ORRInsn;
 import jlitec.backend.arch.arm.insn.RSBInsn;
 import jlitec.backend.arch.arm.insn.SDIVInsn;
 import jlitec.backend.arch.arm.insn.SUBInsn;
+import jlitec.backend.arch.arm.insn.TEQInsn;
+import jlitec.backend.arch.arm.insn.TSTInsn;
 
 public class PeepholeOptimizer {
   // Prevent instantiation
@@ -24,23 +31,209 @@ public class PeepholeOptimizer {
   public static Program pass(Program program) {
     var input = program;
     while (true) {
-      final var mulSdivOneOutput = passMulSdivOne(input);
-      final var regPlusMinusZeroOutput = passRegPlusMinusZero(mulSdivOneOutput);
-      final var immediatePlusMinusZeroOutput = passImmediatePlusMinusZero(regPlusMinusZeroOutput);
-      final var movOp2ImmOutput = passMovOp2Imm(immediatePlusMinusZeroOutput);
-      final var movSubRsbOutput = passMovSubRsb(movOp2ImmOutput);
-      final var mulZeroOutput = passMulZero(movSubRsbOutput);
-      // TODO add pass to turn
-      //     LSL R0, #5
-      //     ADD R1, R1, R0
-      //   to
-      //     ADD R1, R1, R0, LSL #5
-      final var movOutput = passMov(mulZeroOutput);
-      if (movOutput.equals(input)) {
+      final var output =
+          Stream.of(input)
+              .map(PeepholeOptimizer::passMovSameReg)
+              .map(PeepholeOptimizer::passMov)
+              .map(PeepholeOptimizer::passShiftOperand2)
+              .map(PeepholeOptimizer::passMulSdivOne)
+              .map(PeepholeOptimizer::passRegPlusMinusZero)
+              .map(PeepholeOptimizer::passImmediatePlusMinusZero)
+              .map(PeepholeOptimizer::passMovItself)
+              .map(PeepholeOptimizer::passMovOp2Imm)
+              .map(PeepholeOptimizer::passMovSubRsb)
+              .collect(Collectors.toList())
+              .get(0);
+
+      // TODO add pass similar to AlgPass andTrue andFalse orTrue orFalse multiplyDivideZero
+
+      // TODO add inlining of println_bool(true) and println(false)
+
+      if (output.equals(input)) {
         return input;
       }
-      input = movOutput;
+      input = output;
     }
+  }
+
+  private static Program passMovItself(Program input) {
+    // elimintes MOV R1, R1
+    final var insnList =
+        input.insnList().stream()
+            .filter(
+                i ->
+                    !(i instanceof MOVInsn m)
+                        || !(m.op2() instanceof Operand2.Register r)
+                        || !r.isPlain()
+                        || !m.register().equals(r.reg()))
+            .collect(Collectors.toUnmodifiableList());
+    return new Program(insnList);
+  }
+
+  private static Program passMovSameReg(Program input) {
+    // turn
+    //     MOV R0, #1
+    //     MOV R0, #0
+    //  to
+    //     MOV R0, #0
+    final var insnList = new ArrayList<Insn>();
+    for (int i = 0; i < input.insnList().size(); i++) {
+      final var insn = input.insnList().get(i);
+      if (i == input.insnList().size() - 1) {
+        insnList.add(insn);
+        continue;
+      }
+      if (!(insn instanceof MOVInsn m)) {
+        insnList.add(insn);
+        continue;
+      }
+      final var nextInsn = input.insnList().get(i + 1);
+      if (nextInsn instanceof MOVInsn m2
+          && m2.condition().equals(m.condition())
+          && m.register().equals(m2.register())) {
+        // Pattern matched
+        insnList.add(m2);
+        i++;
+        continue;
+      }
+
+      insnList.add(insn);
+    }
+    return new Program(insnList);
+  }
+
+  private static Program passShiftOperand2(Program input) {
+    // Turn
+    //     LSL R0, #5
+    //     ADD R1, R1, R0
+    //   to
+    //     ADD R1, R1, R0, LSL #5
+    final var insnList = new ArrayList<Insn>();
+    for (int i = 0; i < input.insnList().size(); i++) {
+      final var insn = input.insnList().get(i);
+      if (i == input.insnList().size() - 1) {
+        insnList.add(insn);
+        continue;
+      }
+      if (!(insn instanceof BitInsn b)) {
+        insnList.add(insn);
+        continue;
+      }
+      final var nextInsn = input.insnList().get(i + 1);
+      if (nextInsn instanceof DataBinaryInsn d && d.condition().equals(b.condition())) {
+        if (d.src().equals(b.dst()) && d.op2() instanceof Operand2.Register r && r.isPlain()) {
+          // Pattern matched
+          final var newInsn =
+              switch (d.type()) {
+                case ADD -> new ADDInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case AND -> new ANDInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case EOR -> new EORInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case ORR -> new ORRInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case RSB -> new RSBInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case SUB -> new SUBInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    r.reg(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+              };
+          insnList.add(newInsn);
+          i++;
+          continue;
+        }
+        if (d.op2() instanceof Operand2.Register r && r.isPlain() && r.reg().equals(b.dst())) {
+          // Pattern matched;
+          final var newInsn =
+              switch (d.type()) {
+                case ADD -> new ADDInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case AND -> new ANDInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case EOR -> new EORInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case ORR -> new ORRInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case RSB -> new RSBInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+                case SUB -> new SUBInsn(
+                    d.condition(),
+                    d.updateConditionFlags(),
+                    d.dst(),
+                    d.src(),
+                    new Operand2.Register(b.src(), b.op(), b.shift()));
+              };
+          insnList.add(newInsn);
+          i++;
+          continue;
+        }
+      }
+      if (nextInsn instanceof CompareInsn c && c.condition().equals(b.condition())) {
+        if (c.op2() instanceof Operand2.Register r && r.isPlain() && r.reg().equals(b.dst())) {
+          // Pattern matched;
+          final var newInsn =
+              switch (c.type()) {
+                case CMN -> new CMNInsn(
+                    c.condition(), c.register(), new Operand2.Register(b.src(), b.op(), b.shift()));
+                case CMP -> new CMPInsn(
+                    c.condition(), c.register(), new Operand2.Register(b.src(), b.op(), b.shift()));
+                case TEQ -> new TEQInsn(
+                    c.condition(), c.register(), new Operand2.Register(b.src(), b.op(), b.shift()));
+                case TST -> new TSTInsn(
+                    c.condition(), c.register(), new Operand2.Register(b.src(), b.op(), b.shift()));
+              };
+          insnList.add(newInsn);
+          i++;
+          continue;
+        }
+      }
+      insnList.add(insn);
+    }
+    return new Program(insnList);
   }
 
   /**
@@ -170,7 +363,7 @@ public class PeepholeOptimizer {
 
   /**
    * Replace <code>
-   *   MOV R1, #1
+   *   MOV R1, #0
    *   ADD R0, R0, R1
    * </code> with <code>
    *   MOV R0, #1
@@ -266,90 +459,77 @@ public class PeepholeOptimizer {
         insnList.add(insn);
         continue;
       }
-      if (!(insn instanceof MOVInsn m
-          && m.condition() == Condition.AL
-          && m.op2() instanceof Operand2.Immediate op2)) {
+      if (!(insn instanceof MOVInsn m && m.op2() instanceof Operand2.Immediate op2)) {
         insnList.add(insn);
         continue;
       }
       final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof ADDInsn add
-          && add.condition() == Condition.AL
-          && !add.updateConditionFlags()
-          && add.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new ADDInsn(
-                Condition.AL, false, add.dst(), add.src(), new Operand2.Immediate(op2.value())));
+      if (nextInsn instanceof DataBinaryInsn d
+          && d.condition().equals(m.condition())
+          && d.op2() instanceof Operand2.Register r
+          && r.isPlain()
+          && r.reg().equals(m.register())) {
+        // Pattern matched;
+        final var newInsn =
+            switch (d.type()) {
+              case ADD -> new ADDInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+              case AND -> new ANDInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+              case EOR -> new EORInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+              case ORR -> new ORRInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+              case RSB -> new RSBInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+              case SUB -> new SUBInsn(
+                  d.condition(),
+                  d.updateConditionFlags(),
+                  d.dst(),
+                  d.src(),
+                  new Operand2.Immediate(op2.value()));
+            };
+        insnList.add(newInsn);
         i++;
         continue;
       }
-      if (nextInsn instanceof ANDInsn and
-          && and.condition() == Condition.AL
-          && !and.updateConditionFlags()
-          && and.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new ANDInsn(
-                Condition.AL, false, and.dst(), and.src(), new Operand2.Immediate(op2.value())));
-        i++;
-        continue;
-      }
-      if (nextInsn instanceof CMNInsn cmn
-          && cmn.condition() == Condition.AL
-          && cmn.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new CMNInsn(Condition.AL, cmn.register(), new Operand2.Immediate(op2.value())));
-        i++;
-        continue;
-      }
-      if (nextInsn instanceof CMPInsn cmp
-          && cmp.condition() == Condition.AL
-          && cmp.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new CMPInsn(Condition.AL, cmp.register(), new Operand2.Immediate(op2.value())));
-        i++;
-        continue;
-      }
-      if (nextInsn instanceof EORInsn eor
-          && eor.condition() == Condition.AL
-          && !eor.updateConditionFlags()
-          && eor.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new EORInsn(
-                Condition.AL, false, eor.dst(), eor.src(), new Operand2.Immediate(op2.value())));
-        i++;
-        continue;
-      }
-      if (nextInsn instanceof ORRInsn orr
-          && orr.condition() == Condition.AL
-          && !orr.updateConditionFlags()
-          && orr.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new ORRInsn(
-                Condition.AL, false, orr.dst(), orr.src(), new Operand2.Immediate(op2.value())));
-        i++;
-        continue;
-      }
-      if (nextInsn instanceof SUBInsn sub
-          && sub.condition() == Condition.AL
-          && !sub.updateConditionFlags()
-          && sub.op2() instanceof Operand2.Register op2Reg
-          && op2Reg.reg().equals(m.register())) {
-        // Pattern Matched
-        insnList.add(
-            new SUBInsn(
-                Condition.AL, false, sub.dst(), sub.src(), new Operand2.Immediate(op2.value())));
+      if (nextInsn instanceof CompareInsn c
+          && c.condition().equals(m.condition())
+          && c.op2() instanceof Operand2.Register r
+          && r.reg().equals(m.register())) {
+        // Pattern matched
+        final var newInsn =
+            switch (c.type()) {
+              case CMN -> new CMNInsn(
+                  c.condition(), c.register(), new Operand2.Immediate(op2.value()));
+              case CMP -> new CMPInsn(
+                  c.condition(), c.register(), new Operand2.Immediate(op2.value()));
+              case TST -> new TSTInsn(
+                  c.condition(), c.register(), new Operand2.Immediate(op2.value()));
+              case TEQ -> new TEQInsn(
+                  c.condition(), c.register(), new Operand2.Immediate(op2.value()));
+            };
+        insnList.add(newInsn);
         i++;
         continue;
       }

@@ -66,11 +66,15 @@ public class ArmCommand implements Command {
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
 
-    if (optLevel > 0) {
+    if (optLevel >= 3) {
       final var finalProgram = PassManager.performOptimizationPasses(lowerProgram);
       final var armProgram = Global.gen(finalProgram);
       final var peepholeOptimized = PeepholeOptimizer.pass(armProgram);
       System.out.println(peepholeOptimized.print(0));
+    } else if (optLevel > 0) {
+      final var finalProgram = PassManager.performOptimizationPasses(lowerProgram);
+      final var armProgram = Global.gen(finalProgram);
+      System.out.println(armProgram.print(0));
     } else {
       final var armProgram = Global.gen(lowerProgram);
       System.out.println(armProgram.print(0));

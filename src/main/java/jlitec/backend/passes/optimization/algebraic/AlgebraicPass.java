@@ -23,8 +23,11 @@ public class AlgebraicPass implements OptimizationPass {
           input.methodList().stream()
               .map(this::passPlusMinusZero)
               .map(this::passMultiplyDivideOne)
+              // TODO add MultiplyDivideZero
               .map(this::passAndFalse)
+              .map(this::passAndTrue)
               .map(this::passOrTrue)
+              .map(this::passOrFalse)
               .collect(Collectors.toUnmodifiableList());
       final var newProgram = new Program(input.dataList(), methodList);
       if (newProgram.equals(program)) {
@@ -50,6 +53,66 @@ public class AlgebraicPass implements OptimizationPass {
           && b.rhs() instanceof BoolRvalExpr bre
           && bre.value()) {
         stmtList.add(new ImmediateLowerStmt(b.dest(), new BoolRvalExpr(true)));
+      } else {
+        stmtList.add(stmt);
+      }
+    }
+
+    return new Method(
+        method.returnType(),
+        method.id(),
+        method.argsWithThis(),
+        method.vars(),
+        method.spilled(),
+        stmtList);
+  }
+
+  /**
+   * Match: <code>
+   * t1 = x || false;
+   * </code> turn it into: <code>
+   *   t1 = x;
+   * </code>
+   */
+  private Method passOrFalse(Method method) {
+    final var stmtList = new ArrayList<LowerStmt>();
+
+    for (final var stmt : method.lowerStmtList()) {
+      if (stmt instanceof BinaryLowerStmt b
+          && b.op() == BinaryOp.OR
+          && b.rhs() instanceof BoolRvalExpr bre
+          && !bre.value()) {
+        stmtList.add(new MovLowerStmt(b.dest(), b.lhs()));
+      } else {
+        stmtList.add(stmt);
+      }
+    }
+
+    return new Method(
+        method.returnType(),
+        method.id(),
+        method.argsWithThis(),
+        method.vars(),
+        method.spilled(),
+        stmtList);
+  }
+
+  /**
+   * Match: <code>
+   * t1 = x && true;
+   * </code> turn it into: <code>
+   *   t1 = x;
+   * </code>
+   */
+  private Method passAndTrue(Method method) {
+    final var stmtList = new ArrayList<LowerStmt>();
+
+    for (final var stmt : method.lowerStmtList()) {
+      if (stmt instanceof BinaryLowerStmt b
+          && b.op() == BinaryOp.AND
+          && b.rhs() instanceof BoolRvalExpr bre
+          && bre.value()) {
+        stmtList.add(new MovLowerStmt(b.dest(), b.lhs()));
       } else {
         stmtList.add(stmt);
       }

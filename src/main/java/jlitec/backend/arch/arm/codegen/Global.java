@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import jlitec.backend.arch.arm.AssemblerDirective;
+import jlitec.backend.arch.arm.BitInsn;
 import jlitec.backend.arch.arm.Condition;
 import jlitec.backend.arch.arm.Insn;
 import jlitec.backend.arch.arm.MemoryAddress;
@@ -22,6 +23,7 @@ import jlitec.backend.arch.arm.Register;
 import jlitec.backend.arch.arm.Size;
 import jlitec.backend.arch.arm.insn.ADDInsn;
 import jlitec.backend.arch.arm.insn.ANDInsn;
+import jlitec.backend.arch.arm.insn.ASRInsn;
 import jlitec.backend.arch.arm.insn.BInsn;
 import jlitec.backend.arch.arm.insn.BLInsn;
 import jlitec.backend.arch.arm.insn.BXInsn;
@@ -29,11 +31,13 @@ import jlitec.backend.arch.arm.insn.CMPInsn;
 import jlitec.backend.arch.arm.insn.LDMFDInsn;
 import jlitec.backend.arch.arm.insn.LDRInsn;
 import jlitec.backend.arch.arm.insn.LSLInsn;
+import jlitec.backend.arch.arm.insn.LSRInsn;
 import jlitec.backend.arch.arm.insn.LabelInsn;
 import jlitec.backend.arch.arm.insn.MOVInsn;
 import jlitec.backend.arch.arm.insn.MULInsn;
 import jlitec.backend.arch.arm.insn.MVNInsn;
 import jlitec.backend.arch.arm.insn.ORRInsn;
+import jlitec.backend.arch.arm.insn.RORInsn;
 import jlitec.backend.arch.arm.insn.RSBInsn;
 import jlitec.backend.arch.arm.insn.SDIVInsn;
 import jlitec.backend.arch.arm.insn.STMFDInsn;
@@ -521,7 +525,13 @@ public class Global {
               final var expr = regAllocMap.get(bs.expr().id());
               yield switch (bs.op()) {
                 case LSL -> List.of(
-                    new LSLInsn(Condition.AL, dest, expr, new Operand2.Immediate(bs.shift())));
+                    new LSLInsn(Condition.AL, dest, expr, new BitInsn.Rssh.Immediate(bs.shift())));
+                case ROR -> List.of(
+                    new RORInsn(Condition.AL, dest, expr, new BitInsn.Rssh.Immediate(bs.shift())));
+                case LSR -> List.of(
+                    new LSRInsn(Condition.AL, dest, expr, new BitInsn.Rssh.Immediate(bs.shift())));
+                case ASR -> List.of(
+                    new ASRInsn(Condition.AL, dest, expr, new BitInsn.Rssh.Immediate(bs.shift())));
               };
             }
           };

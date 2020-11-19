@@ -7,9 +7,9 @@ public record BitLowerStmt(BitOp op, IdRvalExpr dest, IdRvalExpr expr, int shift
   public BitLowerStmt {
     final boolean valid =
         switch (op) {
-            //      case ASR, LSR -> shift >= 1 && shift <= 32;
+          case ASR, LSR -> shift >= 1 && shift <= 32;
           case LSL -> shift >= 0 && shift <= 31;
-            //      case ROR -> shift >= 1 && shift <= 31;
+          case ROR -> shift >= 1 && shift <= 31;
         };
     if (!valid) {
       throw new RuntimeException("Invalid number of shifts");
