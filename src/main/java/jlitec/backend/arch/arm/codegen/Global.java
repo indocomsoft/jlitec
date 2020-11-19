@@ -184,8 +184,8 @@ public class Global {
       stmfdRegs = ImmutableSet.<Register>builder().add(Register.LR).addAll(pushedRegisters).build();
       ldmfdRegs = ImmutableSet.<Register>builder().add(Register.PC).addAll(pushedRegisters).build();
     } else if (hasBL) {
-      stmfdRegs = Set.of(Register.R4, Register.LR);
-      ldmfdRegs = Set.of(Register.R4, Register.PC);
+      stmfdRegs = EnumSet.of(Register.R4, Register.LR);
+      ldmfdRegs = EnumSet.of(Register.R4, Register.PC);
     } else {
       // No callee-save registers and no BL
       stmfdRegs = Set.of();

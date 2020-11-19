@@ -3,10 +3,10 @@ package jlitec.checker;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.ast.MethodReference;
@@ -635,7 +635,7 @@ public class ParseTreeStaticChecker {
               List.of(rs));
         }
         final var varType = maybeVarType.get();
-        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
+        if (!EnumSet.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
             .contains(varType.typeEnum())) {
           throw new SemanticException(
               "Type of variable passed to `readln' must be `Int', `Bool', or `String', but encountered `"
@@ -649,7 +649,8 @@ public class ParseTreeStaticChecker {
       case STMT_PRINTLN -> {
         final var ps = (PrintlnStmt) stmt;
         final var psType = typecheck(ps.expr(), klassDescriptorMap, env);
-        if (!Set.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING, Type.TypeEnum.NULL)
+        if (!EnumSet.of(
+                Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING, Type.TypeEnum.NULL)
             .contains(psType.typeEnum())) {
           throw new SemanticException(
               "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
@@ -766,7 +767,7 @@ public class ParseTreeStaticChecker {
         final var rhsType = typecheck(be.rhs(), klassDescriptorMap, env);
         yield switch (be.op()) {
           case PLUS -> {
-            final var stringTypes = Set.of(Type.TypeEnum.STRING, Type.TypeEnum.NULL);
+            final var stringTypes = EnumSet.of(Type.TypeEnum.STRING, Type.TypeEnum.NULL);
             if (lhsType.typeEnum() == Type.TypeEnum.INT) {
               if (rhsType.typeEnum() != Type.TypeEnum.INT) {
                 throw new SemanticException(
@@ -1045,7 +1046,7 @@ public class ParseTreeStaticChecker {
         // primitive types must be equal
       case VOID, INT, BOOL -> type1.equals(type2);
         // null can only match non-primitive types
-      case NULL -> !Set.of(Type.TypeEnum.VOID, Type.TypeEnum.INT, Type.TypeEnum.BOOL)
+      case NULL -> !EnumSet.of(Type.TypeEnum.VOID, Type.TypeEnum.INT, Type.TypeEnum.BOOL)
           .contains(type2.typeEnum());
         // objects can only match other object of the same type or null
       case STRING, CLASS -> type1.equals(type2) || type2.typeEnum() == Type.TypeEnum.NULL;

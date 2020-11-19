@@ -627,7 +627,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               }
               case FIELD_ACCESS -> {
                 final var fas = (FieldAccessLowerStmt) stmt;
-                if (!Set.of(fas.lhs().id(), fas.rhsId().id()).contains(id)) {
+                if (!Stream.of(fas.lhs().id(), fas.rhsId().id())
+                    .collect(Collectors.toSet())
+                    .contains(id)) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);
@@ -733,7 +735,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               }
               case UNARY -> {
                 final var us = (UnaryLowerStmt) stmt;
-                if (!Set.of(us.dest().id(), us.expr().id()).contains(id)) {
+                if (!Stream.of(us.dest().id(), us.expr().id())
+                    .collect(Collectors.toSet())
+                    .contains(id)) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);

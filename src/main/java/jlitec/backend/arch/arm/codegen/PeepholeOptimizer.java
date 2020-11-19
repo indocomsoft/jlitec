@@ -30,6 +30,11 @@ public class PeepholeOptimizer {
       final var movOp2ImmOutput = passMovOp2Imm(immediatePlusMinusZeroOutput);
       final var movSubRsbOutput = passMovSubRsb(movOp2ImmOutput);
       final var mulZeroOutput = passMulZero(movSubRsbOutput);
+      // TODO add pass to turn
+      //     LSL R0, #5
+      //     ADD R1, R1, R0
+      //   to
+      //     ADD R1, R1, R0, LSL #5
       final var movOutput = passMov(mulZeroOutput);
       if (movOutput.equals(input)) {
         return input;
@@ -41,7 +46,7 @@ public class PeepholeOptimizer {
   /**
    * Replace <code>
    *   MOV R0, #0
-   *   MUL R3, R0, R1
+   *   MUL R3, R0, R1 or MUL R3, R1, R0
    * </code> with <code>
    *   MOV R3, #0
    * </code>.
@@ -62,7 +67,9 @@ public class PeepholeOptimizer {
         continue;
       }
       final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof MULInsn mul) {
+      if (nextInsn instanceof MULInsn mul
+          && mul.condition() == Condition.AL
+          && !mul.updateConditionFlags()) {
         if (mul.src1().equals(m.register()) || mul.src2().equals(m.register())) {
           // Pattern matched
           insnList.add(new MOVInsn(Condition.AL, mul.dst(), new Operand2.Immediate(0)));
@@ -99,7 +106,7 @@ public class PeepholeOptimizer {
         continue;
       }
       final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof MULInsn mul) {
+      if (nextInsn instanceof MULInsn mul && !mul.updateConditionFlags()) {
         if (mul.src1().equals(m.register())) {
           // Pattern matched
           insnList.add(new MOVInsn(Condition.AL, mul.dst(), new Operand2.Register(mul.src2())));
@@ -185,7 +192,9 @@ public class PeepholeOptimizer {
         continue;
       }
       final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof ADDInsn add) {
+      if (nextInsn instanceof ADDInsn add
+          && add.condition() == Condition.AL
+          && !add.updateConditionFlags()) {
         if (add.src().equals(m.register())) {
           // Pattern matched
           insnList.add(new MOVInsn(Condition.AL, add.dst(), add.op2()));
@@ -199,7 +208,9 @@ public class PeepholeOptimizer {
           continue;
         }
       }
-      if (nextInsn instanceof SUBInsn sub) {
+      if (nextInsn instanceof SUBInsn sub
+          && sub.condition() == Condition.AL
+          && !sub.updateConditionFlags()) {
         if (sub.op2() instanceof Operand2.Register op2reg && op2reg.reg().equals(m.register())) {
           // Pattern matched
           insnList.add(new MOVInsn(Condition.AL, sub.dst(), new Operand2.Register(sub.src())));
@@ -223,10 +234,14 @@ public class PeepholeOptimizer {
     final var insnList = new ArrayList<Insn>();
     for (final var insn : input.insnList()) {
       if (insn instanceof ADDInsn add
+          && add.condition() == Condition.AL
+          && !add.updateConditionFlags()
           && add.op2() instanceof Operand2.Immediate op2
           && op2.value() == 0) {
         insnList.add(new MOVInsn(Condition.AL, add.dst(), new Operand2.Register(add.src())));
       } else if (insn instanceof SUBInsn sub
+          && sub.condition() == Condition.AL
+          && !sub.updateConditionFlags()
           && sub.op2() instanceof Operand2.Immediate op2
           && op2.value() == 0) {
         insnList.add(new MOVInsn(Condition.AL, sub.dst(), new Operand2.Register(sub.src())));
@@ -259,34 +274,31 @@ public class PeepholeOptimizer {
       }
       final var nextInsn = input.insnList().get(i + 1);
       if (nextInsn instanceof ADDInsn add
+          && add.condition() == Condition.AL
+          && !add.updateConditionFlags()
           && add.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
         insnList.add(
             new ADDInsn(
-                Condition.AL,
-                add.updateConditionFlags(),
-                add.dst(),
-                add.src(),
-                new Operand2.Immediate(op2.value())));
+                Condition.AL, false, add.dst(), add.src(), new Operand2.Immediate(op2.value())));
         i++;
         continue;
       }
       if (nextInsn instanceof ANDInsn and
+          && and.condition() == Condition.AL
+          && !and.updateConditionFlags()
           && and.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
         insnList.add(
             new ANDInsn(
-                Condition.AL,
-                and.updateConditionFlags(),
-                and.dst(),
-                and.src(),
-                new Operand2.Immediate(op2.value())));
+                Condition.AL, false, and.dst(), and.src(), new Operand2.Immediate(op2.value())));
         i++;
         continue;
       }
       if (nextInsn instanceof CMNInsn cmn
+          && cmn.condition() == Condition.AL
           && cmn.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
@@ -296,6 +308,7 @@ public class PeepholeOptimizer {
         continue;
       }
       if (nextInsn instanceof CMPInsn cmp
+          && cmp.condition() == Condition.AL
           && cmp.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
@@ -305,44 +318,38 @@ public class PeepholeOptimizer {
         continue;
       }
       if (nextInsn instanceof EORInsn eor
+          && eor.condition() == Condition.AL
+          && !eor.updateConditionFlags()
           && eor.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
         insnList.add(
             new EORInsn(
-                Condition.AL,
-                eor.updateConditionFlags(),
-                eor.dst(),
-                eor.src(),
-                new Operand2.Immediate(op2.value())));
+                Condition.AL, false, eor.dst(), eor.src(), new Operand2.Immediate(op2.value())));
         i++;
         continue;
       }
       if (nextInsn instanceof ORRInsn orr
+          && orr.condition() == Condition.AL
+          && !orr.updateConditionFlags()
           && orr.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
         insnList.add(
             new ORRInsn(
-                Condition.AL,
-                orr.updateConditionFlags(),
-                orr.dst(),
-                orr.src(),
-                new Operand2.Immediate(op2.value())));
+                Condition.AL, false, orr.dst(), orr.src(), new Operand2.Immediate(op2.value())));
         i++;
         continue;
       }
       if (nextInsn instanceof SUBInsn sub
+          && sub.condition() == Condition.AL
+          && !sub.updateConditionFlags()
           && sub.op2() instanceof Operand2.Register op2Reg
           && op2Reg.reg().equals(m.register())) {
         // Pattern Matched
         insnList.add(
             new SUBInsn(
-                Condition.AL,
-                sub.updateConditionFlags(),
-                sub.dst(),
-                sub.src(),
-                new Operand2.Immediate(op2.value())));
+                Condition.AL, false, sub.dst(), sub.src(), new Operand2.Immediate(op2.value())));
         i++;
         continue;
       }
@@ -367,7 +374,10 @@ public class PeepholeOptimizer {
         continue;
       }
       final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof SUBInsn sub && sub.src().equals(m.register())) {
+      if (nextInsn instanceof SUBInsn sub
+          && sub.condition() == Condition.AL
+          && !sub.updateConditionFlags()
+          && sub.src().equals(m.register())) {
         if (sub.op2() instanceof Operand2.Immediate op2imm) {
           // Pattern matched
           insnList.add(
@@ -378,12 +388,7 @@ public class PeepholeOptimizer {
         if (sub.op2() instanceof Operand2.Register op2reg) {
           // Pattern matched
           insnList.add(
-              new RSBInsn(
-                  Condition.AL,
-                  sub.updateConditionFlags(),
-                  sub.dst(),
-                  op2reg.reg(),
-                  new Operand2.Immediate(0)));
+              new RSBInsn(Condition.AL, false, sub.dst(), op2reg.reg(), new Operand2.Immediate(0)));
           i++;
           continue;
         }
