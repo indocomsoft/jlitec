@@ -2,7 +2,7 @@ package jlitec.backend.passes.lower.stmt;
 
 import jlitec.Printable;
 import jlitec.backend.arch.arm.Register;
-import jlitec.backend.passes.live.Node;
+import jlitec.backend.passes.Node;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 
 public interface Addressable extends Printable {

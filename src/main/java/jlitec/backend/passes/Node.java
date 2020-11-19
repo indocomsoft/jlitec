@@ -1,4 +1,4 @@
-package jlitec.backend.passes.live;
+package jlitec.backend.passes;
 
 import jlitec.Printable;
 import jlitec.backend.arch.arm.Register;

@@ -15,6 +15,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.MethodWithFlow;
+import jlitec.backend.passes.Node;
 import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowGraph;
@@ -38,7 +39,7 @@ import jlitec.ir3.expr.rval.RvalExpr;
 
 public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
   public record DefUse(Set<Node> use, Set<Node> def) {
-    public static DefUse EMPTY = new DefUse(Set.of(), Set.of());
+    public static final DefUse EMPTY = new DefUse(Set.of(), Set.of());
 
     public DefUse {
       this.use = Collections.unmodifiableSet(use);
