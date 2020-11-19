@@ -23,8 +23,8 @@ public interface DataBinaryInsn extends ARMInsn {
   @Override
   default String print(int indent) {
     return type().name()
-        + condition().print(0)
         + (updateConditionFlags() ? "S" : "")
+        + condition().print(0)
         + " "
         + dst().name()
         + ", "

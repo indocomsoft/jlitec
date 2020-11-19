@@ -8,7 +8,6 @@ import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
-import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
 import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
@@ -22,8 +21,6 @@ public class AlgebraicPass implements OptimizationPass {
       final var methodList =
           input.methodList().stream()
               .map(this::passPlusMinusZero)
-              .map(this::passMultiplyDivideOne)
-              // TODO add MultiplyDivideZero
               .map(this::passAndFalse)
               .map(this::passAndTrue)
               .map(this::passOrTrue)
@@ -177,57 +174,6 @@ public class AlgebraicPass implements OptimizationPass {
       } else {
         stmtList.add(stmt);
       }
-    }
-
-    return new Method(
-        method.returnType(),
-        method.id(),
-        method.argsWithThis(),
-        method.vars(),
-        method.spilled(),
-        stmtList);
-  }
-
-  /**
-   * Match: <code>
-   * t0 = 1;
-   * t1 = x * t0;
-   * </code> OR <code>
-   * t0 = 1;
-   * t1 = x / t0;
-   * </code> turn them into: <code>
-   *   t1 = x;
-   * </code>
-   */
-  private Method passMultiplyDivideOne(Method method) {
-    final var stmtList = new ArrayList<LowerStmt>();
-
-    for (int i = 0; i < method.lowerStmtList().size(); i++) {
-      final var stmt = method.lowerStmtList().get(i);
-      if (i == method.lowerStmtList().size() - 1) {
-        stmtList.add(stmt);
-        continue;
-      }
-      if (!(stmt instanceof ImmediateLowerStmt imm
-          && imm.value() instanceof IntRvalExpr ire
-          && ire.value() == 1)) {
-        stmtList.add(stmt);
-        continue;
-      }
-      final var nextStmt = method.lowerStmtList().get(i + 1);
-      if (nextStmt instanceof RegBinaryLowerStmt r && r.rhs().equals(imm.dest())) {
-        // Pattern matched
-        stmtList.add(new MovLowerStmt(r.dest(), r.lhs()));
-        i++;
-        continue;
-      }
-      if (nextStmt instanceof RegBinaryLowerStmt r && r.lhs().equals(imm.dest())) {
-        // Pattern matched
-        stmtList.add(new MovLowerStmt(r.dest(), r.rhs()));
-        i++;
-        continue;
-      }
-      stmtList.add(stmt);
     }
 
     return new Method(

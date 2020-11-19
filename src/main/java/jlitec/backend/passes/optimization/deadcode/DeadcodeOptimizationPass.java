@@ -29,13 +29,13 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
     Program program = input;
     while (true) {
       final var methodList =
-          input.methodList().stream()
+          program.methodList().stream()
               .map(this::passBasicBlock)
               .map(this::passUses)
               .map(this::passDeadGoto)
               .map(this::passRemoveUselessLabels)
               .collect(Collectors.toUnmodifiableList());
-      final var newProgram = new Program(input.dataList(), methodList);
+      final var newProgram = new Program(program.dataList(), methodList);
       if (newProgram.equals(program)) {
         return program;
       }
@@ -124,6 +124,7 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
     final var stmtList = new ArrayList<LowerStmt>();
     for (final var stmtWithLive : methodWithLive.lowerStmtWithLiveList()) {
       final var stmt = stmtWithLive.lowerStmt();
+
       final List<LowerStmt> stmtChunk =
           switch (stmt.stmtExtensionType()) {
             case PUSH_PAD_STACK, BRANCH_LINK, CMP, GOTO, LABEL, RETURN, POP_STACK, PUSH_STACK, LDR_SPILL, STR_SPILL -> List
@@ -131,12 +132,13 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
             case BINARY, FIELD_ACCESS, FIELD_ASSIGN, IMMEDIATE, LOAD_STACK_ARG, MOV, REG_BINARY, UNARY, BIT -> {
               final var def = LivePass.calculateDefUse(stmt).def();
               if (def.isEmpty()) {
+                // Just to guard
                 yield List.of(stmt);
               }
-              final var intersection = Sets.intersection(def, stmtWithLive.liveOut());
-              if (!intersection.isEmpty()) {
+              if (!Sets.difference(stmtWithLive.liveOut(), def).equals(stmtWithLive.liveOut())) {
                 yield List.of(stmt);
               }
+              // Skip, as this statement does not def anything that will subsequently be used
               yield List.of();
             }
           };
