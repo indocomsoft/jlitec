@@ -173,7 +173,7 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
     return new GenKill(gen, kill);
   }
 
-  private static Set<Node> nodesOf(LowerStmt stmt) {
+  public static Set<Node> nodesOf(LowerStmt stmt) {
     return switch (stmt.stmtExtensionType()) {
       case CMP, GOTO, LABEL, STR_SPILL, RETURN, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, FIELD_ASSIGN -> Set
           .of();

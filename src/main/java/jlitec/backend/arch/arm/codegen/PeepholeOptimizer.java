@@ -26,9 +26,10 @@ public class PeepholeOptimizer {
               .map(PeepholeOptimizer::passAndFalseImm)
               .map(PeepholeOptimizer::passOrTrueImm)
               .map(PeepholeOptimizer::passOrFalseImm)
+              .map(PeepholeOptimizer::passRemoveUselessMov)
               .map(PeepholeOptimizer::passMovItself)
               .map(PeepholeOptimizer::passMovSameReg)
-              .map(PeepholeOptimizer::passMov)
+              .map(PeepholeOptimizer::passMovImm)
               .collect(Collectors.toList())
               .get(0);
       if (output.equals(input)) {
@@ -149,7 +150,7 @@ public class PeepholeOptimizer {
    *   MOV R0, #5
    * </code>
    */
-  private static Program passMov(Program input) {
+  private static Program passMovImm(Program input) {
     final var insnList = new ArrayList<Insn>();
     for (int i = 0; i < input.insnList().size(); i++) {
       final var insn = input.insnList().get(i);
@@ -157,7 +158,7 @@ public class PeepholeOptimizer {
         insnList.add(insn);
         continue;
       }
-      if (!(insn instanceof MOVInsn m)) {
+      if (!(insn instanceof MOVInsn m && m.op2() instanceof Operand2.Immediate)) {
         insnList.add(insn);
         continue;
       }
@@ -209,6 +210,43 @@ public class PeepholeOptimizer {
       } else {
         insnList.add(insn);
       }
+    }
+    return new Program(insnList);
+  }
+
+  /**
+   * Replace <code>
+   *   MOV R0, R5
+   *   MOV R5, R0
+   * </code> with <code>
+   *   MOV R0, R5
+   * </code>
+   */
+  private static Program passRemoveUselessMov(Program input) {
+    final var insnList = new ArrayList<Insn>();
+    for (int i = 0; i < input.insnList().size(); i++) {
+      final var insn = input.insnList().get(i);
+      if (i == input.insnList().size() - 1) {
+        insnList.add(insn);
+        continue;
+      }
+      if (!(insn instanceof MOVInsn m && m.op2() instanceof Operand2.Register r)) {
+        insnList.add(insn);
+        continue;
+      }
+      final var nextInsn = input.insnList().get(i + 1);
+      if (nextInsn instanceof MOVInsn mov
+          && mov.condition().equals(m.condition())
+          && mov.updateConditionFlags() == m.updateConditionFlags()
+          && mov.op2() instanceof Operand2.Register r2
+          && r2.reg().equals(m.register())
+          && mov.register().equals(r.reg())) {
+        // Pattern matched
+        insnList.add(insn);
+        i++;
+        continue;
+      }
+      insnList.add(insn);
     }
     return new Program(insnList);
   }
