@@ -377,39 +377,15 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             }
 
             yield switch (be.op()) {
-              case PLUS, AND, OR, EQ, NEQ -> {
-                // Commutative operators
+              case PLUS, AND, OR, EQ, NEQ, LT, GT, LEQ, GEQ -> {
+                // can be easily flipped
                 if (!(be.lhs() instanceof IdRvalExpr)) {
                   final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
                   yield ImmutableList.<LowerStmt>builder()
                       .addAll(rhsIdRvalExprChunk.lowerStmtList)
                       .add(
                           new BinaryLowerStmt(
-                              be.op(),
-                              new Addressable.IdRval(vas.lhs()),
-                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
-                              be.lhs()))
-                      .build();
-                }
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BinaryLowerStmt(
-                            be.op(),
-                            new Addressable.IdRval(vas.lhs()),
-                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                            be.rhs()))
-                    .build();
-              }
-              case LT, GT, LEQ, GEQ -> {
-                if (!(be.lhs() instanceof IdRvalExpr)) {
-                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                  yield ImmutableList.<LowerStmt>builder()
-                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                      .add(
-                          new BinaryLowerStmt(
-                              be.op().comparisonFlip(),
+                              be.op().lhsRhsFlip(),
                               new Addressable.IdRval(vas.lhs()),
                               new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
                               be.lhs()))

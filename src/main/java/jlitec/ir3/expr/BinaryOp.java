@@ -69,9 +69,15 @@ public enum BinaryOp implements Printable {
    *
    * @return
    */
-  public BinaryOp comparisonFlip() {
+  public BinaryOp lhsRhsFlip() {
     return switch (this) {
-      case EQ, NEQ, PLUS, MINUS, MULT, DIV, OR, AND -> throw new RuntimeException();
+      case MINUS, DIV -> throw new RuntimeException();
+      case OR -> OR;
+      case AND -> AND;
+      case MULT -> MULT;
+      case PLUS -> PLUS;
+      case EQ -> EQ;
+      case NEQ -> NEQ;
       case LT -> GT;
       case GT -> LT;
       case GEQ -> LEQ;

@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.Node;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.Program;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
@@ -35,6 +37,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       final var methodList =
           program.methodList().stream()
               .map(ConstantFoldingOptimizationPass::pass)
+              .map(ConstantFoldingOptimizationPass::passInlinePrintlnBool)
               .collect(Collectors.toUnmodifiableList());
       final var newProgram = new Program(program.dataList(), methodList);
       if (newProgram.equals(program)) {
@@ -42,6 +45,41 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       }
       program = newProgram;
     }
+  }
+
+  private static Method passInlinePrintlnBool(Method input) {
+    final var stmtList = new ArrayList<LowerStmt>();
+    for (int i = 0; i < input.lowerStmtList().size(); i++) {
+      final var stmt = input.lowerStmtList().get(i);
+      if (i == input.lowerStmtList().size() - 1) {
+        stmtList.add(stmt);
+        continue;
+      }
+      if (!(stmt instanceof ImmediateLowerStmt ils
+          && ils.dest() instanceof Addressable.Reg r
+          && r.reg().equals(Register.R0)
+          && ils.value() instanceof BoolRvalExpr b)) {
+        stmtList.add(stmt);
+        continue;
+      }
+      final var nextStmt = input.lowerStmtList().get(i + 1);
+      if (!(nextStmt instanceof BranchLinkLowerStmt blls && blls.target().equals("println_bool"))) {
+        stmtList.add(stmt);
+        continue;
+      }
+      // Pattern matched
+      stmtList.add(
+          new ImmediateLowerStmt(ils.dest(), new StringRvalExpr(b.value() ? "true" : "false")));
+      stmtList.add(new BranchLinkLowerStmt("puts"));
+      i++;
+    }
+    return new Method(
+        input.returnType(),
+        input.id(),
+        input.argsWithThis(),
+        input.vars(),
+        input.spilled(),
+        stmtList);
   }
 
   private static Method pass(Method input) {
