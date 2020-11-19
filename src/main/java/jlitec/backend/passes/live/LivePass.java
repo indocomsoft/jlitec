@@ -32,6 +32,7 @@ import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.expr.rval.IdRvalExpr;
@@ -188,6 +189,15 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
           use.add(new Node.Id(ire));
         }
         yield new DefUse(use, Set.of(bs.dest().toNode()));
+      }
+      case REVERSE_SUBTRACT -> {
+        final var rss = (ReverseSubtractLowerStmt) stmt;
+        final var use = new HashSet<Node>();
+        use.add(rss.lhs().toNode());
+        if (rss.rhs() instanceof IdRvalExpr ire) {
+          use.add(new Node.Id(ire));
+        }
+        yield new DefUse(use, Set.of(rss.dest().toNode()));
       }
       case REG_BINARY -> {
         final var bs = (RegBinaryLowerStmt) stmt;

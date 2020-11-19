@@ -28,6 +28,7 @@ import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 
 public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
@@ -185,6 +186,10 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         yield Set.of(bs.dest().toNode());
+      }
+      case REVERSE_SUBTRACT -> {
+        final var rss = (ReverseSubtractLowerStmt) stmt;
+        yield Set.of(rss.dest().toNode());
       }
       case BIT -> {
         final var bs = (BitLowerStmt) stmt;

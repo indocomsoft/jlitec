@@ -17,6 +17,7 @@ import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
 import jlitec.ir3.expr.BinaryOp;
@@ -53,6 +54,33 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
           switch (stmt.stmtExtensionType()) {
             case BRANCH_LINK, GOTO, FIELD_ASSIGN, FIELD_ACCESS, LABEL, LOAD_STACK_ARG, LDR_SPILL, PUSH_STACK, STR_SPILL, RETURN, PUSH_PAD_STACK, POP_STACK, IMMEDIATE -> List
                 .of(stmt);
+            case REVERSE_SUBTRACT -> {
+              final var rss = (ReverseSubtractLowerStmt) stmt;
+              if (!(rss.lhs() instanceof Addressable.IdRval idRvalLhs)) {
+                yield List.of(stmt);
+              }
+              final var resolvedLhs = resolve(idRvalLhs.idRvalExpr(), in, input.lowerStmtList());
+              final var resolvedRhs = resolve(rss.rhs(), in, input.lowerStmtList());
+              yield switch (resolvedLhs.getRvalExprType()) {
+                case NULL, STRING, BOOL -> throw new RuntimeException();
+                case INT -> {
+                  final var lhs = (IntRvalExpr) resolvedLhs;
+                  yield switch (resolvedRhs.getRvalExprType()) {
+                    case NULL, STRING, BOOL -> throw new RuntimeException();
+                    case INT -> {
+                      final var rhs = (IntRvalExpr) resolvedRhs;
+                      yield List.of(
+                          new ImmediateLowerStmt(
+                              rss.dest(), new IntRvalExpr(rhs.value() - lhs.value())));
+                    }
+                      // Give up
+                    case ID -> List.of(stmt);
+                  };
+                }
+                  // Give up
+                case ID -> List.of(stmt);
+              };
+            }
             case BINARY -> {
               final var bs = (BinaryLowerStmt) stmt;
               if (!(bs.lhs() instanceof Addressable.IdRval idRvalLhs)) {
@@ -450,7 +478,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
         final var is = (ImmediateLowerStmt) definingStmt;
         yield Optional.of(is.value());
       }
-      case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK -> Optional
+      case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional
           .empty();
     };
   }

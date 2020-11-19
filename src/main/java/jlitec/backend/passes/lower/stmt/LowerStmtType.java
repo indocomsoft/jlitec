@@ -19,5 +19,6 @@ public enum LowerStmtType {
   PUSH_STACK,
   POP_STACK,
   REG_BINARY,
+  REVERSE_SUBTRACT,
   UNARY;
 }

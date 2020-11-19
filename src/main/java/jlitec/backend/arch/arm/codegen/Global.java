@@ -60,6 +60,7 @@ import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PopStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.backend.passes.regalloc.RegAllocPass;
@@ -251,6 +252,28 @@ public class Global {
                       Size.WORD,
                       dest,
                       new MemoryAddress.ImmediateOffset(Register.SP, offset)));
+            }
+            case REVERSE_SUBTRACT -> {
+              final var bs = (ReverseSubtractLowerStmt) stmt;
+              final var lhs = toRegister(bs.lhs(), regAllocMap);
+              final var rhs =
+                  switch (bs.rhs().getRvalExprType()) {
+                    case ID -> {
+                      final var ire = (IdRvalExpr) bs.rhs();
+                      yield new Operand2.Register(regAllocMap.get(ire.id()));
+                    }
+                    case INT -> {
+                      final var ire = (IntRvalExpr) bs.rhs();
+                      yield new Operand2.Immediate(ire.value());
+                    }
+                    case BOOL -> {
+                      final var bre = (BoolRvalExpr) bs.rhs();
+                      yield new Operand2.Immediate(bre.value() ? 1 : 0);
+                    }
+                    case STRING, NULL -> throw new RuntimeException("should not be reached");
+                  };
+              final var dest = toRegister(bs.dest(), regAllocMap);
+              yield List.of(new RSBInsn(Condition.AL, false, dest, lhs, rhs));
             }
             case BINARY -> {
               final var bs = (BinaryLowerStmt) stmt;

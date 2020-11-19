@@ -41,6 +41,7 @@ import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Var;
@@ -516,6 +517,49 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                   yield List.of(stmt);
                 }
                 yield List.of();
+              }
+              case REVERSE_SUBTRACT -> {
+                final var bs = (ReverseSubtractLowerStmt) stmt;
+                final var operands = new HashSet<String>();
+                final var loadOperands = new HashSet<String>();
+                if (bs.lhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
+                if (bs.rhs() instanceof IdRvalExpr a) {
+                  operands.add(a.id());
+                  loadOperands.add(a.id());
+                }
+                if (bs.dest() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (!operands.contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                final var idRvalExprAddressable = new Addressable.IdRval(idRvalExpr);
+                final var lhs =
+                    bs.lhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.lhs();
+                final var rhs =
+                    bs.rhs() instanceof IdRvalExpr a && a.id().equals(id) ? idRvalExpr : bs.rhs();
+                final var dest =
+                    bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bs.dest();
+                final var result = new ArrayList<LowerStmt>();
+                // Need to load
+                if (loadOperands.contains(id)) {
+                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
+                }
+                result.add(new ReverseSubtractLowerStmt(dest, lhs, rhs));
+                // Need to store
+                if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
+                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
+                }
+                yield Collections.unmodifiableList(result);
               }
               case BINARY -> {
                 final var bs = (BinaryLowerStmt) stmt;

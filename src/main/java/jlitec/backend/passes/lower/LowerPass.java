@@ -31,6 +31,7 @@ import jlitec.backend.passes.lower.stmt.PushPadStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReturnLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Data;
 import jlitec.ir3.Ir3Type;
@@ -375,19 +376,81 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               }
             }
 
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
             yield switch (be.op()) {
-              case LT, GT, LEQ, GEQ, EQ, NEQ, OR, AND, PLUS, MINUS -> ImmutableList
-                  .<LowerStmt>builder()
-                  .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                  .add(
-                      new BinaryLowerStmt(
-                          be.op(),
-                          new Addressable.IdRval(vas.lhs()),
-                          new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                          be.rhs()))
-                  .build();
+              case PLUS, AND, OR, EQ, NEQ -> {
+                // Commutative operators
+                if (!(be.lhs() instanceof IdRvalExpr)) {
+                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                      .add(
+                          new BinaryLowerStmt(
+                              be.op(),
+                              new Addressable.IdRval(vas.lhs()),
+                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
+                              be.lhs()))
+                      .build();
+                }
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BinaryLowerStmt(
+                            be.op(),
+                            new Addressable.IdRval(vas.lhs()),
+                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                            be.rhs()))
+                    .build();
+              }
+              case LT, GT, LEQ, GEQ -> {
+                if (!(be.lhs() instanceof IdRvalExpr)) {
+                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                      .add(
+                          new BinaryLowerStmt(
+                              be.op().comparisonFlip(),
+                              new Addressable.IdRval(vas.lhs()),
+                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
+                              be.lhs()))
+                      .build();
+                }
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BinaryLowerStmt(
+                            be.op(),
+                            new Addressable.IdRval(vas.lhs()),
+                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                            be.rhs()))
+                    .build();
+              }
+              case MINUS -> {
+                if (!(be.lhs() instanceof IdRvalExpr)) {
+                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                  yield ImmutableList.<LowerStmt>builder()
+                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                      .add(
+                          new ReverseSubtractLowerStmt(
+                              new Addressable.IdRval(vas.lhs()),
+                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
+                              be.lhs()))
+                      .build();
+                }
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BinaryLowerStmt(
+                            be.op(),
+                            new Addressable.IdRval(vas.lhs()),
+                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                            be.rhs()))
+                    .build();
+              }
               case MULT, DIV -> {
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
                 final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
                 yield ImmutableList.<LowerStmt>builder()
                     .addAll(lhsIdRvalExprChunk.lowerStmtList)
