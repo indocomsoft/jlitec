@@ -20,6 +20,7 @@ import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowGraph;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
@@ -240,6 +241,10 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       case UNARY -> {
         final var us = (UnaryLowerStmt) stmt;
         yield new DefUse(Set.of(new Node.Id(us.expr())), Set.of(new Node.Id(us.dest())));
+      }
+      case BIT -> {
+        final var bs = (BitLowerStmt) stmt;
+        yield new DefUse(Set.of(new Node.Id(bs.expr())), Set.of(new Node.Id(bs.dest())));
       }
     };
   }

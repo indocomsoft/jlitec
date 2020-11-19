@@ -30,6 +30,7 @@ import jlitec.backend.passes.live.Node;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
@@ -486,6 +487,29 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       for (final var stmt : method.lowerStmtList()) {
         final List<LowerStmt> stmtChunk =
             switch (stmt.stmtExtensionType()) {
+              case BIT -> {
+                final var bs = (BitLowerStmt) stmt;
+                if (!Stream.of(bs.dest().id(), bs.expr().id())
+                    .collect(Collectors.toSet())
+                    .contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                final var expr = bs.expr().id().equals(id) ? idRvalExpr : bs.expr();
+                final var dest = bs.dest().id().equals(id) ? idRvalExpr : bs.dest();
+                final var result = new ArrayList<LowerStmt>();
+                // Need to load
+                if (bs.expr().id().equals(id)) {
+                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
+                }
+                result.add(new BitLowerStmt(bs.op(), dest, expr, bs.shift()));
+                // Need to store
+                if (bs.dest().id().equals(id)) {
+                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
+                }
+                yield Collections.unmodifiableList(result);
+              }
               case LOAD_STACK_ARG -> {
                 final var lsas = (LoadStackArgLowerStmt) stmt;
                 if (!lsas.stackArg().id().equals(id)) {

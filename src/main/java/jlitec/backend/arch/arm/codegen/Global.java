@@ -28,6 +28,7 @@ import jlitec.backend.arch.arm.insn.BXInsn;
 import jlitec.backend.arch.arm.insn.CMPInsn;
 import jlitec.backend.arch.arm.insn.LDMFDInsn;
 import jlitec.backend.arch.arm.insn.LDRInsn;
+import jlitec.backend.arch.arm.insn.LSLInsn;
 import jlitec.backend.arch.arm.insn.LabelInsn;
 import jlitec.backend.arch.arm.insn.MOVInsn;
 import jlitec.backend.arch.arm.insn.MULInsn;
@@ -41,6 +42,7 @@ import jlitec.backend.arch.arm.insn.SUBInsn;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -511,6 +513,15 @@ public class Global {
                 case NOT -> List.of(new MVNInsn(Condition.AL, dest, new Operand2.Register(expr)));
                 case NEGATIVE -> List.of(
                     new RSBInsn(Condition.AL, false, dest, expr, new Operand2.Immediate(0)));
+              };
+            }
+            case BIT -> {
+              final var bs = (BitLowerStmt) stmt;
+              final var dest = regAllocMap.get(bs.dest().id());
+              final var expr = regAllocMap.get(bs.expr().id());
+              yield switch (bs.op()) {
+                case LSL -> List.of(
+                    new LSLInsn(Condition.AL, dest, expr, new Operand2.Immediate(bs.shift())));
               };
             }
           };

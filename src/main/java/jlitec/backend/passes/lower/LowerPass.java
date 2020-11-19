@@ -14,6 +14,8 @@ import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitOp;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -340,6 +342,39 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               }
             }
 
+            if (be.op() == BinaryOp.MULT) {
+              if (be.lhs() instanceof IntRvalExpr ire
+                  && ire.value() >= 2
+                  && (ire.value() & (ire.value() - 1)) == 0) {
+                // lhs is power of 2
+                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BitLowerStmt(
+                            BitOp.LSL,
+                            vas.lhs(),
+                            rhsIdRvalExprChunk.idRvalExpr,
+                            Integer.numberOfTrailingZeros(ire.value())))
+                    .build();
+              }
+              if (be.rhs() instanceof IntRvalExpr ire
+                  && ire.value() >= 2
+                  && (ire.value() & (ire.value() - 1)) == 0) {
+                // rhs is power of 2
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BitLowerStmt(
+                            BitOp.LSL,
+                            vas.lhs(),
+                            lhsIdRvalExprChunk.idRvalExpr,
+                            Integer.numberOfTrailingZeros(ire.value())))
+                    .build();
+              }
+            }
+
             final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
             yield switch (be.op()) {
               case LT, GT, LEQ, GEQ, EQ, NEQ, OR, AND, PLUS, MINUS -> ImmutableList
@@ -565,6 +600,45 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                         fas.lhsId(), fas.lhsField(), new Addressable.Reg(Register.R0)));
 
                 yield Collections.unmodifiableList(result);
+              }
+            }
+
+            if (be.op() == BinaryOp.MULT) {
+              if (be.lhs() instanceof IntRvalExpr ire
+                  && ire.value() >= 2
+                  && (ire.value() & (ire.value() - 1)) == 0) {
+                // lhs is power of 2
+                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BitLowerStmt(
+                            BitOp.LSL,
+                            idRvalExpr,
+                            rhsIdRvalExprChunk.idRvalExpr,
+                            Integer.numberOfTrailingZeros(ire.value())))
+                    .add(
+                        new FieldAssignLowerStmt(
+                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
+                    .build();
+              }
+              if (be.rhs() instanceof IntRvalExpr ire
+                  && ire.value() >= 2
+                  && (ire.value() & (ire.value() - 1)) == 0) {
+                // rhs is power of 2
+                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+                yield ImmutableList.<LowerStmt>builder()
+                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                    .add(
+                        new BitLowerStmt(
+                            BitOp.LSL,
+                            idRvalExpr,
+                            lhsIdRvalExprChunk.idRvalExpr,
+                            Integer.numberOfTrailingZeros(ire.value())))
+                    .add(
+                        new FieldAssignLowerStmt(
+                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
+                    .build();
               }
             }
 

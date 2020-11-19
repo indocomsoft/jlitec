@@ -128,7 +128,7 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
           switch (stmt.stmtExtensionType()) {
             case PUSH_PAD_STACK, BRANCH_LINK, CMP, GOTO, LABEL, RETURN, POP_STACK, PUSH_STACK, LDR_SPILL, STR_SPILL -> List
                 .of(stmt);
-            case BINARY, FIELD_ACCESS, FIELD_ASSIGN, IMMEDIATE, LOAD_STACK_ARG, MOV, REG_BINARY, UNARY -> {
+            case BINARY, FIELD_ACCESS, FIELD_ASSIGN, IMMEDIATE, LOAD_STACK_ARG, MOV, REG_BINARY, UNARY, BIT -> {
               final var def = LivePass.calculateDefUse(stmt).def();
               if (def.isEmpty()) {
                 yield List.of(stmt);
