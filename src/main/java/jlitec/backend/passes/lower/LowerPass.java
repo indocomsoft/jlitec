@@ -692,7 +692,10 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       }
       case CALL -> {
         final var ce = (CallExpr) expr;
-        yield genCall(ce.args(), ce.target().id(), typeMap, cnameToData, gen);
+        yield ImmutableList.<LowerStmt>builder()
+            .addAll(genCall(ce.args(), ce.target().id(), typeMap, cnameToData, gen))
+            .add(new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)))
+            .build();
       }
       case NEW -> {
         final var ne = (NewExpr) expr;

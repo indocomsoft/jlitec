@@ -12,6 +12,7 @@ import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.optimization.constantfolding.ConstantFoldingOptimizationPass;
+import jlitec.backend.passes.regalloc.RegAllocPass;
 import jlitec.checker.ParseTreeStaticChecker;
 import jlitec.command.InterferenceCommand;
 import jlitec.ir3.codegen.Ir3CodeGen;
@@ -30,7 +31,7 @@ public class SimpleTest {
           final var astProgram = ParseTreeStaticChecker.toAst(program, klassDescriptorMap);
           final var ir3Program = Ir3CodeGen.generate(astProgram);
           final var lowerProgram = new LowerPass().pass(ir3Program);
-          new ConstantFoldingOptimizationPass().pass(lowerProgram);
+          new ConstantFoldingOptimizationPass().pass(lowerProgram).print(0);
           final var armProgram = Global.gen(lowerProgram);
           armProgram.print(0);
           PeepholeOptimizer.pass(armProgram).print(0);
@@ -48,6 +49,7 @@ public class SimpleTest {
                     .buildInterferenceGraph(methodWithLive.lowerStmtWithLiveList());
             edges.keySet().forEach(n -> n.print(0));
             edges.values().forEach(n -> n.print(0));
+            new RegAllocPass().pass(method).method().print(0);
           }
         });
   }
