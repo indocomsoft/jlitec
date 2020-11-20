@@ -26,6 +26,7 @@ import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
+import jlitec.ir3.expr.rval.LiteralRvalExpr;
 import jlitec.ir3.expr.rval.RvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
 
@@ -357,7 +358,8 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
               final var resolved = resolve(srcIdRval.idRvalExpr(), in, input.lowerStmtList());
               yield switch (resolved.getRvalExprType()) {
                 case NULL -> List.of(new ImmediateLowerStmt(ms.dst(), new StringRvalExpr("")));
-                case STRING, INT, BOOL -> List.of(new ImmediateLowerStmt(ms.dst(), resolved));
+                case STRING, INT, BOOL -> List.of(
+                    new ImmediateLowerStmt(ms.dst(), (LiteralRvalExpr) resolved));
                 case ID -> List.of(stmt);
               };
             }
@@ -393,14 +395,16 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
                 case NOT -> switch (resolved.getRvalExprType()) {
                   case NULL, STRING, INT -> throw new RuntimeException();
                   case BOOL -> List.of(
-                      new ImmediateLowerStmt(new Addressable.IdRval(us.dest()), resolved));
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(us.dest()), (BoolRvalExpr) resolved));
                     // Give up
                   case ID -> List.of(stmt);
                 };
                 case NEGATIVE -> switch (resolved.getRvalExprType()) {
                   case NULL, STRING, BOOL -> throw new RuntimeException();
                   case INT -> List.of(
-                      new ImmediateLowerStmt(new Addressable.IdRval(us.dest()), resolved));
+                      new ImmediateLowerStmt(
+                          new Addressable.IdRval(us.dest()), (IntRvalExpr) resolved));
                     // Give up
                   case ID -> List.of(stmt);
                 };

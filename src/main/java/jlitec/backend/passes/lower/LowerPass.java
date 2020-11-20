@@ -48,6 +48,7 @@ import jlitec.ir3.expr.UnaryExpr;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
+import jlitec.ir3.expr.rval.LiteralRvalExpr;
 import jlitec.ir3.expr.rval.NullRvalExpr;
 import jlitec.ir3.expr.rval.RvalExpr;
 import jlitec.ir3.expr.rval.RvalExprType;
@@ -150,7 +151,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                   };
               final var idRvalExpr = new IdRvalExpr(tempVar.id());
               yield List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), be.lhs()),
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(idRvalExpr), (LiteralRvalExpr) be.lhs()),
                   new CmpLowerStmt(be.op(), idRvalExpr, be.rhs(), cs.dest().label()));
             }
           }
@@ -167,7 +169,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
                 final var idRvalExpr = new IdRvalExpr(tempVar.id());
                 yield List.of(
-                    new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), re),
+                    new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), (BoolRvalExpr) re),
                     new CmpLowerStmt(
                         BinaryOp.EQ, idRvalExpr, new BoolRvalExpr(true), cs.dest().label()));
               }
@@ -199,7 +201,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         final var ps = (PrintlnStmt) stmt;
         yield switch (ps.rval().getRvalExprType()) {
           case STRING -> List.of(
-              new ImmediateLowerStmt(new Addressable.Reg(Register.R0), ps.rval()),
+              new ImmediateLowerStmt(new Addressable.Reg(Register.R0), (StringRvalExpr) ps.rval()),
               new BranchLinkLowerStmt("puts"));
           case NULL -> List.of(
               new ImmediateLowerStmt(new Addressable.Reg(Register.R0), new StringRvalExpr("")),
@@ -293,21 +295,24 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
               final var idRvalExpr = new IdRvalExpr(tempVar.id());
               yield List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr),
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(idRvalExpr), (BoolRvalExpr) rvalExpr),
                   new PushStackLowerStmt(idRvalExpr));
             }
             case INT -> {
               final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
               final var idRvalExpr = new IdRvalExpr(tempVar.id());
               yield List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr),
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(idRvalExpr), (IntRvalExpr) rvalExpr),
                   new PushStackLowerStmt(idRvalExpr));
             }
             case STRING -> {
               final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
               final var idRvalExpr = new IdRvalExpr(tempVar.id());
               yield List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr),
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(idRvalExpr), (StringRvalExpr) rvalExpr),
                   new PushStackLowerStmt(idRvalExpr));
             }
             case NULL -> {
@@ -338,21 +343,27 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield new IdRvalExprChunk(
             idRvalExpr,
-            List.of(new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr)));
+            List.of(
+                new ImmediateLowerStmt(
+                    new Addressable.IdRval(idRvalExpr), (BoolRvalExpr) rvalExpr)));
       }
       case INT -> {
         final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield new IdRvalExprChunk(
             idRvalExpr,
-            List.of(new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr)));
+            List.of(
+                new ImmediateLowerStmt(
+                    new Addressable.IdRval(idRvalExpr), (IntRvalExpr) rvalExpr)));
       }
       case STRING -> {
         final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield new IdRvalExprChunk(
             idRvalExpr,
-            List.of(new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), rvalExpr)));
+            List.of(
+                new ImmediateLowerStmt(
+                    new Addressable.IdRval(idRvalExpr), (StringRvalExpr) rvalExpr)));
       }
       case NULL -> {
         final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
@@ -388,7 +399,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 new Addressable.Reg(Register.fromInt(i)),
                 new Addressable.IdRval((IdRvalExpr) arg)));
       } else {
-        result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
+        result.add(
+            new ImmediateLowerStmt(
+                new Addressable.Reg(Register.fromInt(i)), (LiteralRvalExpr) arg));
       }
     }
     final List<RvalExpr> stackArgs = args.size() > 4 ? args.subList(4, args.size()) : List.of();
@@ -679,14 +692,15 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               new MovLowerStmt(
                   new Addressable.IdRval(dest), new Addressable.IdRval((IdRvalExpr) re)));
           case STRING, INT, BOOL -> List.of(
-              new ImmediateLowerStmt(new Addressable.IdRval(dest), re));
+              new ImmediateLowerStmt(new Addressable.IdRval(dest), (LiteralRvalExpr) re));
           case NULL -> {
             // Null for classes is different from for strings
             if (destType instanceof Type.KlassType) {
               yield List.of(
                   new ImmediateLowerStmt(new Addressable.IdRval(dest), new IntRvalExpr(0)));
             }
-            yield List.of(new ImmediateLowerStmt(new Addressable.IdRval(dest), re));
+            yield List.of(
+                new ImmediateLowerStmt(new Addressable.IdRval(dest), new StringRvalExpr("")));
           }
         };
       }

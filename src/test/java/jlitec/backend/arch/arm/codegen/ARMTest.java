@@ -20,7 +20,7 @@ import jlitec.parser.ParserWrapper;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-public class SimpleTest {
+public class ARMTest {
   @ParameterizedTest
   @MethodSource("loadTests")
   void test(String filename) throws Exception {

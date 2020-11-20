@@ -1,9 +1,9 @@
 package jlitec.backend.passes.lower.stmt;
 
-import jlitec.ir3.expr.rval.RvalExpr;
+import jlitec.ir3.expr.rval.LiteralRvalExpr;
 import jlitec.ir3.expr.rval.RvalExprType;
 
-public record ImmediateLowerStmt(Addressable dest, RvalExpr value) implements LowerStmt {
+public record ImmediateLowerStmt(Addressable dest, LiteralRvalExpr value) implements LowerStmt {
   public ImmediateLowerStmt {
     if (value.getRvalExprType() == RvalExprType.ID) {
       throw new RuntimeException("value must be immediate value");
