@@ -16,7 +16,6 @@ import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitOp;
-import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -378,38 +377,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             }
 
             yield switch (be.op()) {
-              case NEQ -> switch (be.lhs().getRvalExprType()) {
-                case NULL, STRING, BOOL -> throw new RuntimeException();
-                case INT -> {
-                  final var lhs = (IntRvalExpr) be.lhs();
-                  yield switch (be.rhs().getRvalExprType()) {
-                    case NULL, STRING, BOOL -> throw new RuntimeException();
-                    case INT -> {
-                      final var rhs = (IntRvalExpr) be.rhs();
-                      // Wheee constant folding
-                      yield List.of(
-                          new ImmediateLowerStmt(
-                              new Addressable.IdRval(vas.lhs()),
-                              new BoolRvalExpr(lhs.value() != rhs.value())));
-                    }
-                    case ID -> {
-                      final var rhs = (IdRvalExpr) be.rhs();
-                      yield List.of(new BooleanNeqLowerStmt(vas.lhs(), rhs, lhs));
-                    }
-                  };
-                }
-                case ID -> {
-                  final var lhs = (IdRvalExpr) be.lhs();
-                  yield switch (be.rhs().getRvalExprType()) {
-                    case NULL, STRING, BOOL -> throw new RuntimeException();
-                    case INT, ID -> {
-                      final var rhs = (IdRvalExpr) be.rhs();
-                      yield List.of(new BooleanNeqLowerStmt(vas.lhs(), lhs, rhs));
-                    }
-                  };
-                }
-              };
-              case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ -> {
+              case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ, NEQ -> {
                 // can be easily flipped
                 if (!(be.lhs() instanceof IdRvalExpr)) {
                   final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
@@ -525,7 +493,13 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           case CALL -> {
             final var ce = (CallExpr) vas.rhs();
             final var result = new ArrayList<LowerStmt>();
-            for (int i = 0; i < 4 && i < ce.args().size(); i++) {
+            final var theThis = (IdRvalExpr) ce.args().get(0);
+            final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
+            final var data = cnameToData.get(thisCname);
+            if (data.sizeof() != 0) {
+              result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+            }
+            for (int i = 1; i < 4 && i < ce.args().size(); i++) {
               final var arg = ce.args().get(i);
               if (arg.getRvalExprType() == RvalExprType.ID) {
                 result.add(
@@ -554,6 +528,10 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           case NEW -> {
             final var ne = (NewExpr) vas.rhs();
             final var data = cnameToData.get(ne.cname());
+            // Do not generate malloc(0)
+            if (data.sizeof() == 0) {
+              yield List.of();
+            }
             yield List.of(
                 new ImmediateLowerStmt(
                     new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
@@ -815,7 +793,13 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           case CALL -> {
             final var ce = (CallExpr) fas.rhs();
             final var result = new ArrayList<LowerStmt>();
-            for (int i = 0; i < 4 && i < ce.args().size(); i++) {
+            final var theThis = (IdRvalExpr) ce.args().get(0);
+            final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
+            final var data = cnameToData.get(thisCname);
+            if (data.sizeof() != 0) {
+              result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+            }
+            for (int i = 1; i < 4 && i < ce.args().size(); i++) {
               final var arg = ce.args().get(i);
               if (arg.getRvalExprType() == RvalExprType.ID) {
                 result.add(
@@ -861,7 +845,13 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       case CALL -> {
         final var cs = (CallStmt) stmt;
         final var result = new ArrayList<LowerStmt>();
-        for (int i = 0; i < 4 && i < cs.args().size(); i++) {
+        final var theThis = (IdRvalExpr) cs.args().get(0);
+        final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
+        final var data = cnameToData.get(thisCname);
+        if (data.sizeof() != 0) {
+          result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+        }
+        for (int i = 1; i < 4 && i < cs.args().size(); i++) {
           final var arg = cs.args().get(i);
           if (arg.getRvalExprType() == RvalExprType.ID) {
             result.add(

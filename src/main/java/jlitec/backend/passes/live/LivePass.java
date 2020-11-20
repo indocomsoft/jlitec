@@ -22,7 +22,6 @@ import jlitec.backend.passes.flow.FlowGraph;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
-import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
@@ -182,15 +181,6 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       }
       case LABEL, GOTO, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
       case RETURN -> new DefUse(Set.of(new Node.Reg(Register.R0)), Set.of());
-      case BOOLEAN_NEQ -> {
-        final var bns = (BooleanNeqLowerStmt) stmt;
-        final var use = new HashSet<Node>();
-        use.add(new Node.Id(bns.lhs()));
-        if (bns.rhs() instanceof IdRvalExpr ire) {
-          use.add(new Node.Id(ire));
-        }
-        yield new DefUse(use, Set.of(new Node.Id(bns.dst())));
-      }
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         final var use = new HashSet<Node>();

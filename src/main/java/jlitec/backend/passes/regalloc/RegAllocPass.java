@@ -31,7 +31,6 @@ import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
-import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
@@ -558,38 +557,6 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 result.add(new ReverseSubtractLowerStmt(dest, lhs, rhs));
                 // Need to store
                 if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
-                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
-                }
-                yield Collections.unmodifiableList(result);
-              }
-              case BOOLEAN_NEQ -> {
-                final var bns = (BooleanNeqLowerStmt) stmt;
-                final var operands = new HashSet<String>();
-                final var loadOperands = new HashSet<String>();
-                operands.add(bns.lhs().id());
-                loadOperands.add(bns.lhs().id());
-                if (bns.rhs() instanceof IdRvalExpr a) {
-                  operands.add(a.id());
-                  loadOperands.add(a.id());
-                }
-                operands.add(bns.dst().id());
-                if (!operands.contains(id)) {
-                  yield List.of(stmt);
-                }
-                final var tempVar = gen.gen(type);
-                final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                final var lhs = bns.lhs().id().equals(id) ? idRvalExpr : bns.lhs();
-                final var rhs =
-                    bns.rhs() instanceof IdRvalExpr a && a.id().equals(id) ? idRvalExpr : bns.rhs();
-                final var dst = bns.dst().id().equals(id) ? idRvalExpr : bns.dst();
-                final var result = new ArrayList<LowerStmt>();
-                // Need to load
-                if (loadOperands.contains(id)) {
-                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
-                }
-                result.add(new BooleanNeqLowerStmt(dst, lhs, rhs));
-                // Need to store
-                if (bns.dst().id().equals(id)) {
                   result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
                 }
                 yield Collections.unmodifiableList(result);

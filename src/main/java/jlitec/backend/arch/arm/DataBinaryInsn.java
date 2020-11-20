@@ -33,3 +33,4 @@ public interface DataBinaryInsn extends ARMInsn {
         + op2().print(0);
   }
 }
+
