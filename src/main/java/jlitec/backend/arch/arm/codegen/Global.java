@@ -213,13 +213,18 @@ public class Global {
     return new StackDescriptor(stmfdRegs, ldmfdRegs, offsets, totalOffsetAligned);
   }
 
-  private static List<Insn> gen(Method method, StringGen stringGen, Map<String, Data> dataMap) {
-    final var typeMap =
-        Stream.concat(method.vars().stream(), method.argsWithThis().stream())
-            .collect(Collectors.toUnmodifiableMap(Var::id, Var::type));
-    final var regAllocOutput = new RegAllocPass().pass(method);
+  private static List<Insn> gen(Method input, StringGen stringGen, Map<String, Data> dataMap) {
+    final var regAllocOutput = new RegAllocPass().pass(input);
+    final var method = regAllocOutput.method();
     final var regAllocMap = regAllocOutput.color();
     final var stackDesc = calculateStackDescriptor(regAllocOutput);
+
+    final var typeMap =
+        Stream.concat(
+                method.vars().stream(),
+                Stream.concat(method.argsWithThis().stream(), method.spilled().stream()))
+            .distinct()
+            .collect(Collectors.toUnmodifiableMap(Var::id, Var::type));
 
     final var result = new ArrayList<Insn>();
 
@@ -239,7 +244,7 @@ public class Global {
               new Operand2.Immediate(stackDesc.totalOffset)));
     }
 
-    for (final var stmt : regAllocOutput.method().lowerStmtList()) {
+    for (final var stmt : method.lowerStmtList()) {
       final List<Insn> stmtChunk =
           switch (stmt.stmtExtensionType()) {
             case LOAD_STACK_ARG -> {
@@ -317,9 +322,8 @@ public class Global {
                     new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
                     new MOVInsn(Condition.EQ, dest, new Operand2.Immediate(1)));
                 case NEQ -> List.of(
-                        new SUBInsn(Condition.AL, true, dest, lhs, rhs),
-                        new MOVInsn(Condition.NE, dest, new Operand2.Immediate(1))
-                );
+                    new SUBInsn(Condition.AL, true, dest, lhs, rhs),
+                    new MOVInsn(Condition.NE, dest, new Operand2.Immediate(1)));
                 case OR -> List.of(new ORRInsn(Condition.AL, false, dest, lhs, rhs));
                 case AND -> List.of(new ANDInsn(Condition.AL, false, dest, lhs, rhs));
                 case PLUS -> List.of(new ADDInsn(Condition.AL, false, dest, lhs, rhs));

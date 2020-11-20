@@ -11,25 +11,17 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
-import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.MethodWithFlow;
 import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowPass;
 import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.Program;
-import jlitec.backend.passes.lower.stmt.Addressable;
-import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
-import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
-import jlitec.backend.passes.lower.stmt.MovLowerStmt;
-import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
-import jlitec.ir3.expr.rval.IntRvalExpr;
 
 public class DeadcodeOptimizationPass implements OptimizationPass {
   @Override

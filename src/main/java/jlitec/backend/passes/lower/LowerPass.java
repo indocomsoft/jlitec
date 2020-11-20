@@ -497,7 +497,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
             final var data = cnameToData.get(thisCname);
             if (data.sizeof() != 0) {
-              result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+              result.add(
+                  new MovLowerStmt(
+                      new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
             }
             for (int i = 1; i < 4 && i < ce.args().size(); i++) {
               final var arg = ce.args().get(i);
@@ -797,7 +799,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
             final var data = cnameToData.get(thisCname);
             if (data.sizeof() != 0) {
-              result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+              result.add(
+                  new MovLowerStmt(
+                      new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
             }
             for (int i = 1; i < 4 && i < ce.args().size(); i++) {
               final var arg = ce.args().get(i);
@@ -849,7 +853,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
         final var data = cnameToData.get(thisCname);
         if (data.sizeof() != 0) {
-          result.add(new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+          result.add(
+              new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
         }
         for (int i = 1; i < 4 && i < cs.args().size(); i++) {
           final var arg = cs.args().get(i);

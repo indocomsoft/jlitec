@@ -8,8 +8,10 @@ import jlitec.backend.arch.arm.Operand2;
 import jlitec.backend.arch.arm.Program;
 import jlitec.backend.arch.arm.insn.ADDInsn;
 import jlitec.backend.arch.arm.insn.ANDInsn;
+import jlitec.backend.arch.arm.insn.LDRInsn;
 import jlitec.backend.arch.arm.insn.MOVInsn;
 import jlitec.backend.arch.arm.insn.ORRInsn;
+import jlitec.backend.arch.arm.insn.STRInsn;
 import jlitec.backend.arch.arm.insn.SUBInsn;
 
 public class PeepholeOptimizer {
@@ -27,6 +29,7 @@ public class PeepholeOptimizer {
               .map(PeepholeOptimizer::passOrTrueImm)
               .map(PeepholeOptimizer::passOrFalseImm)
               .map(PeepholeOptimizer::passRemoveUselessMov)
+              .map(PeepholeOptimizer::passRemoveUselessLdr)
               .map(PeepholeOptimizer::passMovItself)
               .map(PeepholeOptimizer::passMovSameReg)
               .map(PeepholeOptimizer::passMovImm)
@@ -247,6 +250,34 @@ public class PeepholeOptimizer {
         continue;
       }
       insnList.add(insn);
+    }
+    return new Program(insnList);
+  }
+
+  private static Program passRemoveUselessLdr(Program input) {
+    // Turn
+    //     STR R0, [SP]
+    //     LDR R0, [SP]
+    // into
+    //     STR R0, [SP]
+    final var insnList = new ArrayList<Insn>();
+    for (int i = 0; i < input.insnList().size(); i++) {
+      final var insn = input.insnList().get(i);
+      if (i == input.insnList().size() - 1) {
+        insnList.add(insn);
+        continue;
+      }
+      final var nextInsn = input.insnList().get(i + 1);
+      if (!(insn instanceof STRInsn str
+          && nextInsn instanceof LDRInsn ldr
+          && ldr.register().equals(str.register())
+          && ldr.memoryAddress().equals(str.memoryAddress()))) {
+        insnList.add(insn);
+        continue;
+      }
+      // Pattern matched
+      insnList.add(insn);
+      i++;
     }
     return new Program(insnList);
   }

@@ -96,7 +96,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
     while (true) {
       final var nodeDefUse = calculateNodeDefUse(method);
       final var initial =
-          Stream.concat(method.argsWithThis().stream(), method.vars().stream())
+          Stream.concat(
+                  method.argsWithThis().stream(),
+                  Stream.concat(method.vars().stream(), method.spilled().stream()))
               .map(Var::id)
               .map(Node.Id::new)
               .collect(Collectors.toUnmodifiableSet());
@@ -485,7 +487,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               .type();
       final var newStmtList = new ArrayList<LowerStmt>();
       final var gen = new TempVarGen("_@" + id);
-      for (final var stmt : method.lowerStmtList()) {
+      for (final var stmt : stmtList) {
         final List<LowerStmt> stmtChunk =
             switch (stmt.stmtExtensionType()) {
               case BIT -> {
@@ -804,8 +806,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         newStmtList.addAll(stmtChunk);
       }
       final var newVars =
-          Stream.concat(
-                  method.vars().stream().filter(va -> !va.id().equals(id)), gen.getVars().stream())
+          Stream.concat(vars.stream().filter(va -> !va.id().equals(id)), gen.getVars().stream())
               .collect(Collectors.toUnmodifiableList());
       stmtList = Collections.unmodifiableList(newStmtList);
       vars = Collections.unmodifiableList(newVars);
