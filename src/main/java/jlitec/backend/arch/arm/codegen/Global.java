@@ -109,6 +109,9 @@ public class Global {
     }
     if (helperFunctionsCalled.contains("getline_without_newline")) {
       addGetlineWithoutNewline(insnList);
+      // stdin stream
+      insnList.add(new LabelInsn(".Lstdin"));
+      insnList.add(new AssemblerDirective("word", "stdin"));
     }
 
     // Store generated strings.
@@ -271,11 +274,7 @@ public class Global {
                       final var ire = (IntRvalExpr) bs.rhs();
                       yield new Operand2.Immediate(ire.value());
                     }
-                    case BOOL -> {
-                      final var bre = (BoolRvalExpr) bs.rhs();
-                      yield new Operand2.Immediate(bre.value() ? 1 : 0);
-                    }
-                    case STRING, NULL -> throw new RuntimeException("should not be reached");
+                    case STRING, NULL, BOOL -> throw new RuntimeException("should not be reached");
                   };
               final var dest = toRegister(bs.dest(), regAllocMap);
               yield List.of(new RSBInsn(Condition.AL, false, dest, lhs, rhs));
@@ -583,7 +582,7 @@ public class Global {
    * int readln_int_bool()
    * {
    *   int a;
-   *   scanf("%d", &a);
+   *   scanf("%d ", &a);
    *   return a;
    * }
    * </code>
@@ -600,7 +599,7 @@ public class Global {
             Condition.AL,
             Size.WORD,
             Register.R0,
-            new MemoryAddress.PCRelative(stringGen.gen("%d"))));
+            new MemoryAddress.PCRelative(stringGen.gen("%d "))));
     insnList.add(
         new ADDInsn(Condition.AL, false, Register.R1, Register.SP, new Operand2.Immediate(4)));
     insnList.add(new BLInsn(Condition.AL, "scanf"));

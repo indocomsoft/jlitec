@@ -97,7 +97,7 @@ public class CCodeGen {
         yield switch (typeMap.get(rs.dest().id()).type()) {
           case INT -> List.of(
               new CallStmt(
-                  "scanf", List.of(new StringLiteralExpr("%d"), new AddrExpr(rs.dest().id()))));
+                  "scanf", List.of(new StringLiteralExpr("%d "), new AddrExpr(rs.dest().id()))));
           case CHAR_ARRAY -> List.of(
               new VarAssignStmt(
                   rs.dest().id(), new CallExpr("getline_without_newline", List.of())));
@@ -105,7 +105,7 @@ public class CCodeGen {
             final var tempVar = gen.gen(Type.INT);
             yield List.of(
                 new CallStmt(
-                    "scanf", List.of(new StringLiteralExpr("%d"), new AddrExpr(tempVar.id()))),
+                    "scanf", List.of(new StringLiteralExpr("%d "), new AddrExpr(tempVar.id()))),
                 new VarAssignStmt(rs.dest().id(), new IdExpr(tempVar.id())));
           }
           case STRUCT, VOID -> throw new RuntimeException("should have failed typecheck");
@@ -118,8 +118,8 @@ public class CCodeGen {
             final var ir = (jlitec.ir3.expr.rval.IdRvalExpr) ps.rval();
             final var format =
                 switch (typeMap.get(ir.id()).type()) {
-                  case BOOL, INT -> new StringLiteralExpr("%d\\n");
-                  case CHAR_ARRAY -> new StringLiteralExpr("%s\\n");
+                  case BOOL, INT -> new StringLiteralExpr("%d\n");
+                  case CHAR_ARRAY -> new StringLiteralExpr("%s\n");
                   case STRUCT, VOID -> throw new RuntimeException("should have failed typecheck");
                 };
             yield List.of(new CallStmt("printf", List.of(format, new IdExpr(ir.id()))));
@@ -129,21 +129,21 @@ public class CCodeGen {
             yield List.of(
                 new CallStmt(
                     "printf",
-                    List.of(new StringLiteralExpr("%d\\n"), new BoolLiteralExpr(be.value()))));
+                    List.of(new StringLiteralExpr("%d\n"), new BoolLiteralExpr(be.value()))));
           }
           case INT -> {
             final var ie = (jlitec.ir3.expr.rval.IntRvalExpr) ps.rval();
             yield List.of(
                 new CallStmt(
                     "printf",
-                    List.of(new StringLiteralExpr("%d\\n"), new IntLiteralExpr(ie.value()))));
+                    List.of(new StringLiteralExpr("%d\n"), new IntLiteralExpr(ie.value()))));
           }
           case STRING -> {
             final var se = (jlitec.ir3.expr.rval.StringRvalExpr) ps.rval();
             yield List.of(
-                new CallStmt("printf", List.of(new StringLiteralExpr(se.value() + "\\n"))));
+                new CallStmt("printf", List.of(new StringLiteralExpr(se.value() + "\n"))));
           }
-          case NULL -> List.of(new CallStmt("printf", List.of(new StringLiteralExpr("null\\n"))));
+          case NULL -> List.of(new CallStmt("printf", List.of(new StringLiteralExpr("null\n"))));
         };
       }
       case CMP -> {

@@ -6,9 +6,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
+import jlitec.backend.passes.MethodWithFlow;
+import jlitec.backend.passes.PassManager;
+import jlitec.backend.passes.flow.FlowPass;
+import jlitec.backend.passes.live.LivePass;
 import jlitec.backend.passes.lower.LowerPass;
-import jlitec.backend.passes.optimization.deadcode.DeadcodeOptimizationPass;
+import jlitec.backend.passes.optimization.constantfolding.ConstantFoldingOptimizationPass;
 import jlitec.checker.ParseTreeStaticChecker;
+import jlitec.command.InterferenceCommand;
 import jlitec.ir3.codegen.Ir3CodeGen;
 import jlitec.parser.ParserWrapper;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -25,10 +30,25 @@ public class SimpleTest {
           final var astProgram = ParseTreeStaticChecker.toAst(program, klassDescriptorMap);
           final var ir3Program = Ir3CodeGen.generate(astProgram);
           final var lowerProgram = new LowerPass().pass(ir3Program);
-          Global.gen(lowerProgram);
-          final var deadcodeProgram = new DeadcodeOptimizationPass().pass(lowerProgram);
-          Global.gen(deadcodeProgram);
+          new ConstantFoldingOptimizationPass().pass(lowerProgram);
+          final var armProgram = Global.gen(lowerProgram);
+          armProgram.print(0);
+          PeepholeOptimizer.pass(armProgram).print(0);
+          final var optProgram = PassManager.performOptimizationPasses(lowerProgram);
+          final var armOptProgram = Global.gen(optProgram);
+          armOptProgram.print(0);
+          PeepholeOptimizer.pass(armOptProgram).print(0);
           Simple.gen(ir3Program);
+          for (final var method : lowerProgram.methodList()) {
+            final var flow = new FlowPass().pass(method.lowerStmtList());
+            flow.generateDot();
+            final var methodWithLive = new LivePass().pass(new MethodWithFlow(method, flow));
+            final var edges =
+                new InterferenceCommand()
+                    .buildInterferenceGraph(methodWithLive.lowerStmtWithLiveList());
+            edges.keySet().forEach(n -> n.print(0));
+            edges.values().forEach(n -> n.print(0));
+          }
         });
   }
 

@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 import jlitec.Printable;
 
 public record Program(List<Struct> structs, List<Method> methods) implements Printable {
-  static final String[] LIBRARIES = new String[] {"stdio", "stdlib", "string"};
+  static final String[] LIBRARIES = new String[] {"stdio", "stdlib", "string", "stdbool"};
 
   public Program {
     this.structs = Collections.unmodifiableList(structs);

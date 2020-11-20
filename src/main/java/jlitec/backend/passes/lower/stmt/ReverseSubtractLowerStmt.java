@@ -18,7 +18,7 @@ public record ReverseSubtractLowerStmt(Addressable dest, Addressable lhs, RvalEx
         .append(rhs.print(0))
         .append(" - ")
         .append(lhs.print(0))
-        .append(";\n");
+        .append("; \\\\ RSB \n");
     return sb.toString();
   }
 }

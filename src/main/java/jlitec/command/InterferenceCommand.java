@@ -109,7 +109,7 @@ public class InterferenceCommand implements Command {
     }
   }
 
-  private SetMultimap<Node, Node> buildInterferenceGraph(
+  public SetMultimap<Node, Node> buildInterferenceGraph(
       List<LowerStmtWithLive> lowerStmtWithLiveList) {
     final SetMultimap<Node, Node> edges = HashMultimap.create();
     for (final var stmtWithLive : lowerStmtWithLiveList) {
