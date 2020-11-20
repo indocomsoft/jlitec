@@ -12,6 +12,7 @@ import jlitec.backend.passes.lower.Program;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
@@ -115,6 +116,29 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
                     case ID -> List.of(stmt);
                   };
                 }
+                  // Give up
+                case ID -> List.of(stmt);
+              };
+            }
+            case BOOLEAN_NEQ -> {
+              final var bns = (BooleanNeqLowerStmt) stmt;
+              final var resolvedLhs = resolve(bns.lhs(), in, input.lowerStmtList());
+              final var resolvedRhs = resolve(bns.rhs(), in, input.lowerStmtList());
+              yield switch (resolvedLhs.getRvalExprType()) {
+                case STRING, NULL, BOOL -> throw new RuntimeException();
+                case INT -> switch (resolvedRhs.getRvalExprType()) {
+                  case STRING, NULL, BOOL -> throw new RuntimeException();
+                  case INT -> {
+                    final var lhs = (IntRvalExpr) resolvedLhs;
+                    final var rhs = (IntRvalExpr) resolvedRhs;
+                    yield List.of(
+                        new ImmediateLowerStmt(
+                            new Addressable.IdRval(bns.dst()),
+                            new BoolRvalExpr(lhs.value() == rhs.value())));
+                  }
+                    // Give up
+                  case ID -> List.of(stmt);
+                };
                   // Give up
                 case ID -> List.of(stmt);
               };
@@ -516,7 +540,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
         final var is = (ImmediateLowerStmt) definingStmt;
         yield Optional.of(is.value());
       }
-      case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional
+      case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT, BOOLEAN_NEQ -> Optional
           .empty();
     };
   }

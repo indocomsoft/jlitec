@@ -47,6 +47,7 @@ import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -274,6 +275,21 @@ public class Global {
                   };
               final var dest = toRegister(bs.dest(), regAllocMap);
               yield List.of(new RSBInsn(Condition.AL, false, dest, lhs, rhs));
+            }
+            case BOOLEAN_NEQ -> {
+              final var bns = (BooleanNeqLowerStmt) stmt;
+              final var dst = regAllocMap.get(bns.dst().id());
+              final var lhs = regAllocMap.get(bns.lhs().id());
+              final var rhs =
+                  switch (bns.rhs().getRvalExprType()) {
+                    case BOOL, NULL, STRING -> throw new RuntimeException();
+                    case INT -> new Operand2.Immediate(((IntRvalExpr) bns.rhs()).value());
+                    case ID -> new Operand2.Register(
+                        regAllocMap.get(((IdRvalExpr) bns.rhs()).id()));
+                  };
+              yield List.of(
+                  new SUBInsn(Condition.AL, true, dst, lhs, rhs),
+                  new MOVInsn(Condition.NE, dst, new Operand2.Immediate(1)));
             }
             case BINARY -> {
               final var bs = (BinaryLowerStmt) stmt;

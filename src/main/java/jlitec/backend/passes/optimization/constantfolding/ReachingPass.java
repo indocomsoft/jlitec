@@ -18,6 +18,7 @@ import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
@@ -186,6 +187,10 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         yield Set.of(bs.dest().toNode());
+      }
+      case BOOLEAN_NEQ -> {
+        final var bns = (BooleanNeqLowerStmt) stmt;
+        yield Set.of(new Node.Id(bns.dst()));
       }
       case REVERSE_SUBTRACT -> {
         final var rss = (ReverseSubtractLowerStmt) stmt;

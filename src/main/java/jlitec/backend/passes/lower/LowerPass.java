@@ -16,6 +16,7 @@ import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitOp;
+import jlitec.backend.passes.lower.stmt.BooleanNeqLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -377,7 +378,38 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             }
 
             yield switch (be.op()) {
-              case PLUS, AND, OR, EQ, NEQ, LT, GT, LEQ, GEQ -> {
+              case NEQ -> switch (be.lhs().getRvalExprType()) {
+                case NULL, STRING, BOOL -> throw new RuntimeException();
+                case INT -> {
+                  final var lhs = (IntRvalExpr) be.lhs();
+                  yield switch (be.rhs().getRvalExprType()) {
+                    case NULL, STRING, BOOL -> throw new RuntimeException();
+                    case INT -> {
+                      final var rhs = (IntRvalExpr) be.rhs();
+                      // Wheee constant folding
+                      yield List.of(
+                          new ImmediateLowerStmt(
+                              new Addressable.IdRval(vas.lhs()),
+                              new BoolRvalExpr(lhs.value() != rhs.value())));
+                    }
+                    case ID -> {
+                      final var rhs = (IdRvalExpr) be.rhs();
+                      yield List.of(new BooleanNeqLowerStmt(vas.lhs(), rhs, lhs));
+                    }
+                  };
+                }
+                case ID -> {
+                  final var lhs = (IdRvalExpr) be.lhs();
+                  yield switch (be.rhs().getRvalExprType()) {
+                    case NULL, STRING, BOOL -> throw new RuntimeException();
+                    case INT, ID -> {
+                      final var rhs = (IdRvalExpr) be.rhs();
+                      yield List.of(new BooleanNeqLowerStmt(vas.lhs(), lhs, rhs));
+                    }
+                  };
+                }
+              };
+              case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ -> {
                 // can be easily flipped
                 if (!(be.lhs() instanceof IdRvalExpr)) {
                   final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);

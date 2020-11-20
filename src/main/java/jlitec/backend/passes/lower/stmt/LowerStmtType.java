@@ -3,6 +3,7 @@ package jlitec.backend.passes.lower.stmt;
 public enum LowerStmtType {
   BINARY,
   BIT,
+  BOOLEAN_NEQ,
   BRANCH_LINK,
   CMP,
   FIELD_ACCESS,
