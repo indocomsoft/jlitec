@@ -54,6 +54,16 @@ public record Program(List<Struct> structs, List<Method> methods) implements Pri
               result[len - 1] = 0;
               return realloc(result, len - 1);
             }
+
+            static inline int readln_int_bool() {
+              int a;
+              char* result = NULL;
+              size_t n = 0;
+              getline(&result, &n, stdin);
+              sscanf(result, "%d", &a);
+              free(result);
+              return a;
+            }
             """)
         .append("\n");
 

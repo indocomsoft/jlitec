@@ -10,7 +10,6 @@ import jlitec.backend.arch.c.Program;
 import jlitec.backend.arch.c.Struct;
 import jlitec.backend.arch.c.Type;
 import jlitec.backend.arch.c.Var;
-import jlitec.backend.arch.c.expr.AddrExpr;
 import jlitec.backend.arch.c.expr.BinaryExpr;
 import jlitec.backend.arch.c.expr.BinaryOp;
 import jlitec.backend.arch.c.expr.BoolLiteralExpr;
@@ -95,19 +94,11 @@ public class CCodeGen {
       case READLN -> {
         final var rs = (jlitec.ir3.stmt.ReadlnStmt) stmt;
         yield switch (typeMap.get(rs.dest().id()).type()) {
-          case INT -> List.of(
-              new CallStmt(
-                  "scanf", List.of(new StringLiteralExpr("%d "), new AddrExpr(rs.dest().id()))));
+          case INT, BOOL -> List.of(
+              new VarAssignStmt(rs.dest().id(), new CallExpr("readln_int_bool", List.of())));
           case CHAR_ARRAY -> List.of(
               new VarAssignStmt(
                   rs.dest().id(), new CallExpr("getline_without_newline", List.of())));
-          case BOOL -> {
-            final var tempVar = gen.gen(Type.INT);
-            yield List.of(
-                new CallStmt(
-                    "scanf", List.of(new StringLiteralExpr("%d "), new AddrExpr(tempVar.id()))),
-                new VarAssignStmt(rs.dest().id(), new IdExpr(tempVar.id())));
-          }
           case STRUCT, VOID -> throw new RuntimeException("should have failed typecheck");
         };
       }

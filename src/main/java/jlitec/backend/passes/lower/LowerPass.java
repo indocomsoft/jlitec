@@ -41,6 +41,7 @@ import jlitec.ir3.codegen.TempVarGen;
 import jlitec.ir3.expr.BinaryExpr;
 import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.CallExpr;
+import jlitec.ir3.expr.Expr;
 import jlitec.ir3.expr.FieldExpr;
 import jlitec.ir3.expr.NewExpr;
 import jlitec.ir3.expr.UnaryExpr;
@@ -238,338 +239,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       }
       case VAR_ASSIGN -> {
         final var vas = (VarAssignStmt) stmt;
-        yield switch (vas.rhs().getExprType()) {
-          case BINARY -> {
-            final var be = (BinaryExpr) vas.rhs();
-
-            if (be.op() == BinaryOp.PLUS) {
-              final var isLhsString =
-                  switch (be.lhs().getRvalExprType()) {
-                    case BOOL, INT -> false;
-                    case STRING, NULL -> true;
-                    case ID -> typeMap.get(((IdRvalExpr) be.lhs()).id()).type() == Ir3Type.STRING;
-                  };
-              if (isLhsString) {
-                // String concatenation
-                final var result = new ArrayList<LowerStmt>();
-                final Optional<Integer> maybeLhsLength = stringyRvalExprLength(be.lhs());
-                final Optional<Integer> maybeRhsLength = stringyRvalExprLength(be.rhs());
-                final var maybeTotalLength =
-                    maybeLhsLength.flatMap(l -> maybeRhsLength.map(r -> l + r + 1));
-                // Put the correct length in R0
-                if (maybeTotalLength.isPresent()) {
-                  result.add(
-                      new ImmediateLowerStmt(
-                          new Addressable.Reg(Register.R0),
-                          new IntRvalExpr(maybeTotalLength.get())));
-                } else {
-                  if (maybeLhsLength.isPresent()) {
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(maybeLhsLength.get() + 1)));
-                  } else if (maybeRhsLength.isPresent()) {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(maybeRhsLength.get() + 1)));
-                  } else {
-                    final var lhsLengthIdRval =
-                        new IdRvalExpr(gen.gen(new Type.PrimitiveType(Ir3Type.INT)).id());
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.IdRval(lhsLengthIdRval),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(1)));
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            lhsLengthIdRval));
-                  }
-                }
-                // malloc the new string
-                result.add(new BranchLinkLowerStmt("malloc"));
-
-                // copy/concatenate lhs and rhs
-                if (maybeTotalLength.isPresent()) {
-                  // Both strings are statically defined
-                  final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                  final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                  result.add(
-                      new ImmediateLowerStmt(
-                          new Addressable.Reg(Register.R1), new StringRvalExpr(lhs + rhs)));
-                  result.add(new BranchLinkLowerStmt("strcpy"));
-                } else {
-                  if (maybeLhsLength.isPresent()) {
-                    final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                    result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.Reg(Register.R1), new StringRvalExpr(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  } else if (maybeRhsLength.isPresent()) {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                    result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.Reg(Register.R1), new StringRvalExpr(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  } else {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  }
-                }
-
-                // move from R0 to lhs of var_assign
-                result.add(
-                    new MovLowerStmt(
-                        new Addressable.IdRval(vas.lhs()), new Addressable.Reg(Register.R0)));
-
-                yield Collections.unmodifiableList(result);
-              }
-            }
-
-            if (be.op() == BinaryOp.MULT) {
-              if (be.lhs() instanceof IntRvalExpr ire
-                  && ire.value() >= 2
-                  && (ire.value() & (ire.value() - 1)) == 0) {
-                // lhs is power of 2
-                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BitLowerStmt(
-                            BitOp.LSL,
-                            vas.lhs(),
-                            rhsIdRvalExprChunk.idRvalExpr,
-                            Integer.numberOfTrailingZeros(ire.value())))
-                    .build();
-              }
-              if (be.rhs() instanceof IntRvalExpr ire
-                  && ire.value() >= 2
-                  && (ire.value() & (ire.value() - 1)) == 0) {
-                // rhs is power of 2
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BitLowerStmt(
-                            BitOp.LSL,
-                            vas.lhs(),
-                            lhsIdRvalExprChunk.idRvalExpr,
-                            Integer.numberOfTrailingZeros(ire.value())))
-                    .build();
-              }
-            }
-
-            yield switch (be.op()) {
-              case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ, NEQ -> {
-                // can be easily flipped
-                if (!(be.lhs() instanceof IdRvalExpr)) {
-                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                  yield ImmutableList.<LowerStmt>builder()
-                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                      .add(
-                          new BinaryLowerStmt(
-                              be.op().lhsRhsFlip(),
-                              new Addressable.IdRval(vas.lhs()),
-                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
-                              be.lhs()))
-                      .build();
-                }
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BinaryLowerStmt(
-                            be.op(),
-                            new Addressable.IdRval(vas.lhs()),
-                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                            be.rhs()))
-                    .build();
-              }
-              case MINUS -> {
-                if (!(be.lhs() instanceof IdRvalExpr)) {
-                  final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                  yield ImmutableList.<LowerStmt>builder()
-                      .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                      .add(
-                          new ReverseSubtractLowerStmt(
-                              new Addressable.IdRval(vas.lhs()),
-                              new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
-                              be.lhs()))
-                      .build();
-                }
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BinaryLowerStmt(
-                            be.op(),
-                            new Addressable.IdRval(vas.lhs()),
-                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                            be.rhs()))
-                    .build();
-              }
-              case MULT, DIV -> {
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new RegBinaryLowerStmt(
-                            be.op(),
-                            new Addressable.IdRval(vas.lhs()),
-                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                            new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
-                    .build();
-              }
-            };
-          }
-          case UNARY -> {
-            final var ue = (UnaryExpr) vas.rhs();
-            yield switch (ue.op()) {
-              case NOT -> switch (ue.rval().getRvalExprType()) {
-                case INT, NULL, STRING -> throw new RuntimeException();
-                case BOOL -> {
-                  final var bre = (BoolRvalExpr) ue.rval();
-                  yield List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(vas.lhs()), new BoolRvalExpr(!bre.value())));
-                }
-                case ID -> {
-                  final var ire = (IdRvalExpr) ue.rval();
-                  yield List.of(new UnaryLowerStmt(ue.op(), vas.lhs(), ire));
-                }
-              };
-              case NEGATIVE -> switch (ue.rval().getRvalExprType()) {
-                case BOOL, NULL, STRING -> throw new RuntimeException();
-                case INT -> {
-                  final var ire = (IntRvalExpr) ue.rval();
-                  yield List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(vas.lhs()), new IntRvalExpr(-ire.value())));
-                }
-                case ID -> {
-                  final var ire = (IdRvalExpr) ue.rval();
-                  yield List.of(new UnaryLowerStmt(ue.op(), vas.lhs(), ire));
-                }
-              };
-            };
-          }
-          case FIELD -> {
-            final var fe = (FieldExpr) vas.rhs();
-            yield List.of(new FieldAccessLowerStmt(vas.lhs(), fe.target(), fe.field()));
-          }
-          case RVAL -> {
-            final var re = (RvalExpr) vas.rhs();
-            yield switch (re.getRvalExprType()) {
-              case ID -> List.of(
-                  new MovLowerStmt(
-                      new Addressable.IdRval(vas.lhs()), new Addressable.IdRval((IdRvalExpr) re)));
-              case STRING, NULL, INT, BOOL -> List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(vas.lhs()), re));
-            };
-          }
-          case CALL -> {
-            final var ce = (CallExpr) vas.rhs();
-            final var result = new ArrayList<LowerStmt>();
-            final var theThis = (IdRvalExpr) ce.args().get(0);
-            final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
-            final var data = cnameToData.get(thisCname);
-            if (data.sizeof() != 0) {
-              result.add(
-                  new MovLowerStmt(
-                      new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
-            }
-            for (int i = 1; i < 4 && i < ce.args().size(); i++) {
-              final var arg = ce.args().get(i);
-              if (arg.getRvalExprType() == RvalExprType.ID) {
-                result.add(
-                    new MovLowerStmt(
-                        new Addressable.Reg(Register.fromInt(i)),
-                        new Addressable.IdRval((IdRvalExpr) arg)));
-              } else {
-                result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
-              }
-            }
-            final List<RvalExpr> stackArgs =
-                ce.args().size() > 4 ? ce.args().subList(4, ce.args().size()) : List.of();
-            if (!stackArgs.isEmpty()) {
-              result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
-            }
-            result.add(new BranchLinkLowerStmt(ce.target().id()));
-            if (!stackArgs.isEmpty()) {
-              result.add(
-                  new PopStackLowerStmt(stackArgs.size() + ((stackArgs.size() & 1) == 1 ? 1 : 0)));
-            }
-            result.add(
-                new MovLowerStmt(
-                    new Addressable.IdRval(vas.lhs()), new Addressable.Reg(Register.R0)));
-            yield Collections.unmodifiableList(result);
-          }
-          case NEW -> {
-            final var ne = (NewExpr) vas.rhs();
-            final var data = cnameToData.get(ne.cname());
-            // Do not generate malloc(0)
-            if (data.sizeof() == 0) {
-              yield List.of();
-            }
-            yield List.of(
-                new ImmediateLowerStmt(
-                    new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
-                new BranchLinkLowerStmt("malloc"),
-                new MovLowerStmt(
-                    new Addressable.IdRval(vas.lhs()), new Addressable.Reg(Register.R0)));
-          }
-        };
+        yield genAssignToIdRvalExpr(
+            vas.rhs(), vas.lhs(), typeMap.get(vas.lhs().id()), typeMap, gen, cnameToData);
       }
       case FIELD_ASSIGN -> {
         final var fas = (FieldAssignStmt) stmt;
@@ -582,363 +253,17 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 .type();
         final var tempVar = gen.gen(fieldType);
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield switch (fas.rhs().getExprType()) {
-          case BINARY -> {
-            final var be = (BinaryExpr) fas.rhs();
-
-            if (be.op() == BinaryOp.PLUS) {
-              final var isLhsString =
-                  switch (be.lhs().getRvalExprType()) {
-                    case BOOL, INT -> false;
-                    case STRING, NULL -> true;
-                    case ID -> typeMap.get(((IdRvalExpr) be.lhs()).id()).type() == Ir3Type.STRING;
-                  };
-              if (isLhsString) {
-                // String concatenation
-                final var result = new ArrayList<LowerStmt>();
-                final Optional<Integer> maybeLhsLength = stringyRvalExprLength(be.lhs());
-                final Optional<Integer> maybeRhsLength = stringyRvalExprLength(be.rhs());
-                final var maybeTotalLength =
-                    maybeLhsLength.flatMap(l -> maybeRhsLength.map(r -> l + r + 1));
-                // Put the correct length in R0
-                if (maybeTotalLength.isPresent()) {
-                  result.add(
-                      new ImmediateLowerStmt(
-                          new Addressable.Reg(Register.R0),
-                          new IntRvalExpr(maybeTotalLength.get())));
-                } else {
-                  if (maybeLhsLength.isPresent()) {
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(maybeLhsLength.get() + 1)));
-                  } else if (maybeRhsLength.isPresent()) {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(maybeRhsLength.get() + 1)));
-                  } else {
-                    final var lhsLengthIdRval =
-                        new IdRvalExpr(gen.gen(new Type.PrimitiveType(Ir3Type.INT)).id());
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    // Plus 1 to account for the null
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.IdRval(lhsLengthIdRval),
-                            new Addressable.Reg(Register.R0),
-                            new IntRvalExpr(1)));
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strlen"));
-                    result.add(
-                        new BinaryLowerStmt(
-                            BinaryOp.PLUS,
-                            new Addressable.Reg(Register.R0),
-                            new Addressable.Reg(Register.R0),
-                            lhsLengthIdRval));
-                  }
-                }
-                // malloc the new string
-                result.add(new BranchLinkLowerStmt("malloc"));
-
-                // copy/concatenate lhs and rhs
-                if (maybeTotalLength.isPresent()) {
-                  // Both strings are statically defined
-                  final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                  final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                  result.add(
-                      new ImmediateLowerStmt(
-                          new Addressable.Reg(Register.R1), new StringRvalExpr(lhs + rhs)));
-                  result.add(new BranchLinkLowerStmt("strcpy"));
-                } else {
-                  if (maybeLhsLength.isPresent()) {
-                    final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                    result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.Reg(Register.R1), new StringRvalExpr(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  } else if (maybeRhsLength.isPresent()) {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
-                    result.add(
-                        new ImmediateLowerStmt(
-                            new Addressable.Reg(Register.R1), new StringRvalExpr(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  } else {
-                    final var lhs = (IdRvalExpr) be.lhs();
-                    final var rhs = (IdRvalExpr) be.rhs();
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                    result.add(new BranchLinkLowerStmt("strcpy"));
-                    result.add(
-                        new MovLowerStmt(
-                            new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                    result.add(new BranchLinkLowerStmt("strcat"));
-                  }
-                }
-
-                // store R0 to field
-                result.add(
-                    new FieldAssignLowerStmt(
-                        fas.lhsId(), fas.lhsField(), new Addressable.Reg(Register.R0)));
-
-                yield Collections.unmodifiableList(result);
-              }
-            }
-
-            if (be.op() == BinaryOp.MULT) {
-              if (be.lhs() instanceof IntRvalExpr ire
-                  && ire.value() >= 2
-                  && (ire.value() & (ire.value() - 1)) == 0) {
-                // lhs is power of 2
-                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BitLowerStmt(
-                            BitOp.LSL,
-                            idRvalExpr,
-                            rhsIdRvalExprChunk.idRvalExpr,
-                            Integer.numberOfTrailingZeros(ire.value())))
-                    .add(
-                        new FieldAssignLowerStmt(
-                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                    .build();
-              }
-              if (be.rhs() instanceof IntRvalExpr ire
-                  && ire.value() >= 2
-                  && (ire.value() & (ire.value() - 1)) == 0) {
-                // rhs is power of 2
-                final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new BitLowerStmt(
-                            BitOp.LSL,
-                            idRvalExpr,
-                            lhsIdRvalExprChunk.idRvalExpr,
-                            Integer.numberOfTrailingZeros(ire.value())))
-                    .add(
-                        new FieldAssignLowerStmt(
-                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                    .build();
-              }
-            }
-
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-
-            yield switch (be.op()) {
-              case LT, GT, LEQ, GEQ, EQ, NEQ, OR, AND, PLUS, MINUS -> ImmutableList
-                  .<LowerStmt>builder()
-                  .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                  .add(
-                      new BinaryLowerStmt(
-                          be.op(),
-                          new Addressable.IdRval(idRvalExpr),
-                          new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                          be.rhs()))
-                  .add(
-                      new FieldAssignLowerStmt(
-                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                  .build();
-              case MULT, DIV -> {
-                final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
-                yield ImmutableList.<LowerStmt>builder()
-                    .addAll(lhsIdRvalExprChunk.lowerStmtList)
-                    .addAll(rhsIdRvalExprChunk.lowerStmtList)
-                    .add(
-                        new RegBinaryLowerStmt(
-                            be.op(),
-                            new Addressable.IdRval(idRvalExpr),
-                            new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
-                            new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
-                    .add(
-                        new FieldAssignLowerStmt(
-                            fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
-                    .build();
-              }
-            };
-          }
-          case UNARY -> {
-            final var ue = (UnaryExpr) fas.rhs();
-
-            yield switch (ue.op()) {
-              case NOT -> switch (ue.rval().getRvalExprType()) {
-                case INT, NULL, STRING -> throw new RuntimeException();
-                case BOOL -> {
-                  final var bre = (BoolRvalExpr) ue.rval();
-                  yield List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(idRvalExpr), new BoolRvalExpr(!bre.value())),
-                      new FieldAssignLowerStmt(
-                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-                }
-                case ID -> {
-                  final var ire = (IdRvalExpr) ue.rval();
-                  yield List.of(
-                      new UnaryLowerStmt(ue.op(), idRvalExpr, ire),
-                      new FieldAssignLowerStmt(
-                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-                }
-              };
-              case NEGATIVE -> switch (ue.rval().getRvalExprType()) {
-                case BOOL, NULL, STRING -> throw new RuntimeException();
-                case INT -> {
-                  final var ire = (IntRvalExpr) ue.rval();
-                  yield List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(idRvalExpr), new IntRvalExpr(-ire.value())),
-                      new FieldAssignLowerStmt(
-                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-                }
-                case ID -> {
-                  final var ire = (IdRvalExpr) ue.rval();
-                  yield List.of(
-                      new UnaryLowerStmt(ue.op(), idRvalExpr, ire),
-                      new FieldAssignLowerStmt(
-                          fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-                }
-              };
-            };
-          }
-          case FIELD -> {
-            final var fe = (FieldExpr) fas.rhs();
-            yield List.of(
-                new FieldAccessLowerStmt(idRvalExpr, fe.target(), fe.field()),
+        yield ImmutableList.<LowerStmt>builder()
+            .addAll(
+                genAssignToIdRvalExpr(fas.rhs(), idRvalExpr, fieldType, typeMap, gen, cnameToData))
+            .add(
                 new FieldAssignLowerStmt(
-                    fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-          }
-          case RVAL -> {
-            final var re = (RvalExpr) fas.rhs();
-            yield switch (re.getRvalExprType()) {
-              case ID -> List.of(
-                  new FieldAssignLowerStmt(
-                      fas.lhsId(), fas.lhsField(), new Addressable.IdRval((IdRvalExpr) re)));
-              case STRING, NULL, INT, BOOL -> List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), re),
-                  new FieldAssignLowerStmt(
-                      fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-            };
-          }
-          case CALL -> {
-            final var ce = (CallExpr) fas.rhs();
-            final var result = new ArrayList<LowerStmt>();
-            final var theThis = (IdRvalExpr) ce.args().get(0);
-            final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
-            final var data = cnameToData.get(thisCname);
-            if (data.sizeof() != 0) {
-              result.add(
-                  new MovLowerStmt(
-                      new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
-            }
-            for (int i = 1; i < 4 && i < ce.args().size(); i++) {
-              final var arg = ce.args().get(i);
-              if (arg.getRvalExprType() == RvalExprType.ID) {
-                result.add(
-                    new MovLowerStmt(
-                        new Addressable.Reg(Register.fromInt(i)),
-                        new Addressable.IdRval((IdRvalExpr) arg)));
-              } else {
-                result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
-              }
-            }
-            final List<RvalExpr> stackArgs =
-                ce.args().size() > 4 ? ce.args().subList(4, ce.args().size()) : List.of();
-            if (!stackArgs.isEmpty()) {
-              result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
-            }
-            result.add(new BranchLinkLowerStmt(ce.target().id()));
-            if (!stackArgs.isEmpty()) {
-              result.add(
-                  new PopStackLowerStmt(stackArgs.size() + ((stackArgs.size() & 1) == 1 ? 1 : 0)));
-            }
-            result.add(
-                new MovLowerStmt(
-                    new Addressable.IdRval(idRvalExpr), new Addressable.Reg(Register.R0)));
-            result.add(
-                new FieldAssignLowerStmt(
-                    fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-            yield Collections.unmodifiableList(result);
-          }
-          case NEW -> {
-            final var ne = (NewExpr) fas.rhs();
-            final var data = cnameToData.get(ne.cname());
-            yield List.of(
-                new ImmediateLowerStmt(
-                    new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
-                new BranchLinkLowerStmt("malloc"),
-                new MovLowerStmt(
-                    new Addressable.IdRval(idRvalExpr), new Addressable.Reg(Register.R0)),
-                new FieldAssignLowerStmt(
-                    fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)));
-          }
-        };
+                    fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
+            .build();
       }
       case CALL -> {
         final var cs = (CallStmt) stmt;
-        final var result = new ArrayList<LowerStmt>();
-        final var theThis = (IdRvalExpr) cs.args().get(0);
-        final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
-        final var data = cnameToData.get(thisCname);
-        if (data.sizeof() != 0) {
-          result.add(
-              new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
-        }
-        for (int i = 1; i < 4 && i < cs.args().size(); i++) {
-          final var arg = cs.args().get(i);
-          if (arg.getRvalExprType() == RvalExprType.ID) {
-            result.add(
-                new MovLowerStmt(
-                    new Addressable.Reg(Register.fromInt(i)),
-                    new Addressable.IdRval((IdRvalExpr) arg)));
-          } else {
-            result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
-          }
-        }
-        final List<RvalExpr> stackArgs =
-            cs.args().size() > 4 ? cs.args().subList(4, cs.args().size()) : List.of();
-        if (!stackArgs.isEmpty()) {
-          result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
-        }
-        result.add(new BranchLinkLowerStmt(cs.target().id()));
-        if (!stackArgs.isEmpty()) {
-          result.add(
-              new PopStackLowerStmt(stackArgs.size() + ((stackArgs.size() & 1) == 1 ? 1 : 0)));
-        }
-        yield Collections.unmodifiableList(result);
+        yield genCall(cs.args(), cs.target().id(), typeMap, cnameToData, gen);
       }
       case RETURN -> {
         final var rs = (ReturnStmt) stmt;
@@ -1037,6 +362,350 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             List.of(
                 new ImmediateLowerStmt(
                     new Addressable.IdRval(idRvalExpr), new StringRvalExpr(""))));
+      }
+    };
+  }
+
+  private static List<LowerStmt> genCall(
+      List<RvalExpr> args,
+      String target,
+      Map<String, Type> typeMap,
+      Map<String, Data> cnameToData,
+      TempVarGen gen) {
+    final var result = new ArrayList<LowerStmt>();
+    final var theThis = (IdRvalExpr) args.get(0);
+    final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
+    final var data = cnameToData.get(thisCname);
+    if (data.sizeof() != 0) {
+      result.add(
+          new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
+    }
+    for (int i = 1; i < 4 && i < args.size(); i++) {
+      final var arg = args.get(i);
+      if (arg.getRvalExprType() == RvalExprType.ID) {
+        result.add(
+            new MovLowerStmt(
+                new Addressable.Reg(Register.fromInt(i)),
+                new Addressable.IdRval((IdRvalExpr) arg)));
+      } else {
+        result.add(new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), arg));
+      }
+    }
+    final List<RvalExpr> stackArgs = args.size() > 4 ? args.subList(4, args.size()) : List.of();
+    if (!stackArgs.isEmpty()) {
+      result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
+    }
+    result.add(new BranchLinkLowerStmt(target));
+    if (!stackArgs.isEmpty()) {
+      result.add(new PopStackLowerStmt(stackArgs.size() + ((stackArgs.size() & 1) == 1 ? 1 : 0)));
+    }
+    return Collections.unmodifiableList(result);
+  }
+
+  private static List<LowerStmt> genAssignToIdRvalExpr(
+      Expr expr,
+      IdRvalExpr dest,
+      Type destType,
+      Map<String, Type> typeMap,
+      TempVarGen gen,
+      Map<String, Data> cnameToData) {
+    return switch (expr.getExprType()) {
+      case BINARY -> {
+        final var be = (BinaryExpr) expr;
+
+        if (be.op() == BinaryOp.PLUS) {
+          final var isString = destType.type() == Ir3Type.STRING;
+          if (isString) {
+            // String concatenation
+            final var result = new ArrayList<LowerStmt>();
+            final Optional<Integer> maybeLhsLength = stringyRvalExprLength(be.lhs());
+            final Optional<Integer> maybeRhsLength = stringyRvalExprLength(be.rhs());
+            final var maybeTotalLength =
+                maybeLhsLength.flatMap(l -> maybeRhsLength.map(r -> l + r + 1));
+            // Put the correct length in R0
+            if (maybeTotalLength.isPresent()) {
+              result.add(
+                  new ImmediateLowerStmt(
+                      new Addressable.Reg(Register.R0), new IntRvalExpr(maybeTotalLength.get())));
+            } else {
+              if (maybeLhsLength.isPresent()) {
+                final var rhs = (IdRvalExpr) be.rhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
+                result.add(new BranchLinkLowerStmt("strlen"));
+                // Plus 1 to account for the null
+                result.add(
+                    new BinaryLowerStmt(
+                        BinaryOp.PLUS,
+                        new Addressable.Reg(Register.R0),
+                        new Addressable.Reg(Register.R0),
+                        new IntRvalExpr(maybeLhsLength.get() + 1)));
+              } else if (maybeRhsLength.isPresent()) {
+                final var lhs = (IdRvalExpr) be.lhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
+                result.add(new BranchLinkLowerStmt("strlen"));
+                // Plus 1 to account for the null
+                result.add(
+                    new BinaryLowerStmt(
+                        BinaryOp.PLUS,
+                        new Addressable.Reg(Register.R0),
+                        new Addressable.Reg(Register.R0),
+                        new IntRvalExpr(maybeRhsLength.get() + 1)));
+              } else {
+                final var lhsLengthIdRval =
+                    new IdRvalExpr(gen.gen(new Type.PrimitiveType(Ir3Type.INT)).id());
+                final var lhs = (IdRvalExpr) be.lhs();
+                final var rhs = (IdRvalExpr) be.rhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
+                result.add(new BranchLinkLowerStmt("strlen"));
+                // Plus 1 to account for the null
+                result.add(
+                    new BinaryLowerStmt(
+                        BinaryOp.PLUS,
+                        new Addressable.IdRval(lhsLengthIdRval),
+                        new Addressable.Reg(Register.R0),
+                        new IntRvalExpr(1)));
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
+                result.add(new BranchLinkLowerStmt("strlen"));
+                result.add(
+                    new BinaryLowerStmt(
+                        BinaryOp.PLUS,
+                        new Addressable.Reg(Register.R0),
+                        new Addressable.Reg(Register.R0),
+                        lhsLengthIdRval));
+              }
+            }
+            // malloc the new string
+            result.add(new BranchLinkLowerStmt("malloc"));
+
+            // copy/concatenate lhs and rhs
+            if (maybeTotalLength.isPresent()) {
+              // Both strings are statically defined
+              final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
+              final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
+              result.add(
+                  new ImmediateLowerStmt(
+                      new Addressable.Reg(Register.R1), new StringRvalExpr(lhs + rhs)));
+              result.add(new BranchLinkLowerStmt("strcpy"));
+            } else {
+              if (maybeLhsLength.isPresent()) {
+                final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
+                result.add(
+                    new ImmediateLowerStmt(
+                        new Addressable.Reg(Register.R1), new StringRvalExpr(lhs)));
+                result.add(new BranchLinkLowerStmt("strcpy"));
+                final var rhs = (IdRvalExpr) be.rhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
+                result.add(new BranchLinkLowerStmt("strcat"));
+              } else if (maybeRhsLength.isPresent()) {
+                final var lhs = (IdRvalExpr) be.lhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
+                result.add(new BranchLinkLowerStmt("strcpy"));
+                final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
+                result.add(
+                    new ImmediateLowerStmt(
+                        new Addressable.Reg(Register.R1), new StringRvalExpr(rhs)));
+                result.add(new BranchLinkLowerStmt("strcat"));
+              } else {
+                final var lhs = (IdRvalExpr) be.lhs();
+                final var rhs = (IdRvalExpr) be.rhs();
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
+                result.add(new BranchLinkLowerStmt("strcpy"));
+                result.add(
+                    new MovLowerStmt(
+                        new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
+                result.add(new BranchLinkLowerStmt("strcat"));
+              }
+            }
+
+            // move from R0 to lhs of var_assign
+            result.add(
+                new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)));
+
+            yield Collections.unmodifiableList(result);
+          }
+        }
+
+        if (be.op() == BinaryOp.MULT) {
+          if (be.lhs() instanceof IntRvalExpr ire
+              && ire.value() >= 2
+              && (ire.value() & (ire.value() - 1)) == 0) {
+            // lhs is power of 2
+            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+            yield ImmutableList.<LowerStmt>builder()
+                .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                .add(
+                    new BitLowerStmt(
+                        BitOp.LSL,
+                        dest,
+                        rhsIdRvalExprChunk.idRvalExpr,
+                        Integer.numberOfTrailingZeros(ire.value())))
+                .build();
+          }
+          if (be.rhs() instanceof IntRvalExpr ire
+              && ire.value() >= 2
+              && (ire.value() & (ire.value() - 1)) == 0) {
+            // rhs is power of 2
+            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            yield ImmutableList.<LowerStmt>builder()
+                .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                .add(
+                    new BitLowerStmt(
+                        BitOp.LSL,
+                        dest,
+                        lhsIdRvalExprChunk.idRvalExpr,
+                        Integer.numberOfTrailingZeros(ire.value())))
+                .build();
+          }
+        }
+
+        yield switch (be.op()) {
+          case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ, NEQ -> {
+            // can be easily flipped
+            if (!(be.lhs() instanceof IdRvalExpr)) {
+              final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+              yield ImmutableList.<LowerStmt>builder()
+                  .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                  .add(
+                      new BinaryLowerStmt(
+                          be.op().lhsRhsFlip(),
+                          new Addressable.IdRval(dest),
+                          new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
+                          be.lhs()))
+                  .build();
+            }
+            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            yield ImmutableList.<LowerStmt>builder()
+                .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                .add(
+                    new BinaryLowerStmt(
+                        be.op(),
+                        new Addressable.IdRval(dest),
+                        new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                        be.rhs()))
+                .build();
+          }
+          case MINUS -> {
+            if (!(be.lhs() instanceof IdRvalExpr)) {
+              final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+              yield ImmutableList.<LowerStmt>builder()
+                  .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                  .add(
+                      new ReverseSubtractLowerStmt(
+                          new Addressable.IdRval(dest),
+                          new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr),
+                          be.lhs()))
+                  .build();
+            }
+            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            yield ImmutableList.<LowerStmt>builder()
+                .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                .add(
+                    new BinaryLowerStmt(
+                        be.op(),
+                        new Addressable.IdRval(dest),
+                        new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                        be.rhs()))
+                .build();
+          }
+          case MULT, DIV -> {
+            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+            yield ImmutableList.<LowerStmt>builder()
+                .addAll(lhsIdRvalExprChunk.lowerStmtList)
+                .addAll(rhsIdRvalExprChunk.lowerStmtList)
+                .add(
+                    new RegBinaryLowerStmt(
+                        be.op(),
+                        new Addressable.IdRval(dest),
+                        new Addressable.IdRval(lhsIdRvalExprChunk.idRvalExpr),
+                        new Addressable.IdRval(rhsIdRvalExprChunk.idRvalExpr)))
+                .build();
+          }
+        };
+      }
+      case UNARY -> {
+        final var ue = (UnaryExpr) expr;
+        yield switch (ue.op()) {
+          case NOT -> switch (ue.rval().getRvalExprType()) {
+            case INT, NULL, STRING -> throw new RuntimeException();
+            case BOOL -> {
+              final var bre = (BoolRvalExpr) ue.rval();
+              yield List.of(
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(dest), new BoolRvalExpr(!bre.value())));
+            }
+            case ID -> {
+              final var ire = (IdRvalExpr) ue.rval();
+              yield List.of(new UnaryLowerStmt(ue.op(), dest, ire));
+            }
+          };
+          case NEGATIVE -> switch (ue.rval().getRvalExprType()) {
+            case BOOL, NULL, STRING -> throw new RuntimeException();
+            case INT -> {
+              final var ire = (IntRvalExpr) ue.rval();
+              yield List.of(
+                  new ImmediateLowerStmt(
+                      new Addressable.IdRval(dest), new IntRvalExpr(-ire.value())));
+            }
+            case ID -> {
+              final var ire = (IdRvalExpr) ue.rval();
+              yield List.of(new UnaryLowerStmt(ue.op(), dest, ire));
+            }
+          };
+        };
+      }
+      case FIELD -> {
+        final var fe = (FieldExpr) expr;
+        yield List.of(new FieldAccessLowerStmt(dest, fe.target(), fe.field()));
+      }
+      case RVAL -> {
+        final var re = (RvalExpr) expr;
+        yield switch (re.getRvalExprType()) {
+          case ID -> List.of(
+              new MovLowerStmt(
+                  new Addressable.IdRval(dest), new Addressable.IdRval((IdRvalExpr) re)));
+          case STRING, INT, BOOL -> List.of(
+              new ImmediateLowerStmt(new Addressable.IdRval(dest), re));
+          case NULL -> {
+            // Null for classes is different from for strings
+            if (destType instanceof Type.KlassType) {
+              yield List.of(
+                  new ImmediateLowerStmt(new Addressable.IdRval(dest), new IntRvalExpr(0)));
+            }
+            yield List.of(new ImmediateLowerStmt(new Addressable.IdRval(dest), re));
+          }
+        };
+      }
+      case CALL -> {
+        final var ce = (CallExpr) expr;
+        yield genCall(ce.args(), ce.target().id(), typeMap, cnameToData, gen);
+      }
+      case NEW -> {
+        final var ne = (NewExpr) expr;
+        final var data = cnameToData.get(ne.cname());
+        // Do not generate malloc(0)
+        if (data.sizeof() == 0) {
+          yield List.of();
+        }
+        yield List.of(
+            new ImmediateLowerStmt(
+                new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
+            new BranchLinkLowerStmt("malloc"),
+            new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)));
       }
     };
   }

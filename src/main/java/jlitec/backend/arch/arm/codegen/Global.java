@@ -571,18 +571,33 @@ public class Global {
    * In ASM: <code>
    * readln_int_bool:
    *   stmfd sp!, {r4, lr}
-   *   sub sp, sp, #8
-   *   ldr r0, .PERCENTD
+   *   sub sp, sp, #16
+   *   mov r0, #0
+   *   str r0, [sp, #8]
+   *   str r0, [sp, #4]
+   *   ldr r0, .Lstdin
+   *   ldr r2, [r0]
+   *   add r0, sp, #8
    *   add r1, sp, #4
-   *   bl scanf
-   *   ldr r0, [sp, #4]
-   *   add sp, sp, #8
+   *   bl getline
+   *   ldr r0, [sp, #8]
+   *   ldr r1, .PERCENTD
+   *   add r2, sp, #12
+   *   bl sscanf
+   *   ldr r0, [sp, #8]
+   *   bl free
+   *   ldr r0, [sp, #12]
+   *   add sp, sp, #16
    *   ldmfd sp!, {r4, pc}
    * </code> In C: <code>
    * int readln_int_bool()
    * {
    *   int a;
-   *   scanf("%d ", &a);
+   *   char* result = NULL;
+   *   size_t n = 0;
+   *   getline(&result, &n, stdin);
+   *   sscanf(result, "%d", &a);
+   *   free(result);
    *   return a;
    * }
    * </code>
@@ -593,24 +608,60 @@ public class Global {
     addFunctionPreamble(insnList, "readln_int_bool");
     insnList.add(new STMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.LR), true));
     insnList.add(
-        new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+        new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(16)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Immediate(0)));
     insnList.add(
-        new LDRInsn(
+        new STRInsn(
             Condition.AL,
             Size.WORD,
             Register.R0,
-            new MemoryAddress.PCRelative(stringGen.gen("%d "))));
+            new MemoryAddress.ImmediateOffset(Register.SP, 8)));
     insnList.add(
-        new ADDInsn(Condition.AL, false, Register.R1, Register.SP, new Operand2.Immediate(4)));
-    insnList.add(new BLInsn(Condition.AL, "scanf"));
-    insnList.add(
-        new LDRInsn(
+        new STRInsn(
             Condition.AL,
             Size.WORD,
             Register.R0,
             new MemoryAddress.ImmediateOffset(Register.SP, 4)));
     insnList.add(
-        new ADDInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+        new LDRInsn(Condition.AL, Size.WORD, Register.R0, new MemoryAddress.PCRelative(".Lstdin")));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL, Size.WORD, Register.R2, new MemoryAddress.ImmediateOffset(Register.R0)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R0, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R1, Register.SP, new Operand2.Immediate(4)));
+    insnList.add(new BLInsn(Condition.AL, "getline"));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.ImmediateOffset(Register.SP, 8)));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R1,
+            new MemoryAddress.PCRelative(stringGen.gen("%d"))));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R2, Register.SP, new Operand2.Immediate(12)));
+    insnList.add(new BLInsn(Condition.AL, "sscanf"));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.ImmediateOffset(Register.SP, 8)));
+    insnList.add(new BLInsn(Condition.AL, "free"));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.ImmediateOffset(Register.SP, 12)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(16)));
     insnList.add(new LDMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.PC), true));
   }
 
