@@ -5,6 +5,11 @@ class Main {
         Bool c;
         Bool d;
         X x;
+        x = new X();
+        a = true;
+        b = true;
+        c = x.x();
+        d = x.x();
         if (a || b) {
             println("1");
         } else { a = a; }
@@ -17,11 +22,13 @@ class Main {
             println("3");
         } else { a = a; }
 
-        while (a || b || c || d) {
+        while (a && b && c && d) {
+            c = false;
             println("4");
         }
 
-        if (new X().x.x.x.y || a || x.y(true) || x.a().x.a().y && b && c) {
+        x.getReady();
+        if (x.x.x.x.y || a || x.y(true) || x.a().x.a().y && b && c) {
             println("5");
         } else { a = a; }
     }
@@ -30,6 +37,17 @@ class Main {
 class X {
     X x;
     Bool y;
+    Void getReady() {
+      y = true;
+      x = new X();
+      x.y = true;
+      x.x = new X();
+      x.x.y = true;
+      x.x.x = new X();
+      x.x.x.y = true;
+      x.x.x.x = new X();
+      x.x.x.x.y = true;
+    }
     Bool x() {
         return true;
     }

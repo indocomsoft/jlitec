@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import jlitec.backend.passes.Pass;
@@ -70,11 +71,13 @@ public class FlowPass implements Pass<List<LowerStmt>, FlowGraph> {
         case GOTO -> {
           final var gs = (GotoLowerStmt) lastStmt;
           final var destBlock = labelToBlock.get(gs.dest());
+          Objects.requireNonNull(destBlock);
           edges.put(i, destBlock);
         }
         case CMP -> {
           final var cs = (CmpLowerStmt) lastStmt;
           final var destBlock = labelToBlock.get(cs.dest());
+          Objects.requireNonNull(destBlock);
           edges.put(i, destBlock);
           if (i + 1 < blocks.size()) {
             edges.put(i, i + 1);

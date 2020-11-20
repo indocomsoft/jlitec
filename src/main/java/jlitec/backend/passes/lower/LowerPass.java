@@ -156,21 +156,20 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           }
           case RVAL -> {
             final var re = (RvalExpr) condition;
-            final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
-            final var idRvalExpr = new IdRvalExpr(tempVar.id());
             yield switch (re.getRvalExprType()) {
               case ID -> {
                 final var ire = (IdRvalExpr) re;
                 yield List.of(
-                    new MovLowerStmt(
-                        new Addressable.IdRval(idRvalExpr), new Addressable.IdRval(ire)),
+                    new CmpLowerStmt(BinaryOp.EQ, ire, new BoolRvalExpr(true), cs.dest().label()));
+              }
+              case STRING, NULL, INT, BOOL -> {
+                final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                yield List.of(
+                    new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), re),
                     new CmpLowerStmt(
                         BinaryOp.EQ, idRvalExpr, new BoolRvalExpr(true), cs.dest().label()));
               }
-              case STRING, NULL, INT, BOOL -> List.of(
-                  new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), re),
-                  new CmpLowerStmt(
-                      BinaryOp.EQ, idRvalExpr, new BoolRvalExpr(true), cs.dest().label()));
             };
           }
           case NEW, CALL, FIELD, UNARY -> throw new RuntimeException(
