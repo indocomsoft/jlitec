@@ -26,12 +26,12 @@ import jlitec.backend.arch.arm.insn.ANDInsn;
 import jlitec.backend.arch.arm.insn.BInsn;
 import jlitec.backend.arch.arm.insn.BLInsn;
 import jlitec.backend.arch.arm.insn.CMPInsn;
+import jlitec.backend.arch.arm.insn.EORInsn;
 import jlitec.backend.arch.arm.insn.LDMFDInsn;
 import jlitec.backend.arch.arm.insn.LDRInsn;
 import jlitec.backend.arch.arm.insn.LabelInsn;
 import jlitec.backend.arch.arm.insn.MOVInsn;
 import jlitec.backend.arch.arm.insn.MULInsn;
-import jlitec.backend.arch.arm.insn.MVNInsn;
 import jlitec.backend.arch.arm.insn.ORRInsn;
 import jlitec.backend.arch.arm.insn.RSBInsn;
 import jlitec.backend.arch.arm.insn.SDIVInsn;
@@ -762,7 +762,8 @@ public class Simple {
         final var loadInsn = loadRvalExpr(ue.rval(), Register.R4, stackDesc, stringGen);
         final var unaryInsn =
             switch (ue.op()) {
-              case NOT -> new MVNInsn(Condition.AL, dest, new Operand2.Register(Register.R4));
+              case NOT -> new EORInsn(
+                  Condition.AL, false, dest, Register.R4, new Operand2.Immediate(1));
               case NEGATIVE -> new RSBInsn(
                   Condition.AL, false, dest, Register.R4, new Operand2.Immediate(0));
             };
