@@ -115,7 +115,7 @@ class Fraction {
     if (this.numerator >= 0) {
       println("-");
     } else {
-      println(" -");
+      println("--");
     }
     println(this.denominator);
     println(null);
