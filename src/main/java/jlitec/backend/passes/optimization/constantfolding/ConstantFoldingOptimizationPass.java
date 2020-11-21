@@ -13,7 +13,9 @@ import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.Program;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BinaryWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BitOp;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
@@ -23,6 +25,7 @@ import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
 import jlitec.ir3.Var;
@@ -78,7 +81,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       // Pattern matched
       stmtList.add(
           new ImmediateLowerStmt(ils.dest(), new StringRvalExpr(b.value() ? "true" : "false")));
-      stmtList.add(new BranchLinkLowerStmt("puts", 1));
+      stmtList.add(new BranchLinkLowerStmt("puts"));
       i++;
     }
     return new Method(
@@ -100,6 +103,33 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
           switch (stmt.stmtExtensionType()) {
             case BRANCH_LINK, GOTO, FIELD_ASSIGN, FIELD_ACCESS, LABEL, LOAD_STACK_ARG, LDR_SPILL, PUSH_STACK, STR_SPILL, RETURN, PUSH_PAD_STACK, POP_STACK, IMMEDIATE, LOAD_LARGE_IMM -> List
                 .of(stmt);
+            case REVERSE_SUBTRACT_BIT -> {
+              final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
+              if (!(rsbs.lhs() instanceof Addressable.IdRval idRvalLhs)) {
+                yield List.of(stmt);
+              }
+              final var resolvedLhs = resolve(idRvalLhs.idRvalExpr(), in, input.lowerStmtList());
+              final var resolvedRhs = resolve(rsbs.rhs(), in, input.lowerStmtList());
+              yield switch (resolvedLhs.getRvalExprType()) {
+                case NULL, STRING, BOOL -> throw new RuntimeException();
+                case INT -> {
+                  final var lhs = (IntRvalExpr) resolvedLhs;
+                  yield switch (resolvedRhs.getRvalExprType()) {
+                    case NULL, STRING, BOOL -> throw new RuntimeException();
+                    case INT -> {
+                      final var rawRhs = (IntRvalExpr) resolvedRhs;
+                      final var rhs = calculateBitOp(rsbs.bitOp(), rawRhs.value(), rsbs.shift());
+                      yield List.of(
+                          new ImmediateLowerStmt(rsbs.dest(), new IntRvalExpr(rhs - lhs.value())));
+                    }
+                      // Give up
+                    case ID -> List.of(stmt);
+                  };
+                }
+                  // Give up
+                case ID -> List.of(stmt);
+              };
+            }
             case REVERSE_SUBTRACT -> {
               final var rss = (ReverseSubtractLowerStmt) stmt;
               if (!(rss.lhs() instanceof Addressable.IdRval idRvalLhs)) {
@@ -125,6 +155,35 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
                 }
                   // Give up
                 case ID -> List.of(stmt);
+              };
+            }
+            case BINARY_BIT -> {
+              final var bbs = (BinaryWithBitLowerStmt) stmt;
+              if (!(bbs.lhs() instanceof Addressable.IdRval idRvalLhs)) {
+                yield List.of(stmt);
+              }
+              final var resolvedLhs = resolve(idRvalLhs.idRvalExpr(), in, input.lowerStmtList());
+              final var resolvedRhs = resolve(bbs.rhs(), in, input.lowerStmtList());
+              yield switch (bbs.op()) {
+                case AND, OR -> throw new RuntimeException();
+                case PLUS, MINUS, MULT, DIV, LT, GT, LEQ, GEQ, EQ, NEQ -> switch (resolvedLhs
+                    .getRvalExprType()) {
+                  case NULL, STRING, BOOL -> throw new RuntimeException();
+                  case INT -> switch (resolvedRhs.getRvalExprType()) {
+                    case NULL, STRING, BOOL -> throw new RuntimeException();
+                    case INT -> {
+                      final var rawRhs = (IntRvalExpr) resolvedLhs;
+                      final var rhsValue = calculateBitOp(bbs.bitOp(), rawRhs.value(), bbs.shift());
+                      final var rhs = new IntRvalExpr(rhsValue);
+                      yield genStmtChunkBinaryInt(
+                          (IntRvalExpr) resolvedLhs, rhs, bbs.dest(), bbs.op());
+                    }
+                      // Give up
+                    case ID -> List.of(stmt);
+                  };
+                    // Give up
+                  case ID -> List.of(stmt);
+                };
               };
             }
             case BINARY -> {
@@ -227,13 +286,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
                 case NULL, STRING, BOOL -> throw new RuntimeException();
                 case INT -> {
                   final var expr = (IntRvalExpr) resolvedExpr;
-                  final var value =
-                      switch (bs.op()) {
-                        case ROR -> Integer.rotateRight(expr.value(), bs.shift());
-                        case ASR -> expr.value() >> bs.shift();
-                        case LSR -> expr.value() >>> bs.shift();
-                        case LSL -> expr.value() << bs.shift();
-                      };
+                  final var value = calculateBitOp(bs.op(), expr.value(), bs.shift());
                   yield List.of(
                       new ImmediateLowerStmt(
                           new Addressable.IdRval(bs.dest()), new IntRvalExpr(value)));
@@ -442,6 +495,15 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
         replacedStmtList);
   }
 
+  private static int calculateBitOp(BitOp op, int value, int shift) {
+    return switch (op) {
+      case ROR -> Integer.rotateRight(value, shift);
+      case ASR -> value >> shift;
+      case LSR -> value >>> shift;
+      case LSL -> value << shift;
+    };
+  }
+
   private static List<LowerStmt> genStmtChunkBinaryInt(
       IntRvalExpr lhsRvalExpr, IntRvalExpr rhsRvalExpr, Addressable dest, BinaryOp op) {
     final var lhs = lhsRvalExpr.value();
@@ -544,7 +606,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
         final var is = (LoadLargeImmediateLowerStmt) definingStmt;
         yield Optional.of(is.value());
       }
-      case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional
+      case BINARY_BIT, REVERSE_SUBTRACT_BIT, BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional
           .empty();
     };
   }

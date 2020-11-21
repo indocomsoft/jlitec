@@ -66,6 +66,7 @@ public class LiveCommand implements Command {
     final jlitec.ir3.Program ir3Program = Ir3CodeGen.generate(astProgram);
     final var lowerProgram = new LowerPass().pass(ir3Program);
     for (final var method : lowerProgram.methodList()) {
+      System.out.println(method.id());
       final var flow = new FlowPass().pass(method.lowerStmtList());
       final var output = new LivePass().pass(new MethodWithFlow(method, flow));
       final var prefix =
@@ -93,6 +94,20 @@ public class LiveCommand implements Command {
                                   .collect(Collectors.joining(", "))
                               + "]"));
       System.out.println(flow.generateDot(prefix, suffix));
+      System.out.println("===");
+      for (final var stmtWithLive : output.lowerStmtWithLiveList()) {
+        final var defUse = LivePass.calculateDefUse(stmtWithLive.lowerStmt());
+        System.out.println(
+            stmtWithLive.lowerStmt().print(1)
+                + "// in = "
+                + stmtWithLive.liveIn()
+                + ", out = "
+                + stmtWithLive.liveOut()
+                + ", def = "
+                + defUse.def()
+                + ", use = "
+                + defUse.use());
+      }
     }
   }
 }

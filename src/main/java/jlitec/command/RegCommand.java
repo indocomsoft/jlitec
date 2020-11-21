@@ -2,8 +2,8 @@ package jlitec.command;
 
 import java.io.IOException;
 import java.util.Map;
-import jlitec.backend.passes.PassManager;
 import jlitec.backend.passes.lower.LowerPass;
+import jlitec.backend.passes.optimization.PassManager;
 import jlitec.backend.passes.regalloc.RegAllocPass;
 import jlitec.checker.KlassDescriptor;
 import jlitec.checker.ParseTreeStaticChecker;

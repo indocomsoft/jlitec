@@ -2,6 +2,7 @@ package jlitec.backend.passes.lower.stmt;
 
 public enum LowerStmtType {
   BINARY,
+  BINARY_BIT,
   BIT,
   BRANCH_LINK,
   CMP,
@@ -21,5 +22,6 @@ public enum LowerStmtType {
   POP_STACK,
   REG_BINARY,
   REVERSE_SUBTRACT,
+  REVERSE_SUBTRACT_BIT,
   UNARY;
 }

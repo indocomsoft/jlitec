@@ -21,8 +21,8 @@ import jlitec.backend.passes.flow.Block;
 import jlitec.backend.passes.flow.FlowGraph;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BinaryWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
-import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
@@ -35,6 +35,7 @@ import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.expr.rval.IdRvalExpr;
@@ -187,6 +188,13 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       }
       case LABEL, GOTO, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
       case RETURN -> new DefUse(Set.of(new Node.Reg(Register.R0)), Set.of());
+      case BINARY_BIT -> {
+        final var bbs = (BinaryWithBitLowerStmt) stmt;
+        final var use = new HashSet<Node>();
+        use.add(bbs.lhs().toNode());
+        use.add(new Node.Id(bbs.rhs()));
+        yield new DefUse(use, Set.of(bbs.dest().toNode()));
+      }
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         final var use = new HashSet<Node>();
@@ -195,6 +203,13 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
           use.add(new Node.Id(ire));
         }
         yield new DefUse(use, Set.of(bs.dest().toNode()));
+      }
+      case REVERSE_SUBTRACT_BIT -> {
+        final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
+        final var use = new HashSet<Node>();
+        use.add(rsbs.lhs().toNode());
+        use.add(new Node.Id(rsbs.rhs()));
+        yield new DefUse(use, Set.of(rsbs.dest().toNode()));
       }
       case REVERSE_SUBTRACT -> {
         final var rss = (ReverseSubtractLowerStmt) stmt;
@@ -214,9 +229,8 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
         yield new DefUse(use, Set.of(bs.dest().toNode()));
       }
       case BRANCH_LINK -> {
-        final var bls = (BranchLinkLowerStmt) stmt;
         final Set<Node> use =
-            IntStream.range(0, bls.numRegArgs())
+            IntStream.range(0, 4)
                 .boxed()
                 .map(Register::fromInt)
                 .map(Node.Reg::new)

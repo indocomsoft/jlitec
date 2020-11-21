@@ -46,6 +46,7 @@ import jlitec.backend.arch.arm.insn.SUBInsn;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BinaryWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
@@ -62,12 +63,14 @@ import jlitec.backend.passes.lower.stmt.PopStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.backend.passes.regalloc.RegAllocPass;
 import jlitec.ir3.Data;
 import jlitec.ir3.Type;
 import jlitec.ir3.Var;
+import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 import jlitec.ir3.expr.rval.IntRvalExpr;
@@ -264,6 +267,28 @@ public class Global {
                       dest,
                       new MemoryAddress.ImmediateOffset(Register.SP, offset)));
             }
+            case BINARY_BIT -> {
+              final var bbs = (BinaryWithBitLowerStmt) stmt;
+              final var dest = toRegister(bbs.dest(), regAllocMap);
+              final var lhs = toRegister(bbs.lhs(), regAllocMap);
+              final var rhs =
+                  new Operand2.Register(
+                      regAllocMap.get(bbs.rhs().id()),
+                      bbs.bitOp(),
+                      new BitInsn.Rssh.Immediate(bbs.shift()));
+              yield genBinary(bbs.op(), dest, lhs, rhs);
+            }
+            case REVERSE_SUBTRACT_BIT -> {
+              final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
+              final var lhs = toRegister(rsbs.lhs(), regAllocMap);
+              final var rhs =
+                  new Operand2.Register(
+                      regAllocMap.get(rsbs.rhs().id()),
+                      rsbs.bitOp(),
+                      new BitInsn.Rssh.Immediate(rsbs.shift()));
+              final var dest = toRegister(rsbs.dest(), regAllocMap);
+              yield List.of(new RSBInsn(Condition.AL, false, dest, lhs, rhs));
+            }
             case REVERSE_SUBTRACT -> {
               final var bs = (ReverseSubtractLowerStmt) stmt;
               final var lhs = toRegister(bs.lhs(), regAllocMap);
@@ -302,36 +327,7 @@ public class Global {
                     case STRING, NULL -> throw new RuntimeException("should not be reached");
                   };
               final var dest = toRegister(bs.dest(), regAllocMap);
-              yield switch (bs.op()) {
-                case LT -> List.of(
-                    new CMPInsn(Condition.AL, lhs, rhs),
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
-                    new MOVInsn(Condition.LT, dest, new Operand2.Immediate(1)));
-                case GT -> List.of(
-                    new CMPInsn(Condition.AL, lhs, rhs),
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
-                    new MOVInsn(Condition.GT, dest, new Operand2.Immediate(1)));
-                case LEQ -> List.of(
-                    new CMPInsn(Condition.AL, lhs, rhs),
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
-                    new MOVInsn(Condition.LE, dest, new Operand2.Immediate(1)));
-                case GEQ -> List.of(
-                    new CMPInsn(Condition.AL, lhs, rhs),
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
-                    new MOVInsn(Condition.GE, dest, new Operand2.Immediate(1)));
-                case EQ -> List.of(
-                    new CMPInsn(Condition.AL, lhs, rhs),
-                    new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
-                    new MOVInsn(Condition.EQ, dest, new Operand2.Immediate(1)));
-                case NEQ -> List.of(
-                    new SUBInsn(Condition.AL, true, dest, lhs, rhs),
-                    new MOVInsn(Condition.NE, dest, new Operand2.Immediate(1)));
-                case OR -> List.of(new ORRInsn(Condition.AL, false, dest, lhs, rhs));
-                case AND -> List.of(new ANDInsn(Condition.AL, false, dest, lhs, rhs));
-                case PLUS -> List.of(new ADDInsn(Condition.AL, false, dest, lhs, rhs));
-                case MINUS -> List.of(new SUBInsn(Condition.AL, false, dest, lhs, rhs));
-                case MULT, DIV -> throw new RuntimeException("should not be reached");
-              };
+              yield genBinary(bs.op(), dest, lhs, rhs);
             }
             case REG_BINARY -> {
               final var bs = (RegBinaryLowerStmt) stmt;
@@ -789,5 +785,38 @@ public class Global {
     insnList.add(new AssemblerDirective("global", methodName));
     insnList.add(new AssemblerDirective("type", methodName + ", %function"));
     insnList.add(new LabelInsn(methodName));
+  }
+
+  private static List<Insn> genBinary(BinaryOp op, Register dest, Register lhs, Operand2 rhs) {
+    return switch (op) {
+      case LT -> List.of(
+          new CMPInsn(Condition.AL, lhs, rhs),
+          new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
+          new MOVInsn(Condition.LT, dest, new Operand2.Immediate(1)));
+      case GT -> List.of(
+          new CMPInsn(Condition.AL, lhs, rhs),
+          new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
+          new MOVInsn(Condition.GT, dest, new Operand2.Immediate(1)));
+      case LEQ -> List.of(
+          new CMPInsn(Condition.AL, lhs, rhs),
+          new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
+          new MOVInsn(Condition.LE, dest, new Operand2.Immediate(1)));
+      case GEQ -> List.of(
+          new CMPInsn(Condition.AL, lhs, rhs),
+          new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
+          new MOVInsn(Condition.GE, dest, new Operand2.Immediate(1)));
+      case EQ -> List.of(
+          new CMPInsn(Condition.AL, lhs, rhs),
+          new MOVInsn(Condition.AL, dest, new Operand2.Immediate(0)),
+          new MOVInsn(Condition.EQ, dest, new Operand2.Immediate(1)));
+      case NEQ -> List.of(
+          new SUBInsn(Condition.AL, true, dest, lhs, rhs),
+          new MOVInsn(Condition.NE, dest, new Operand2.Immediate(1)));
+      case OR -> List.of(new ORRInsn(Condition.AL, false, dest, lhs, rhs));
+      case AND -> List.of(new ANDInsn(Condition.AL, false, dest, lhs, rhs));
+      case PLUS -> List.of(new ADDInsn(Condition.AL, false, dest, lhs, rhs));
+      case MINUS -> List.of(new SUBInsn(Condition.AL, false, dest, lhs, rhs));
+      case MULT, DIV -> throw new RuntimeException("should not be reached");
+    };
   }
 }

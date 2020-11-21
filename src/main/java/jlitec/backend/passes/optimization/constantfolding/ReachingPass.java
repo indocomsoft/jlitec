@@ -17,6 +17,7 @@ import jlitec.backend.passes.Node;
 import jlitec.backend.passes.Pass;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BinaryWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -30,6 +31,7 @@ import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 
 public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
@@ -184,9 +186,17 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
           .map(Register::fromInt)
           .map(Node.Reg::new)
           .collect(Collectors.toUnmodifiableSet());
+      case BINARY_BIT -> {
+        final var bbs = (BinaryWithBitLowerStmt) stmt;
+        yield Set.of(bbs.dest().toNode());
+      }
       case BINARY -> {
         final var bs = (BinaryLowerStmt) stmt;
         yield Set.of(bs.dest().toNode());
+      }
+      case REVERSE_SUBTRACT_BIT -> {
+        final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
+        yield Set.of(rsbs.dest().toNode());
       }
       case REVERSE_SUBTRACT -> {
         final var rss = (ReverseSubtractLowerStmt) stmt;

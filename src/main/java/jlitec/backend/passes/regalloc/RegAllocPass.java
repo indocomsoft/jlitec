@@ -30,6 +30,7 @@ import jlitec.backend.passes.live.MethodWithLive;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
+import jlitec.backend.passes.lower.stmt.BinaryWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
@@ -43,6 +44,7 @@ import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.PushStackLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReverseSubtractWithBitLowerStmt;
 import jlitec.backend.passes.lower.stmt.StoreSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.ir3.Var;
@@ -523,6 +525,48 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 }
                 yield List.of();
               }
+              case REVERSE_SUBTRACT_BIT -> {
+                final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
+                final var operands = new HashSet<String>();
+                final var loadOperands = new HashSet<String>();
+                if (rsbs.lhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
+                operands.add(rsbs.rhs().id());
+                loadOperands.add(rsbs.rhs().id());
+                if (rsbs.dest() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (!operands.contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                final var idRvalExprAddressable = new Addressable.IdRval(idRvalExpr);
+                final var lhs =
+                    rsbs.lhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : rsbs.lhs();
+                final var rhs = rsbs.rhs().id().equals(id) ? idRvalExpr : rsbs.rhs();
+                final var dest =
+                    rsbs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : rsbs.dest();
+                final var result = new ArrayList<LowerStmt>();
+                // Need to load
+                if (loadOperands.contains(id)) {
+                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
+                }
+                result.add(
+                    new ReverseSubtractWithBitLowerStmt(
+                        dest, lhs, rhs, rsbs.bitOp(), rsbs.shift()));
+                // Need to store
+                if (rsbs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
+                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
+                }
+                yield Collections.unmodifiableList(result);
+              }
               case REVERSE_SUBTRACT -> {
                 final var bs = (ReverseSubtractLowerStmt) stmt;
                 final var operands = new HashSet<String>();
@@ -562,6 +606,47 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 result.add(new ReverseSubtractLowerStmt(dest, lhs, rhs));
                 // Need to store
                 if (bs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
+                  result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
+                }
+                yield Collections.unmodifiableList(result);
+              }
+              case BINARY_BIT -> {
+                final var bbs = (BinaryWithBitLowerStmt) stmt;
+                final var operands = new HashSet<String>();
+                final var loadOperands = new HashSet<String>();
+                if (bbs.lhs() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                  loadOperands.add(a.idRvalExpr().id());
+                }
+                operands.add(bbs.rhs().id());
+                loadOperands.add(bbs.rhs().id());
+                if (bbs.dest() instanceof Addressable.IdRval a) {
+                  operands.add(a.idRvalExpr().id());
+                }
+                if (!operands.contains(id)) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                final var idRvalExprAddressable = new Addressable.IdRval(idRvalExpr);
+                final var lhs =
+                    bbs.lhs() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bbs.lhs();
+                final var rhs = bbs.rhs().id().equals(id) ? idRvalExpr : bbs.rhs();
+                final var dest =
+                    bbs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)
+                        ? idRvalExprAddressable
+                        : bbs.dest();
+                final var result = new ArrayList<LowerStmt>();
+                // Need to load
+                if (loadOperands.contains(id)) {
+                  result.add(new LoadSpilledLowerStmt(idRvalExpr, id));
+                }
+                result.add(
+                    new BinaryWithBitLowerStmt(bbs.op(), dest, lhs, rhs, bbs.bitOp(), bbs.shift()));
+                // Need to store
+                if (bbs.dest() instanceof Addressable.IdRval a && a.idRvalExpr().id().equals(id)) {
                   result.add(new StoreSpilledLowerStmt(idRvalExpr, id));
                 }
                 yield Collections.unmodifiableList(result);

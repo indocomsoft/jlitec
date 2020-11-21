@@ -24,6 +24,7 @@ import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
+import jlitec.backend.passes.lower.stmt.ReturnLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
 
 public class DeadcodeOptimizationPass implements OptimizationPass {
@@ -39,6 +40,7 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
               .map(this::passRemoveMovItself)
               .map(this::passRemoveUselessLabels)
               .map(this::passRemoveConsecutiveLabels)
+              .map(this::passRemoveLabelReturn)
               .map(this::passRemoveDoubleGoto)
               .map(this::passRemoveMovItself)
               .collect(Collectors.toUnmodifiableList());
@@ -55,6 +57,53 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
         method.lowerStmtList().stream()
             .filter(stmt -> !(stmt instanceof MovLowerStmt m) || !m.src().equals(m.dst()))
             .collect(Collectors.toUnmodifiableList());
+    return new Method(
+        method.returnType(),
+        method.id(),
+        method.argsWithThis(),
+        method.vars(),
+        method.spilled(),
+        stmtList);
+  }
+
+  private Method passRemoveLabelReturn(Method method) {
+    if (method.lowerStmtList().size() == 1) {
+      return method;
+    }
+    final SetMultimap<String, Integer> deletedLabelsToIndices = HashMultimap.create();
+    for (int i = 0; i < method.lowerStmtList().size() - 1; i++) {
+      final var currentStmt = method.lowerStmtList().get(i);
+      final var nextStmt = method.lowerStmtList().get(i + 1);
+      if (currentStmt instanceof LabelLowerStmt l && nextStmt instanceof ReturnLowerStmt) {
+        deletedLabelsToIndices.put(l.label(), i);
+        deletedLabelsToIndices.put(l.label(), i + 1);
+      }
+    }
+
+    for (final var stmt : method.lowerStmtList()) {
+      if (stmt instanceof CmpLowerStmt c && deletedLabelsToIndices.containsKey(c.dest())) {
+        deletedLabelsToIndices.removeAll(c.dest());
+      }
+    }
+
+    final var deletedIndices = Set.copyOf(deletedLabelsToIndices.values());
+
+    final var stmtList =
+        IntStream.range(0, method.lowerStmtList().size())
+            .filter(i -> !deletedIndices.contains(i))
+            .boxed()
+            .map(i -> method.lowerStmtList().get(i))
+            .map(
+                stmt -> {
+                  if (stmt instanceof GotoLowerStmt g
+                      && deletedLabelsToIndices.containsKey(g.dest())) {
+                    return new ReturnLowerStmt();
+                  } else {
+                    return stmt;
+                  }
+                })
+            .collect(Collectors.toUnmodifiableList());
+
     return new Method(
         method.returnType(),
         method.id(),
@@ -236,7 +285,7 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
           switch (stmt.stmtExtensionType()) {
             case PUSH_PAD_STACK, BRANCH_LINK, CMP, GOTO, LABEL, RETURN, POP_STACK, PUSH_STACK, LDR_SPILL, STR_SPILL -> List
                 .of(stmt);
-            case BINARY, FIELD_ACCESS, FIELD_ASSIGN, IMMEDIATE, LOAD_STACK_ARG, MOV, REG_BINARY, UNARY, BIT, REVERSE_SUBTRACT, LOAD_LARGE_IMM -> {
+            case BINARY_BIT, BINARY, FIELD_ACCESS, FIELD_ASSIGN, IMMEDIATE, LOAD_STACK_ARG, MOV, REG_BINARY, UNARY, BIT, REVERSE_SUBTRACT, REVERSE_SUBTRACT_BIT, LOAD_LARGE_IMM -> {
               final var def = LivePass.calculateDefUse(stmt).def();
               if (def.isEmpty()) {
                 // Just to guard

@@ -40,10 +40,10 @@ class Main {
     c = a.rand();
     readln(d);
     e = 4;
-    f = a.rand();
-    g = a.rand();
-    h = a.rand();
-    i = -a.rand();
+    f = 2 * e;
+    g = f + e;
+    h = 2 * f;
+    i = h - g;
     k = a.rand();
     l = a.rand();
     m = a.rand();
@@ -61,7 +61,7 @@ class Main {
     i = i + m;
     j = j - n;
     n = n + (o - m);
-    u.setField(k + o * 8);
+    u.setField(2 * k + o * 8);
     l = l + p / u.rand();
     u.setField(e);
     println(!b);
