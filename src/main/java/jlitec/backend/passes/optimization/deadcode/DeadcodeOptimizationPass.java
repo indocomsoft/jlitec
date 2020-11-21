@@ -39,10 +39,8 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
               .map(this::passDeadGoto)
               .map(this::passRemoveMovItself)
               .map(this::passRemoveUselessLabels)
-              .map(this::passRemoveConsecutiveLabels)
-              .map(this::passRemoveLabelReturn)
               .map(this::passRemoveDoubleGoto)
-              .map(this::passRemoveMovItself)
+              .map(this::passRemoveLabelReturn)
               .collect(Collectors.toUnmodifiableList());
       final var newProgram = new Program(program.dataList(), methodList);
       if (newProgram.equals(program)) {
@@ -113,51 +111,6 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
         stmtList);
   }
 
-  private Method passRemoveDoubleGoto(Method method) {
-    if (method.lowerStmtList().size() == 1) {
-      return method;
-    }
-
-    final Map<String, String> deletedLabelToReplacement = new HashMap<>();
-    final Set<Integer> deletedIndices = new HashSet<>();
-    for (int i = 0; i < method.lowerStmtList().size() - 1; i++) {
-      final var currentStmt = method.lowerStmtList().get(i);
-      final var nextStmt = method.lowerStmtList().get(i + 1);
-      if (currentStmt instanceof LabelLowerStmt l && nextStmt instanceof GotoLowerStmt g) {
-        deletedIndices.add(i);
-        deletedIndices.add(i + 1);
-        deletedLabelToReplacement.put(l.label(), g.dest());
-      }
-    }
-    final var stmtList =
-        IntStream.range(0, method.lowerStmtList().size())
-            .filter(i -> !deletedIndices.contains(i))
-            .boxed()
-            .map(i -> method.lowerStmtList().get(i))
-            .map(
-                stmt -> {
-                  if (stmt instanceof GotoLowerStmt g
-                      && deletedLabelToReplacement.containsKey(g.dest())) {
-                    return new GotoLowerStmt(deletedLabelToReplacement.get(g.dest()));
-                  } else if (stmt instanceof CmpLowerStmt c
-                      && deletedLabelToReplacement.containsKey(c.dest())) {
-                    return new CmpLowerStmt(
-                        c.op(), c.lhs(), c.rhs(), deletedLabelToReplacement.get(c.dest()));
-                  } else {
-                    return stmt;
-                  }
-                })
-            .collect(Collectors.toUnmodifiableList());
-
-    return new Method(
-        method.returnType(),
-        method.id(),
-        method.argsWithThis(),
-        method.vars(),
-        method.spilled(),
-        stmtList);
-  }
-
   private Method passDeadGoto(Method method) {
     if (method.lowerStmtList().size() == 1) {
       return method;
@@ -189,7 +142,7 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
         stmtList);
   }
 
-  private Method passRemoveConsecutiveLabels(Method method) {
+  private Method passRemoveDoubleGoto(Method method) {
     if (method.lowerStmtList().size() == 1) {
       return method;
     }

@@ -32,7 +32,6 @@ public class PeepholeOptimizer {
               .map(PeepholeOptimizer::passRemoveUselessLdr)
               .map(PeepholeOptimizer::passMovItself)
               .map(PeepholeOptimizer::passMovSameReg)
-              .map(PeepholeOptimizer::passMovImm)
               .collect(Collectors.toList())
               .get(0);
       if (output.equals(input)) {
@@ -147,43 +146,6 @@ public class PeepholeOptimizer {
 
   /**
    * Replace <code>
-   *   MOV R1, #5
-   *   MOV R0, R1
-   * </code> with <code>
-   *   MOV R0, #5
-   * </code>
-   */
-  private static Program passMovImm(Program input) {
-    final var insnList = new ArrayList<Insn>();
-    for (int i = 0; i < input.insnList().size(); i++) {
-      final var insn = input.insnList().get(i);
-      if (i == input.insnList().size() - 1) {
-        insnList.add(insn);
-        continue;
-      }
-      if (!(insn instanceof MOVInsn m && m.op2() instanceof Operand2.Immediate)) {
-        insnList.add(insn);
-        continue;
-      }
-      final var nextInsn = input.insnList().get(i + 1);
-      if (nextInsn instanceof MOVInsn mov
-          && mov.condition().equals(m.condition())
-          && mov.updateConditionFlags() == m.updateConditionFlags()
-          && mov.op2() instanceof Operand2.Register op2
-          && op2.reg().equals(m.register())) {
-        // Pattern matched
-        insnList.add(
-            new MOVInsn(mov.condition(), m.updateConditionFlags(), mov.register(), m.op2()));
-        i++;
-        continue;
-      }
-      insnList.add(insn);
-    }
-    return new Program(insnList);
-  }
-
-  /**
-   * Replace <code>
    *   ADD R0, R1, #0
    * </code> with <code>
    *   MOV R0, R1
@@ -219,10 +181,10 @@ public class PeepholeOptimizer {
 
   /**
    * Replace <code>
-   *   MOV R0, R5
    *   MOV R5, R0
-   * </code> with <code>
    *   MOV R0, R5
+   * </code> with <code>
+   *   MOV R5, R0
    * </code>
    */
   private static Program passRemoveUselessMov(Program input) {
