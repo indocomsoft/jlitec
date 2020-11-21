@@ -304,8 +304,8 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
                 case EQ -> switch (resolvedLhs.getRvalExprType()) {
                   case NULL, STRING -> throw new RuntimeException();
                   case BOOL -> {
-                    // Guaranteed to have a boolean RHS
                     final var lhs = (BoolRvalExpr) resolvedLhs;
+                    // Guaranteed to have a boolean RHS
                     final var rhs = (BoolRvalExpr) cs.rhs();
                     if (lhs.value() == rhs.value()) {
                       yield List.of(new GotoLowerStmt(cs.dest()));
@@ -454,17 +454,23 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
               yield switch (us.op()) {
                 case NOT -> switch (resolved.getRvalExprType()) {
                   case NULL, STRING, INT -> throw new RuntimeException();
-                  case BOOL -> List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(us.dest()), (BoolRvalExpr) resolved));
+                  case BOOL -> {
+                    final var bre = (BoolRvalExpr) resolved;
+                    yield List.of(
+                        new ImmediateLowerStmt(
+                            new Addressable.IdRval(us.dest()), new BoolRvalExpr(!bre.value())));
+                  }
                     // Give up
                   case ID -> List.of(stmt);
                 };
                 case NEGATIVE -> switch (resolved.getRvalExprType()) {
                   case NULL, STRING, BOOL -> throw new RuntimeException();
-                  case INT -> List.of(
-                      new ImmediateLowerStmt(
-                          new Addressable.IdRval(us.dest()), (IntRvalExpr) resolved));
+                  case INT -> {
+                    final var ire = (IntRvalExpr) resolved;
+                    yield List.of(
+                        new ImmediateLowerStmt(
+                            new Addressable.IdRval(us.dest()), new IntRvalExpr(-ire.value())));
+                  }
                     // Give up
                   case ID -> List.of(stmt);
                 };
