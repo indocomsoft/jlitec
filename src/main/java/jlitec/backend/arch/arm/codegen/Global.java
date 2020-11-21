@@ -28,6 +28,7 @@ import jlitec.backend.arch.arm.insn.BInsn;
 import jlitec.backend.arch.arm.insn.BLInsn;
 import jlitec.backend.arch.arm.insn.BXInsn;
 import jlitec.backend.arch.arm.insn.CMPInsn;
+import jlitec.backend.arch.arm.insn.EORInsn;
 import jlitec.backend.arch.arm.insn.LDMFDInsn;
 import jlitec.backend.arch.arm.insn.LDRInsn;
 import jlitec.backend.arch.arm.insn.LSLInsn;
@@ -35,7 +36,6 @@ import jlitec.backend.arch.arm.insn.LSRInsn;
 import jlitec.backend.arch.arm.insn.LabelInsn;
 import jlitec.backend.arch.arm.insn.MOVInsn;
 import jlitec.backend.arch.arm.insn.MULInsn;
-import jlitec.backend.arch.arm.insn.MVNInsn;
 import jlitec.backend.arch.arm.insn.ORRInsn;
 import jlitec.backend.arch.arm.insn.RORInsn;
 import jlitec.backend.arch.arm.insn.RSBInsn;
@@ -546,7 +546,8 @@ public class Global {
               final var dest = regAllocMap.get(ue.dest().id());
               final var expr = regAllocMap.get(ue.expr().id());
               yield switch (ue.op()) {
-                case NOT -> List.of(new MVNInsn(Condition.AL, dest, new Operand2.Register(expr)));
+                case NOT -> List.of(
+                    new EORInsn(Condition.AL, false, dest, expr, new Operand2.Immediate(1)));
                 case NEGATIVE -> List.of(
                     new RSBInsn(Condition.AL, false, dest, expr, new Operand2.Immediate(0)));
               };
