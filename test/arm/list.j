@@ -82,9 +82,13 @@ class List {
     Int count;
     List cur;
     if (index == 0 ) {
-      this.item = this.tail.item;
-      this.hasTail = this.tail.hasTail;
-      this.tail = this.tail.tail;
+      if (this.hasTail) {
+        this.item = this.tail.item;
+        this.hasTail = this.tail.hasTail;
+        this.tail = this.tail.tail;
+      } else {
+        return;
+      }
     } else {
       count = 0;
       cur = this;
@@ -93,7 +97,7 @@ class List {
         cur = cur.tail;
         count = count + 1;
       }
-      if (cur.hasTail) {
+      if (cur.tail.hasTail) {
         cur.hasTail = cur.tail.hasTail;
         cur.tail = cur.tail.tail;
       } else {
