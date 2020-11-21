@@ -68,33 +68,22 @@ public class DeadcodeOptimizationPass implements OptimizationPass {
     if (method.lowerStmtList().size() == 1) {
       return method;
     }
-    final SetMultimap<String, Integer> deletedLabelsToIndices = HashMultimap.create();
+    final Set<String> returnLabels = new HashSet<>();
     for (int i = 0; i < method.lowerStmtList().size() - 1; i++) {
       final var currentStmt = method.lowerStmtList().get(i);
       final var nextStmt = method.lowerStmtList().get(i + 1);
       if (currentStmt instanceof LabelLowerStmt l && nextStmt instanceof ReturnLowerStmt) {
-        deletedLabelsToIndices.put(l.label(), i);
-        deletedLabelsToIndices.put(l.label(), i + 1);
+        returnLabels.add(l.label());
       }
     }
-
-    for (final var stmt : method.lowerStmtList()) {
-      if (stmt instanceof CmpLowerStmt c && deletedLabelsToIndices.containsKey(c.dest())) {
-        deletedLabelsToIndices.removeAll(c.dest());
-      }
-    }
-
-    final var deletedIndices = Set.copyOf(deletedLabelsToIndices.values());
 
     final var stmtList =
         IntStream.range(0, method.lowerStmtList().size())
-            .filter(i -> !deletedIndices.contains(i))
             .boxed()
             .map(i -> method.lowerStmtList().get(i))
             .map(
                 stmt -> {
-                  if (stmt instanceof GotoLowerStmt g
-                      && deletedLabelsToIndices.containsKey(g.dest())) {
+                  if (stmt instanceof GotoLowerStmt g && returnLabels.contains(g.dest())) {
                     return new ReturnLowerStmt();
                   } else {
                     return stmt;

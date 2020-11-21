@@ -371,7 +371,7 @@ There are a couple of dead code types that are detected in this pass:
   \item \textbf{Mov to itself}: delete mov statements with the same source and destination.
   \item \textbf{Remove useless labels}: remove labels that are not the destination of any goto or if-goto statements.
   \item \textbf{Remove double goto}: remove labels whose content is another goto statement, and ensuring all gotos to the removed label go to the destination of the goto statement in the removed label.
-  \item \textbf{Remove label return}: remove labels whose only content is return, in favour of replacing the original goto to the removed labels to return directly.
+  \item \textbf{Replace label return}: Replace gotos where the destination only contains returns.
 \end{itemize}
 
 \subsection{Barrel-shifter Operand2}
