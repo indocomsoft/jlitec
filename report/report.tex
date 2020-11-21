@@ -460,7 +460,10 @@ Possible future work includes:
   \item Sub-expression elimination, which is probably best done on the IR3 level.
   \item Better spilling heuristic by changing the weight of the number of defs and uses inside a loop as opposed to outside a loop, for example $score = ((\text{number of defs and uses outside loops}) + 10 \times (\text{number of defs and uses inside loops})) \div \text{degree}$.
   \item Converting into Single Static Assignment form to unlock further optimisation, for example with sparse conditional constant propagation.
-  \item Performing
 \end{itemize}
+
+Just for fun, I also implemented a C backend.
+The output can then be passed to any C compiler.
+This can be invoked by running \texttt{./jlitec c <input file>}.
 
 \end{document}
