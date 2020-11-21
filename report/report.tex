@@ -13,6 +13,42 @@
 \maketitle
 \tableofcontents
 
+\section{Compiler Usage}
+To compile a JLite source code into ARM assembly code without optimisation, run:
+\begin{verbatim}
+./jlitec arm <input file>
+\end{verbatim}
+
+To compile a JLite source code into ARM assembly code with optimisations run on the Lower IR as well as peephole optimisations on the ARM code, run:
+\begin{verbatim}
+./jlitec arm -O3 <input file>
+\end{verbatim}
+
+To compile a JLite source code into ARM assembly code with optimisations run on the Lower IR but without the peephole optimisations on the ARM code, run:
+\begin{verbatim}
+./jlitec arm -O2 <input file>
+\end{verbatim}
+
+\subsection{Using GCC to assemble the assembly source code}
+Redirect the output of my compiler into a file, and then pass this file to a GCC (cross) compiler for ARM.
+For example, if your input file is \texttt{a.j}, in \texttt{bash}, run:
+\begin{verbatim}
+./jlitec arm a.j > /tmp/a.s
+case "$(uname -s)" in
+  Linux*)  CC_ARM=arm-linux-gnueabihf-gcc;;
+  Darwin*) CC_ARM=arm-unknown-linux-gnueabi-gcc;;
+esac
+[[ CC_ARM != "" ]] && $CC_ARM /tmp/a.s --static || echo Unknown platform
+\end{verbatim}
+
+\subsection{Using gem5 to run the output binary}
+Assuming the output binary is in \texttt{/tmp/a.out}, change directory to where gem5 is located, then run:
+\begin{verbatim}
+./build/ARM/gem5.opt configs/example/se.py -c /tmp/a.out -i /dev/tty
+\end{verbatim}
+
+By specifying input file as \texttt{/dev/tty}, you can provide input to the resulting binary from \texttt{stdin} for any \texttt{readln} uses.
+
 \section{General Compilation Flow}
 Besides IR3, I defined my own machine-specific intermediate representation (IR) for use in my compiler, called Lower.
 With reference to GCC, IR3 is similar to GIMPLE, while Lower is similar to RTL.
@@ -85,11 +121,11 @@ There are many types of statements in Lower:
   \item \texttt{UNARY}, representing either the \texttt{MVN} instruction or \texttt{NEG} pseudo-instruction (\texttt{RSB Rd, Rs, \#0}).
 \end{itemize}
 
-There could be some IR3 operations that do not fulfill the requirements of any Lower statement, e.g. \texttt{a = b * 3;}.
+There could be some IR3 operations that do not fulfill the requirements of any Lower statement, e.g. \texttt{a = b * 3;} since the \texttt{MUL} instruction as represented by \texttt{REG\_BINARY} Lower statement requires both operands to be registers.
 The pass that lowers IR3 to Lower will create new temporaries as required.
 The purpose of Lower is to make ARM code generation trivial given register allocation information.
 
-\texttt{new} statements, \texttt{println} statements \texttt{readln} statements, and string concatenation operations are also lowered into either a call into a helper function, or the corresponding \texttt{libc} functions:
+\texttt{new} statements, \texttt{println} statements, \texttt{readln} statements, and string concatenation operations are also lowered into either a call into a helper function, or the corresponding \texttt{libc} functions:
 \begin{itemize}
   \item \textbf{new} statements are implemented by calling \texttt{malloc} with the correct number of bytes based on the number of fields of the class.
         The types of the fields do not matter as all types in JLite are uniformly 32 bits (4 bytes):
@@ -116,7 +152,7 @@ The purpose of Lower is to make ARM code generation trivial given register alloc
 Note that since we do not have a garbage collector, currently memory allocated for strings and classes are just leaked when they go out of scope.
 
 Helper function \mintinline{c}{println_bool(bool);} prints either \texttt{true} or \texttt{false} depending on the boolean value.
-The implementation in C and ARM:
+The implementation in C and ARM assembly:
 \begin{minted}{c}
 void println_bool(int a)
 {
@@ -135,7 +171,7 @@ b puts
 \end{minted}
 
 Helper function \mintinline{c}{readln_int_bool();} gets one whole new line and read an integer from it.
-The implementation in C and ARM:
+The implementation in C and ARM assembly:
 \begin{minted}{c}
 int readln_int_bool()
 {
@@ -173,7 +209,7 @@ LDMFD SP!, {R4, PC}
 \end{minted}
 
 Helper function \mintinline{c}{getline_without_newline();} gets one whole new line and removes the newline from it.
-The implementation in C and ARM:
+The implementation in C and ARM assembly:
 \begin{minted}{c}
 char* getline_without_newline()
 {
@@ -253,8 +289,8 @@ As such, the standard convention call is represented in Lower using \texttt{MOV}
 For example, take the following JLite statements (with the class signature in the comment):
 \begin{minted}{java}
 /* class Func {
- *   Func f(Int, Int, Int, Int, Int, Int);
- *   Void g();
+ *   Func f(Int, Int, Int, Int, Int, Int); // mangled as Func_0
+ *   Void g();                             // mangled as Func_1
  * }
  */
 Func a; Int b; Int c; Int d; Int e; Int f;
@@ -285,7 +321,7 @@ R0 <- _t1;   // MOV
 CALL Func_1; // BRANCH_LINK
 \end{minted}
 
-Assuming that \texttt{a} is assigned to register \texttt{R4}, \texttt{b} to register \texttt{R1}, \texttt{c} to register \texttt{R5}, \texttt{d} to register \texttt{R6}, \texttt{e} to register \texttt{R7}, \texttt{f} to register \texttt{R8}, \texttt{g} to register \texttt{R0}, then the generated ARM code is:
+Assuming that \texttt{a} is assigned to register \texttt{R4}, \texttt{b} to register \texttt{R1}, \texttt{c} to register \texttt{R5}, \texttt{d} to register \texttt{R6}, \texttt{e} to register \texttt{R7}, \texttt{f} to register \texttt{R8}, \texttt{\_t1} to register \texttt{R0}, then the generated ARM code is:
 \begin{minted}{gas}
 MOV R0, R4
 MOV R2, #5
@@ -306,12 +342,14 @@ Thus, the register allocator is able to make a more optimal choice of assigning 
 \subsection{ARM Code Generation}
 With register allocation from the register allocator, ARM code generation from Lower IR is relatively trivial, as most types of Lower statements correspond with exactly one ARM instruction, except for \texttt{CMP}, and comparison operators in \texttt{BINARY} and \texttt{BINARY\_BIT}.
 
+One addition that I performed was to make the \texttt{main} function return \texttt{0}, to conform to the Unix convention.
+
 \subsection{Optional Peephole Optimisation Passes}
-There are a couple of optimisations that I have implemented on the ARM code generated.
+There are a couple of optimisations that I have implemented for the ARM code generated.
 I will expound on this in a later section.
 
 \section{Lower IR Optimisations}
-A couple of optimisations are performed on the Lower IR.
+A couple of optimisations can be performed on the Lower IR.
 These optimisations are run continuously until 2 runs produce the same Lower IR.
 
 \subsection{Algebraic Identities}
