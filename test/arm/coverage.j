@@ -22,6 +22,7 @@ class Main {
     A u;
     b = true;
     u = new A();
+    a = new A();
     u.field = 2 * 120;
     q = false;
     println(u.getField());
@@ -29,7 +30,7 @@ class Main {
     println("What is your name?");
     readln(s);
     b = b && q;
-    a.s = "Your name is" + s;
+    a.s = "Your name is " + s;
     println(a.s);
     a.s = s + " boom";
     u.s = "Hello" + " world";
