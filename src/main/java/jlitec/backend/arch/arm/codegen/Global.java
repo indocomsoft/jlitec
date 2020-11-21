@@ -54,6 +54,7 @@ import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
@@ -182,10 +183,12 @@ public class Global {
     final var maxRegNum =
         regAllocOutput.color().values().stream().mapToInt(Register::toInt).max().orElseGet(() -> 3);
     if (maxRegNum >= 4) {
+      // R12 does not need saving while R14/LR will be saved after this
+      final var maxRegToSave = Math.min(maxRegNum, 11);
       // Involving callee-save registers
       // Push r3 too if number of registers are even (so it will be even with the addition of LR)
       final var pushedRegisters =
-          IntStream.range((maxRegNum & 1) == 1 ? 3 : 4, maxRegNum + 1)
+          IntStream.range((maxRegToSave & 1) == 1 ? 3 : 4, maxRegToSave + 1)
               .boxed()
               .map(Register::fromInt)
               .collect(Collectors.toUnmodifiableSet());
@@ -373,7 +376,6 @@ public class Global {
                     }
                     case INT -> {
                       final var be = (IntRvalExpr) cs.rhs();
-                      // TODO handle large immediate
                       yield new Operand2.Immediate(be.value());
                     }
                     case STRING, NULL -> throw new RuntimeException("invalid type in CMP");
@@ -422,6 +424,16 @@ public class Global {
               final var gs = (GotoLowerStmt) stmt;
               yield List.of(new BInsn(Condition.AL, gs.dest()));
             }
+            case LOAD_LARGE_IMM -> {
+              final var is = (LoadLargeImmediateLowerStmt) stmt;
+              final var dest = toRegister(is.dest(), regAllocMap);
+              yield List.of(
+                  new LDRInsn(
+                      Condition.AL,
+                      Size.WORD,
+                      dest,
+                      new MemoryAddress.PCRelative("=#" + is.value().value())));
+            }
             case IMMEDIATE -> {
               final var is = (ImmediateLowerStmt) stmt;
               final var dest = toRegister(is.dest(), regAllocMap);
@@ -434,7 +446,6 @@ public class Global {
                 }
                 case INT -> {
                   final var ie = (IntRvalExpr) is.value();
-                  // TODO handle large immediate
                   yield List.of(
                       new MOVInsn(Condition.AL, dest, new Operand2.Immediate(ie.value())));
                 }
@@ -526,7 +537,6 @@ public class Global {
             case POP_STACK -> {
               final var pss = (PopStackLowerStmt) stmt;
               final var numBytes = pss.num() * 4;
-              // TODO handle large immediate
               yield List.of(
                   new ADDInsn(
                       Condition.AL,

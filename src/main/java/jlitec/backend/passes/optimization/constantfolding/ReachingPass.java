@@ -23,6 +23,7 @@ import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
@@ -198,6 +199,10 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
       case FIELD_ACCESS -> {
         final var fas = (FieldAccessLowerStmt) stmt;
         yield Set.of(new Node.Id(fas.lhs()));
+      }
+      case LOAD_LARGE_IMM -> {
+        final var is = (LoadLargeImmediateLowerStmt) stmt;
+        yield Set.of(is.dest().toNode());
       }
       case IMMEDIATE -> {
         final var is = (ImmediateLowerStmt) stmt;

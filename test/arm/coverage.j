@@ -24,11 +24,11 @@ class Main {
     u = new A();
     a = new A();
     u.field = 2 * 120;
-    q = false;
     println(u.getField());
     println("Hello" + " world" + "!");
     println("What is your name?");
     readln(s);
+    q = false;
     b = b && q;
     a.s = "Your name is " + s;
     println(a.s);
@@ -60,9 +60,9 @@ class Main {
     h = h + l;
     i = i + m;
     j = j - n;
+    n = n + (o - m);
     u.setField(k + o * 8);
     l = l + p / u.rand();
-    n = n + (o - m);
     u.setField(e);
     println(!b);
     a.b = !b;

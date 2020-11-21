@@ -5,8 +5,10 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import jlitec.backend.arch.arm.Register;
 import jlitec.backend.passes.Node;
+import jlitec.backend.passes.lower.LowerPass;
 import jlitec.backend.passes.lower.Method;
 import jlitec.backend.passes.lower.Program;
 import jlitec.backend.passes.lower.stmt.Addressable;
@@ -16,12 +18,15 @@ import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
 import jlitec.backend.passes.lower.stmt.RegBinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.ReverseSubtractLowerStmt;
 import jlitec.backend.passes.lower.stmt.UnaryLowerStmt;
 import jlitec.backend.passes.optimization.OptimizationPass;
+import jlitec.ir3.Var;
+import jlitec.ir3.codegen.TempVarGen;
 import jlitec.ir3.expr.BinaryOp;
 import jlitec.ir3.expr.rval.BoolRvalExpr;
 import jlitec.ir3.expr.rval.IdRvalExpr;
@@ -31,6 +36,8 @@ import jlitec.ir3.expr.rval.RvalExpr;
 import jlitec.ir3.expr.rval.StringRvalExpr;
 
 public class ConstantFoldingOptimizationPass implements OptimizationPass {
+  private static String TEMP_PREFIX = "___cfopt";
+
   @Override
   public Program pass(Program input) {
     var program = input;
@@ -71,7 +78,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       // Pattern matched
       stmtList.add(
           new ImmediateLowerStmt(ils.dest(), new StringRvalExpr(b.value() ? "true" : "false")));
-      stmtList.add(new BranchLinkLowerStmt("puts"));
+      stmtList.add(new BranchLinkLowerStmt("puts", 1));
       i++;
     }
     return new Method(
@@ -91,7 +98,7 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       final var in = inOut.in().get(i);
       final List<LowerStmt> stmtChunk =
           switch (stmt.stmtExtensionType()) {
-            case BRANCH_LINK, GOTO, FIELD_ASSIGN, FIELD_ACCESS, LABEL, LOAD_STACK_ARG, LDR_SPILL, PUSH_STACK, STR_SPILL, RETURN, PUSH_PAD_STACK, POP_STACK, IMMEDIATE -> List
+            case BRANCH_LINK, GOTO, FIELD_ASSIGN, FIELD_ACCESS, LABEL, LOAD_STACK_ARG, LDR_SPILL, PUSH_STACK, STR_SPILL, RETURN, PUSH_PAD_STACK, POP_STACK, IMMEDIATE, LOAD_LARGE_IMM -> List
                 .of(stmt);
             case REVERSE_SUBTRACT -> {
               final var rss = (ReverseSubtractLowerStmt) stmt;
@@ -413,13 +420,26 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
           };
       stmtList.addAll(stmtChunk);
     }
+    final int counter =
+        input.vars().stream()
+                .map(Var::id)
+                .filter(s -> s.startsWith(TEMP_PREFIX))
+                .mapToInt(s -> Integer.parseInt(s.replace(TEMP_PREFIX, "")))
+                .max()
+                .orElse(0)
+            + 1;
+    final var gen = new TempVarGen(TEMP_PREFIX, counter);
+    final var replacedStmtList = LowerPass.passReplaceLargeImmediate(stmtList, gen);
+    final var vars =
+        Stream.concat(input.vars().stream(), gen.getVars().stream())
+            .collect(Collectors.toUnmodifiableList());
     return new Method(
         input.returnType(),
         input.id(),
         input.argsWithThis(),
-        input.vars(),
+        vars,
         input.spilled(),
-        stmtList);
+        replacedStmtList);
   }
 
   private static List<LowerStmt> genStmtChunkBinaryInt(
@@ -518,6 +538,10 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
     return switch (definingStmt.stmtExtensionType()) {
       case IMMEDIATE -> {
         final var is = (ImmediateLowerStmt) definingStmt;
+        yield Optional.of(is.value());
+      }
+      case LOAD_LARGE_IMM -> {
+        final var is = (LoadLargeImmediateLowerStmt) definingStmt;
         yield Optional.of(is.value());
       }
       case BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional

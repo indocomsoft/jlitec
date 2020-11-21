@@ -35,6 +35,7 @@ import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
@@ -49,10 +50,12 @@ import jlitec.ir3.codegen.TempVarGen;
 import jlitec.ir3.expr.rval.IdRvalExpr;
 
 public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, RegAllocPass.Output> {
-  private static final int NUM_REG = 13;
-  private static final Set<Node> precolored =
-      IntStream.range(0, NUM_REG)
+  private static final Set<Integer> REG_COLORS =
+      IntStream.concat(IntStream.range(0, 13), IntStream.of(14))
           .boxed()
+          .collect(Collectors.toUnmodifiableSet());
+  private static final Set<Node> precolored =
+      REG_COLORS.stream()
           .map(Register::fromInt)
           .map(Node.Reg::new)
           .collect(Collectors.toUnmodifiableSet());
@@ -136,8 +139,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
       alias = new HashMap<>();
       color =
           new HashMap<>(
-              IntStream.range(0, NUM_REG)
-                  .boxed()
+              REG_COLORS.stream()
                   .collect(
                       Collectors.toMap(
                           i -> new Node.Reg(Register.fromInt(i)), Function.identity())));
@@ -228,7 +230,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
 
   private void makeWorklist(Set<Node.Id> initial) {
     for (final var n : initial) {
-      if (degree.get(n) >= NUM_REG) {
+      if (degree.get(n) >= REG_COLORS.size()) {
         spillWorklist.add(n);
       } else if (moveRelated(n)) {
         freezeWorklist.add(n);
@@ -264,7 +266,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   private void decrementDegree(Node.Id m) {
     final var d = degree.get(m);
     degree.put(m, d - 1);
-    if (d == NUM_REG) {
+    if (d == REG_COLORS.size()) {
       enableMoves(Sets.union(Set.of(m), adjacent(m)));
       spillWorklist.remove(m);
       if (moveRelated(m)) {
@@ -287,18 +289,19 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   }
 
   private void addWorkList(Node u) {
-    if (u instanceof Node.Id uid && !moveRelated(uid) && degree.get(uid) < NUM_REG) {
+    if (u instanceof Node.Id uid && !moveRelated(uid) && degree.get(uid) < REG_COLORS.size()) {
       freezeWorklist.remove(uid);
       simplifyWorklist.add(uid);
     }
   }
 
   private boolean ok(Node t, Node.Reg r) {
-    return degree.get(t) < NUM_REG || t instanceof Node.Reg || adjSet.containsEntry(t, r);
+    return degree.get(t) < REG_COLORS.size() || t instanceof Node.Reg || adjSet.containsEntry(t, r);
   }
 
   private boolean conservative(Set<Node> nodes) {
-    return nodes.stream().filter(n -> degree.get(n) >= NUM_REG).count() < NUM_REG;
+    return nodes.stream().filter(n -> degree.get(n) >= REG_COLORS.size()).count()
+        < REG_COLORS.size();
   }
 
   private void coalesce() {
@@ -352,7 +355,9 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
         decrementDegree(tid);
       }
     }
-    if (degree.get(u) >= NUM_REG && u instanceof Node.Id uid && freezeWorklist.contains(uid)) {
+    if (degree.get(u) >= REG_COLORS.size()
+        && u instanceof Node.Id uid
+        && freezeWorklist.contains(uid)) {
       freezeWorklist.remove(uid);
       spillWorklist.add(uid);
     }
@@ -453,9 +458,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
   private void assignColors() {
     while (!selectStack.isEmpty()) {
       final var n = selectStack.pop();
-      final var okColors =
-          new HashSet<>(
-              IntStream.range(0, NUM_REG).boxed().collect(Collectors.toUnmodifiableSet()));
+      final var okColors = new HashSet<>(REG_COLORS);
       for (final var w : adjList.get(n)) {
         if (Sets.union(coloredNodes, precolored).contains(getAlias(w))) {
           okColors.remove(color.get(getAlias(w)));
@@ -714,6 +717,18 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 yield List.of(
                     new LoadSpilledLowerStmt(idRvalExpr, id),
                     new FieldAssignLowerStmt(lhsId, fas.lhsField(), rhs));
+              }
+              case LOAD_LARGE_IMM -> {
+                final var is = (LoadLargeImmediateLowerStmt) stmt;
+                if (!(is.dest() instanceof Addressable.IdRval a
+                    && a.idRvalExpr().id().equals(id))) {
+                  yield List.of(stmt);
+                }
+                final var tempVar = gen.gen(type);
+                final var idRvalExpr = new IdRvalExpr(tempVar.id());
+                yield List.of(
+                    new LoadLargeImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), is.value()),
+                    new StoreSpilledLowerStmt(idRvalExpr, id));
               }
               case IMMEDIATE -> {
                 final var is = (ImmediateLowerStmt) stmt;

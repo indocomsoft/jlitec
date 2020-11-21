@@ -1,6 +1,6 @@
 package jlitec.backend.passes.lower.stmt;
 
-public record BranchLinkLowerStmt(String target) implements LowerStmt {
+public record BranchLinkLowerStmt(String target, int numRegArgs) implements LowerStmt {
   @Override
   public LowerStmtType stmtExtensionType() {
     return LowerStmtType.BRANCH_LINK;

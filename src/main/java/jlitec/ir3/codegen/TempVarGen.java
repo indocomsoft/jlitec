@@ -19,6 +19,11 @@ public class TempVarGen {
     this.prefix = prefix;
   }
 
+  public TempVarGen(String prefix, int counter) {
+    this.prefix = prefix;
+    this.counter = counter;
+  }
+
   public Var gen(Type type) {
     final var result = new Var(type, prefix + counter);
     counter++;

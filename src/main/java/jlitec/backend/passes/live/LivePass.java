@@ -22,10 +22,12 @@ import jlitec.backend.passes.flow.FlowGraph;
 import jlitec.backend.passes.lower.stmt.Addressable;
 import jlitec.backend.passes.lower.stmt.BinaryLowerStmt;
 import jlitec.backend.passes.lower.stmt.BitLowerStmt;
+import jlitec.backend.passes.lower.stmt.BranchLinkLowerStmt;
 import jlitec.backend.passes.lower.stmt.CmpLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAccessLowerStmt;
 import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadSpilledLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
@@ -179,6 +181,10 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
         final var is = (ImmediateLowerStmt) stmt;
         yield new DefUse(Set.of(), Set.of(toNode(is.dest())));
       }
+      case LOAD_LARGE_IMM -> {
+        final var is = (LoadLargeImmediateLowerStmt) stmt;
+        yield new DefUse(Set.of(), Set.of(toNode(is.dest())));
+      }
       case LABEL, GOTO, POP_STACK, PUSH_PAD_STACK -> DefUse.EMPTY;
       case RETURN -> new DefUse(Set.of(new Node.Reg(Register.R0)), Set.of());
       case BINARY -> {
@@ -208,13 +214,18 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
         yield new DefUse(use, Set.of(bs.dest().toNode()));
       }
       case BRANCH_LINK -> {
-        final Set<Node> paramRegNodes =
-            IntStream.of(0, 1, 2, 3, 12)
+        final var bls = (BranchLinkLowerStmt) stmt;
+        final Set<Node> use =
+            IntStream.range(0, bls.numRegArgs())
                 .boxed()
                 .map(Register::fromInt)
                 .map(Node.Reg::new)
                 .collect(Collectors.toUnmodifiableSet());
-        yield new DefUse(paramRegNodes, paramRegNodes);
+        final Set<Node> def =
+            Stream.of(Register.R0, Register.R1, Register.R2, Register.R3, Register.R12, Register.LR)
+                .map(Node.Reg::new)
+                .collect(Collectors.toUnmodifiableSet());
+        yield new DefUse(use, def);
       }
       case CMP -> {
         final var cs = (CmpLowerStmt) stmt;

@@ -23,6 +23,7 @@ import jlitec.backend.passes.lower.stmt.FieldAssignLowerStmt;
 import jlitec.backend.passes.lower.stmt.GotoLowerStmt;
 import jlitec.backend.passes.lower.stmt.ImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LabelLowerStmt;
+import jlitec.backend.passes.lower.stmt.LoadLargeImmediateLowerStmt;
 import jlitec.backend.passes.lower.stmt.LoadStackArgLowerStmt;
 import jlitec.backend.passes.lower.stmt.LowerStmt;
 import jlitec.backend.passes.lower.stmt.MovLowerStmt;
@@ -108,11 +109,18 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       stmtList.add(new ReturnLowerStmt());
     }
 
+    final var replacedLargeImmStmtList = passReplaceLargeImmediate(stmtList, gen);
+
     final var vars =
         Stream.concat(method.vars().stream(), gen.getVars().stream())
             .collect(Collectors.toUnmodifiableList());
     return new Method(
-        method.returnType(), method.id().replace("%", ""), argsWithThis, vars, List.of(), stmtList);
+        method.returnType(),
+        method.id().replace("%", ""),
+        argsWithThis,
+        vars,
+        List.of(),
+        replacedLargeImmStmtList);
   }
 
   private static Optional<Integer> stringyRvalExprLength(RvalExpr e) {
@@ -187,11 +195,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         final var rs = (ReadlnStmt) stmt;
         yield switch (typeMap.get(rs.dest().id()).type()) {
           case INT, BOOL -> List.of(
-              new BranchLinkLowerStmt("readln_int_bool"),
+              new BranchLinkLowerStmt("readln_int_bool", 0),
               new MovLowerStmt(
                   new Addressable.IdRval(rs.dest()), new Addressable.Reg(Register.R0)));
           case STRING -> List.of(
-              new BranchLinkLowerStmt("getline_without_newline"),
+              new BranchLinkLowerStmt("getline_without_newline", 0),
               new MovLowerStmt(
                   new Addressable.IdRval(rs.dest()), new Addressable.Reg(Register.R0)));
           case VOID, CLASS -> throw new RuntimeException("should have failed typecheck");
@@ -202,17 +210,17 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         yield switch (ps.rval().getRvalExprType()) {
           case STRING -> List.of(
               new ImmediateLowerStmt(new Addressable.Reg(Register.R0), (StringRvalExpr) ps.rval()),
-              new BranchLinkLowerStmt("puts"));
+              new BranchLinkLowerStmt("puts", 1));
           case NULL -> List.of(
               new ImmediateLowerStmt(new Addressable.Reg(Register.R0), new StringRvalExpr("")),
-              new BranchLinkLowerStmt("puts"));
+              new BranchLinkLowerStmt("puts", 1));
           case INT -> {
             final var ire = (IntRvalExpr) ps.rval();
             yield List.of(
                 new ImmediateLowerStmt(
                     new Addressable.Reg(Register.R0),
                     new StringRvalExpr(Integer.toString(ire.value()))),
-                new BranchLinkLowerStmt("puts"));
+                new BranchLinkLowerStmt("puts", 1));
           }
           case BOOL -> {
             final var bre = (BoolRvalExpr) ps.rval();
@@ -220,20 +228,20 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 new ImmediateLowerStmt(
                     new Addressable.Reg(Register.R0),
                     new StringRvalExpr(bre.value() ? "true" : "false")),
-                new BranchLinkLowerStmt("puts"));
+                new BranchLinkLowerStmt("puts", 1));
           }
           case ID -> {
             final var ire = (IdRvalExpr) ps.rval();
             final var movLowerStmt =
                 new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(ire));
             yield switch (typeMap.get(ire.id()).type()) {
-              case STRING -> List.of(movLowerStmt, new BranchLinkLowerStmt("puts"));
-              case BOOL -> List.of(movLowerStmt, new BranchLinkLowerStmt("println_bool"));
+              case STRING -> List.of(movLowerStmt, new BranchLinkLowerStmt("puts", 1));
+              case BOOL -> List.of(movLowerStmt, new BranchLinkLowerStmt("println_bool", 1));
               case INT -> List.of(
                   new ImmediateLowerStmt(
                       new Addressable.Reg(Register.R0), new StringRvalExpr("%d\n")),
                   new MovLowerStmt(new Addressable.Reg(Register.R1), new Addressable.IdRval(ire)),
-                  new BranchLinkLowerStmt("printf"));
+                  new BranchLinkLowerStmt("printf", 2));
               case VOID, CLASS -> throw new RuntimeException("should have failed typecheck");
             };
           }
@@ -408,7 +416,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     if (!stackArgs.isEmpty()) {
       result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
     }
-    result.add(new BranchLinkLowerStmt(target));
+    result.add(new BranchLinkLowerStmt(target, Math.min(4, args.size())));
     if (!stackArgs.isEmpty()) {
       result.add(new PopStackLowerStmt(stackArgs.size() + ((stackArgs.size() & 1) == 1 ? 1 : 0)));
     }
@@ -446,7 +454,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                result.add(new BranchLinkLowerStmt("strlen"));
+                result.add(new BranchLinkLowerStmt("strlen", 1));
                 // Plus 1 to account for the null
                 result.add(
                     new BinaryLowerStmt(
@@ -459,7 +467,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                result.add(new BranchLinkLowerStmt("strlen"));
+                result.add(new BranchLinkLowerStmt("strlen", 1));
                 // Plus 1 to account for the null
                 result.add(
                     new BinaryLowerStmt(
@@ -475,7 +483,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R0), new Addressable.IdRval(lhs)));
-                result.add(new BranchLinkLowerStmt("strlen"));
+                result.add(new BranchLinkLowerStmt("strlen", 1));
                 // Plus 1 to account for the null
                 result.add(
                     new BinaryLowerStmt(
@@ -486,7 +494,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R0), new Addressable.IdRval(rhs)));
-                result.add(new BranchLinkLowerStmt("strlen"));
+                result.add(new BranchLinkLowerStmt("strlen", 1));
                 result.add(
                     new BinaryLowerStmt(
                         BinaryOp.PLUS,
@@ -496,7 +504,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               }
             }
             // malloc the new string
-            result.add(new BranchLinkLowerStmt("malloc"));
+            result.add(new BranchLinkLowerStmt("malloc", 1));
 
             // copy/concatenate lhs and rhs
             if (maybeTotalLength.isPresent()) {
@@ -506,41 +514,41 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               result.add(
                   new ImmediateLowerStmt(
                       new Addressable.Reg(Register.R1), new StringRvalExpr(lhs + rhs)));
-              result.add(new BranchLinkLowerStmt("strcpy"));
+              result.add(new BranchLinkLowerStmt("strcpy", 2));
             } else {
               if (maybeLhsLength.isPresent()) {
                 final var lhs = be.lhs() instanceof StringRvalExpr sre ? sre.value() : "";
                 result.add(
                     new ImmediateLowerStmt(
                         new Addressable.Reg(Register.R1), new StringRvalExpr(lhs)));
-                result.add(new BranchLinkLowerStmt("strcpy"));
+                result.add(new BranchLinkLowerStmt("strcpy", 2));
                 final var rhs = (IdRvalExpr) be.rhs();
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                result.add(new BranchLinkLowerStmt("strcat"));
+                result.add(new BranchLinkLowerStmt("strcat", 2));
               } else if (maybeRhsLength.isPresent()) {
                 final var lhs = (IdRvalExpr) be.lhs();
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                result.add(new BranchLinkLowerStmt("strcpy"));
+                result.add(new BranchLinkLowerStmt("strcpy", 2));
                 final var rhs = be.rhs() instanceof StringRvalExpr sre ? sre.value() : "";
                 result.add(
                     new ImmediateLowerStmt(
                         new Addressable.Reg(Register.R1), new StringRvalExpr(rhs)));
-                result.add(new BranchLinkLowerStmt("strcat"));
+                result.add(new BranchLinkLowerStmt("strcat", 2));
               } else {
                 final var lhs = (IdRvalExpr) be.lhs();
                 final var rhs = (IdRvalExpr) be.rhs();
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R1), new Addressable.IdRval(lhs)));
-                result.add(new BranchLinkLowerStmt("strcpy"));
+                result.add(new BranchLinkLowerStmt("strcpy", 2));
                 result.add(
                     new MovLowerStmt(
                         new Addressable.Reg(Register.R1), new Addressable.IdRval(rhs)));
-                result.add(new BranchLinkLowerStmt("strcat"));
+                result.add(new BranchLinkLowerStmt("strcat", 2));
               }
             }
 
@@ -721,9 +729,69 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         yield List.of(
             new ImmediateLowerStmt(
                 new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
-            new BranchLinkLowerStmt("malloc"),
+            new BranchLinkLowerStmt("malloc", 1),
             new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)));
       }
     };
+  }
+
+  public static List<LowerStmt> passReplaceLargeImmediate(
+      List<LowerStmt> lowerStmtList, TempVarGen gen) {
+    final var stmtList = new ArrayList<LowerStmt>();
+    for (final var stmt : lowerStmtList) {
+      if (stmt instanceof BinaryLowerStmt b
+          && b.rhs() instanceof IntRvalExpr ire
+          && !isValidOp2Imm(ire.value())) {
+        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var dest = new Addressable.IdRval(idRvalExpr);
+        stmtList.add(new LoadLargeImmediateLowerStmt(dest, ire));
+        stmtList.add(new BinaryLowerStmt(b.op(), b.dest(), b.lhs(), idRvalExpr));
+      } else if (stmt instanceof CmpLowerStmt c
+          && c.rhs() instanceof IntRvalExpr ire
+          && !isValidOp2Imm(ire.value())) {
+        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var dest = new Addressable.IdRval(idRvalExpr);
+        stmtList.add(new LoadLargeImmediateLowerStmt(dest, ire));
+        stmtList.add(new CmpLowerStmt(c.op(), c.lhs(), idRvalExpr, c.dest()));
+      } else if (stmt instanceof ImmediateLowerStmt i
+          && i.value() instanceof IntRvalExpr ire
+          && !isValidOp2Imm(ire.value())) {
+        stmtList.add(new LoadLargeImmediateLowerStmt(i.dest(), ire));
+      } else if (stmt instanceof ReverseSubtractLowerStmt r
+          && r.rhs() instanceof IntRvalExpr ire
+          && !isValidOp2Imm(ire.value())) {
+        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.INT));
+        final var idRvalExpr = new IdRvalExpr(tempVar.id());
+        final var dest = new Addressable.IdRval(idRvalExpr);
+        stmtList.add(new LoadLargeImmediateLowerStmt(dest, ire));
+        stmtList.add(new ReverseSubtractLowerStmt(r.dest(), r.lhs(), idRvalExpr));
+      } else {
+        stmtList.add(stmt);
+      }
+    }
+    return Collections.unmodifiableList(stmtList);
+  }
+
+  private static boolean isValidOp2Imm(int value) {
+    // Assembler is able to substitute MVN/CMN/equivalent NOT for negative numbers
+    final var normalisedValue = value >= 0 ? value : ~value;
+
+    final var leading = Integer.numberOfLeadingZeros(normalisedValue);
+    final var trailing = Integer.numberOfTrailingZeros(normalisedValue);
+    final var length = 32 - leading - trailing;
+    // Requirement:
+    // any value that can be produced by rotating an 8-bit value right by any even number of bits
+    // within a 32-bit word
+    if (length > 8) {
+      // normalisedValue is longer than 8-bit
+      return false;
+    }
+    if (length == 8 && (trailing & 1) == 1) {
+      // normalisedValue is rotated by an odd number of bits
+      return false;
+    }
+    return true;
   }
 }

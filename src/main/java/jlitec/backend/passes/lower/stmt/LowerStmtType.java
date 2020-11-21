@@ -11,6 +11,7 @@ public enum LowerStmtType {
   IMMEDIATE,
   LABEL,
   LOAD_STACK_ARG,
+  LOAD_LARGE_IMM,
   LDR_SPILL,
   STR_SPILL,
   MOV,
