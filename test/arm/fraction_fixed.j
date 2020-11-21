@@ -32,14 +32,19 @@ class Fraction {
   Void set(Int numerator, Int denominator) {
     Int gcd;
     Int n;
-    if (numerator >= 0) {
-      n = numerator;
+    if (numerator == 0) {
+      this.numerator = numerator;
+      this.denominator = 1;
     } else {
-      n = -numerator;
+      if (numerator >= 0) {
+        n = numerator;
+      } else {
+        n = -numerator;
+      }
+      gcd = gcd(n, denominator);
+      this.numerator = numerator / gcd;
+      this.denominator = denominator / gcd;
     }
-    gcd = gcd(n, denominator);
-    this.numerator = numerator / gcd;
-    this.denominator = denominator / gcd;
   }
 
   Fraction add(Fraction other) {
@@ -107,7 +112,11 @@ class Fraction {
 
   Void print() {
     println(this.numerator);
-    println("-");
+    if (this.numerator >= 0) {
+      println("-");
+    } else {
+      println(" -");
+    }
     println(this.denominator);
     println(null);
   }
