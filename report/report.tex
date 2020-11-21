@@ -1,0 +1,428 @@
+\documentclass[nonacm, acmsmall, screen, 10pt]{acmart}
+
+\usepackage{minted}
+
+\setminted[java]{fontsize=\small, tabsize=2, breaklines, linenos}
+\setminted[text]{fontsize=\small, tabsize=2, breaklines, linenos}
+\setminted[gas]{fontsize=\small, tabsize=2, breaklines, linenos}
+\setminted[c]{fontsize=\small, tabsize=2, breaklines, linenos}
+
+\begin{document}
+\title{CS4212 Programming Assignment 3 Report}
+\author{Julius Putra Tanu Setiaji (A0149787E)}\makeatletter\let\@authorsaddresses\@empty\makeatother%
+\maketitle
+\tableofcontents
+
+\section{General Compilation Flow}
+Besides IR3, I defined my own machine-specific intermediate representation (IR) for use in my compiler, called Lower.
+With reference to GCC, IR3 is similar to GIMPLE, while Lower is similar to RTL.
+
+My compiler can be divided into several parts:
+\begin{enumerate}
+  \item Lexer
+  \item Parser
+  \item Typechecker
+  \item IR3 Codegen
+  \item Lower Codegen
+  \item Optional optimisation passes
+  \item Register Allocation
+  \item ARM code generation
+  \item Optional peephole optimisation passes
+\end{enumerate}
+
+\subsection{Lexer and Parser}
+Lexer and parser were done as part of Programming Assignment 1.
+
+Lexing is done using the lexer generator JFlex.
+It was relatively straightforward as the tokens in JLite is a subset of the tokens in Java, and JFlex provided a sample Java lexer.
+The one difference between Java tokens are JLite tokens is the liberty that I took to disallow representing the empty string as \texttt{""}, and instead forcing the use of \texttt{null} to represent empty string.
+
+Parsing is done using the LALR parser generator CUP.
+This part is more complicated as the provided grammar is ambiguous, due to the type-specificity of each operator, the overloading of the operator \texttt{+} to represent both arithmetic addition and string concatenation, and the associativity ambiguity of the string concatenation operator.
+Thus, I specified a less strict grammar rules, and verified the abstract syntax tree during construction in order to make sure it follows the full JLite grammar rules.
+
+The generated abstract syntax tree is then passed on to the typechecker.
+
+\subsection{Typechecker and IR3 Codegen}
+Typechecker and IR3 code generation were done as part of Programming Assignment 1.
+
+Typechecking is performed on the abstract syntax tree recursively, and the types are attached to the abstract syntax tree.
+Generating IR3 from the abstract syntax tree generated is quite trivial through recursion and with the type information yielded from the typechecker.
+
+The generated IR3 code is then passed on to the Lower codegen.
+
+\subsection{Lower Codegen}
+Lower is my machine-specific where I perform all the passes on.
+Unlike Jlite and IR3, Lower does not have any notion of expression, only statements.
+These statements are designed to very closely match ARM instructions, while still maintaining IR3 semantics as much as possible.
+Lower also allows statements to make use of real physical hardware ARM registers, besides variables.
+The struct \texttt{Addressable} in Lower is designed to be the representation of a ``register'', both real physical hardware registers as well as pseudo-registers (which program variables are).
+
+There are many types of statements in Lower:
+\begin{itemize}
+  \item \texttt{BINARY}, representing instructions in ARM whose operands are one register and one Operand2 (either Immediate or Register without barrel-shifter operation).
+  \item \texttt{BINARY\_BIT}, representing instructions in ARM whose operands are one register and one Register with barrel-shifter operation.
+  \item \texttt{BIT}, representing barrel-shifter instructions in ARM.
+  \item \texttt{BRANCH\_LINK}, representing the \texttt{BL} instruction.
+  \item \texttt{CMP}, representing an if-goto instruction (\texttt{CMP} followed by conditional \texttt{B} instructions).
+  \item \texttt{FIELD\_ACCESS}, representing a field access (\texttt{LDR} instruction).
+  \item \texttt{FIELD\_ASSIGN}, representing a field assignment (\texttt{STR} instruction).
+  \item \texttt{GOTO}, representing unconditional branching (unconditional \texttt{B} instruction).
+  \item \texttt{IMMEDIATE}, representing assignment into a register from an immediate value (either \texttt{MOV} instruction with an immediate operand2, or \texttt{LDR} from a constant pool, as is the case for literal strings).
+  \item \texttt{LABEL}, representing a label.
+  \item \texttt{LOAD\_STACK\_ARG}, representing \texttt{LDR} instruction from the stack for a function argument.
+  \item \texttt{LOAD\_LARGE\_IMM}, representing assignment into a register from the constant pool for a large immediate value.
+  \item \texttt{LDR\_SPILL}, representing \texttt{LDR} instruction for a spilled variable.
+  \item \texttt{STR\_SPILL}, representing \texttt{STR} instruction for a spilled variable.
+  \item \texttt{MOV}, representing assignment from one register into another (\texttt{MOV} instruction with two register operands).
+  \item \texttt{RETURN}, representing returning from the current function (either \texttt{BX LR} instruction or \texttt{LDMFD SP!, \{..., PC\}}).
+  \item \texttt{PUSH\_PAD\_STACK}, representing \texttt{SUB SP, SP, \#4} to pad the stack by 4 bytes to maintain 8-byte alignment as required by the ARM calling convention.
+  \item \texttt{PUSH\_STACK}, representing \texttt{PUSH} pseudo-instruction (\texttt{STR Rs, [SP, \#-4]!}) to push a register into the stack, which also updates the \texttt{SP} register.
+  \item \texttt{POP\_STACK}, representing popping the stack (\texttt{ADD SP, SP, \#<number of bytes>}).
+  \item \texttt{REG\_BINARY}, representing instructions in ARM whose operands are 2 registers (\texttt{MUL} and \texttt{SDIV}).
+  \item \texttt{REVERSE\_SUBTRACT}, representing the \texttt{RSB} instruction whose operand2 is either an Immediate value or Register without barrel-shifter operation.
+  \item \texttt{REVERSE\_SUBTRACT\_BIT}, representing the \texttt{RSB} instruction whose operand2 is a Register with barrel-shifter operation.
+  \item \texttt{UNARY}, representing either the \texttt{MVN} instruction or \texttt{NEG} pseudo-instruction (\texttt{RSB Rd, Rs, \#0}).
+\end{itemize}
+
+There could be some IR3 operations that do not fulfill the requirements of any Lower statement, e.g. \texttt{a = b * 3;}.
+The pass that lowers IR3 to Lower will create new temporaries as required.
+The purpose of Lower is to make ARM code generation trivial given register allocation information.
+
+\texttt{new} statements, \texttt{println} statements \texttt{readln} statements, and string concatenation operations are also lowered into either a call into a helper function, or the corresponding \texttt{libc} functions:
+\begin{itemize}
+  \item \textbf{new} statements are implemented by calling \texttt{malloc} with the correct number of bytes based on the number of fields of the class.
+        The types of the fields do not matter as all types in JLite are uniformly 32 bits (4 bytes):
+        \begin{itemize}
+          \item \texttt{String} is represented as a pointer to the first element of a null-terminated array of characters. Since ARM is an ISA for a 32-bit machine, pointer lengths are 32-bits.
+          \item \texttt{Int} is represented as a 32-bit integer as we are using a 32-bit machine.
+          \item \texttt{Bool} is represented as an \texttt{Int} whose value is \texttt{1} for true, and \texttt{0} for false.
+          \item Classes are represented as a pointer, which in a 32-bit machine is 32-bits long.
+        \end{itemize}
+  \item \textbf{println} statements are implemented by:
+        \begin{itemize}
+          \item \texttt{String}: calling \mintinline{c}{puts(string);}.
+          \item \texttt{Int}: calling \mintinline{c}{printf("%d", integer);}.
+          \item \texttt{Bool}: calling helper function \mintinline{c}{println_bool(bool);}.
+        \end{itemize}
+  \item \textbf{readln} statements are implemented by:
+        \begin{itemize}
+          \item \texttt{Int} and \texttt{Bool}: calling \mintinline{c}{readln_int_bool();} and using the result.
+          \item \texttt{String}: calling \mintinline{c}{getline_without_newline();} and using the result.
+        \end{itemize}
+  \item \textbf{String concatentation} is implemented by using \texttt{strlen} to find out the lengths of the two string, then \texttt{malloc} to allocate a buffer for the resulting string, then \texttt{strcpy} from the first string to the resulting string, followed by \texttt{strcat} from the second string to the resulting string.
+\end{itemize}
+
+Note that since we do not have a garbage collector, currently memory allocated for strings and classes are just leaked when they go out of scope.
+
+Helper function \mintinline{c}{println_bool(bool);} prints either \texttt{true} or \texttt{false} depending on the boolean value.
+The implementation in C and ARM:
+\begin{minted}{c}
+void println_bool(int a)
+{
+  puts(a == 1 ? "true" : "false");
+}
+\end{minted}
+
+\begin{minted}{gas}
+println_bool:
+LDR R2, .TRUE
+LDR R1, .FALSE
+CMP R0, #1
+MOVEQ R1, R2
+MOV R0, R1
+b puts
+\end{minted}
+
+Helper function \mintinline{c}{readln_int_bool();} gets one whole new line and read an integer from it.
+The implementation in C and ARM:
+\begin{minted}{c}
+int readln_int_bool()
+{
+  int a;
+  char* result = NULL;
+  size_t n = 0;
+  getline(&result, &n, stdin);
+  sscanf(result, "%d", &a);
+  free(result);
+  return a;
+}
+\end{minted}
+
+\begin{minted}{gas}
+readln_int_bool:
+STMFD SP!, {R4, LR}
+SUB SP, SP, #16
+MOV R0, #0
+STR R0, [SP, #8]
+STR R0, [SP, #4]
+LDR R0, .Lstdin
+LDR R2, [R0]
+ADD R0, SP, #8
+ADD R1, SP, #4
+BL getline
+LDR R0, [SP, #8]
+LDR R1, .PERCENTD
+ADD R2, SP, #12
+BL sscanf
+LDR R0, [SP, #8]
+BL free
+LDR R0, [SP, #12]
+ADD SP, SP, #16
+LDMFD SP!, {R4, PC}
+\end{minted}
+
+Helper function \mintinline{c}{getline_without_newline();} gets one whole new line and removes the newline from it.
+The implementation in C and ARM:
+\begin{minted}{c}
+char* getline_without_newline()
+{
+  char* result = NULL;
+  size_t n = 0;
+  ssize_t len = getline(&result, &n, stdin);
+  result[len - 1] = 0;
+  return realloc(result, len - 1);
+}
+\end{minted}
+
+\begin{minted}{gas}
+getline_without_newline:
+STMFD SP!, {R4, LR}
+SUB SP, SP, #8
+MOV R4, #0
+STR R4, [SP]
+STR R4, [SP, #4]
+MOV R0, SP
+ADD R1, R0, #4
+LDR R3, .Lstdin
+LDR R2, [R3]
+BL getline
+SUB R1, R0, #1
+LDR R0, [SP]
+STRB R4, [R0, R1]
+BL realloc
+ADD SP, SP, #8
+LDMFD SP!, {R4, PC}
+\end{minted}
+
+
+
+\subsection{Optional Optimisation Passes}
+There are a couple of optimisations that I have implemented on the Lower IR.
+I will expound on this in a later section.
+
+\subsection{Register Allocation}
+Register allocation is performed on the Lower IR based on graph colouring of the interference graph, created using liveness dataflow analysis.
+Performing graph colouring based on the Lower IR rather than IR3 allows for more optimal register allocation, such as using \texttt{R0} to \texttt{R3}, as well as \texttt{R12} and \texttt{LR} (as long as \texttt{LR} is saved) for variables that are not live across function calls.
+\texttt{R12} is not safe to use across function calls as it is used as Intra-Procedure-call scratch register.
+
+\begin{figure}[htpb]
+  \centering
+  \includegraphics[width=0.8\textwidth]{regallocgraph}
+  \caption{Chaitin-Briggs-George-Appel register allocation algorithm based on graph-colouring}
+  \label{fig:regallocgraph}
+\end{figure}
+
+The register allocation method used is Chaitin-Briggs-George-Appel algorithm based on Kempe's graph-colouring algorithm.
+The steps are as can be seen from Figure~\ref{fig:regallocgraph}:
+\begin{itemize}
+  \item \textbf{Build}: construct the interference graph, and categorise each pseudo-register as either move-related or non-move-related.
+  \item \textbf{Simplify}: one at a time, remove non-move-related nodes of low-degree from the graph, similar to Kempe's graph-colouring algorithm.
+  \item \textbf{Coalesce}: perform conservative coalescing on the reduced graph obtained in the simplification phase.
+  \item \textbf{Freeze}: if neither simplify nor coalesce applies, freeze all the low-degree move-related nodes -- this means that they are considered to be non-move-related, which enables more simplication.
+        After this, simplify and coalesce are resumed
+  \item \textbf{Potential Spill}: If there are no low-degree nodes, select a significant-degree node for potential spilling and push it on the stack.
+  \item \textbf{Select}: Pop the entire stack, assigning colours if possible.
+  \item \textbf{Actual spill}: If there is a node for which no colour can be applied during select, it is an actual spill.
+        The program is rewritten with the spill, and the whole process is started from scratch.
+\end{itemize}
+
+Spilling priority is determined by the spilling priority score, where lower scores are more likely to be spilled.
+The heuristic used is $\text{score} = (\text{number of defs and uses}) \div \text{degree}$.
+This is because we want to spill variables that are least frequently defined and used, as well as those that interferes with many other variables.
+Temporaries created in IR3/Lower is given higher scores than user-defined variables, and spilled temporaries are given even higher scores then temporaries created in IR3/Lower.
+
+Note that some operands of Lower statements are actual physical hardware registers, which means that they are precoloured in terms of the graph colouring problem.
+Using conservative coalescing, these registers can be coalesced with other pseudo-registers, resulting in a more optimal register allocation.
+Registers \texttt{R0} to \texttt{R3} are also used in the calling convention.
+Since they are caller-saved, their contents are clobbered after a function call.
+This can be indicated in the interference graph by making these registers interfere with one another, as well as with variables that are live across function calls.
+Care should also be taken to ensure short live-range of physical hardware registers, as they cannot be spilled into memory.
+As such, the standard convention call is represented in Lower using \texttt{MOV} and \texttt{IMMEDIATE} statements to move the parameters into registers \texttt{R0} to \texttt{R3}, as well if need be pushing the rest of the parameters into stack, then a \texttt{BRANCH\_LINK} statement, followed by a \texttt{POP\_STACK} statement if there were parameters on the stack, and finally, if need be, a \texttt{MOV} statement to move the result of the function call to a variable if the result is used.
+
+For example, take the following JLite statements (with the class signature in the comment):
+\begin{minted}{java}
+/* class Func {
+ *   Func f(Int, Int, Int, Int, Int, Int);
+ *   Void g();
+ * }
+ */
+Func a; Int b; Int c; Int d; Int e; Int f;
+a.f(b, 5, c, d, e, f).g();
+\end{minted}
+
+Lowered to IR3, the equivalent statements are:
+\begin{minted}{text}
+Func _t1;
+_t1 = %Func_0(a, b, 5, c, d, e, f);
+%Func_1(_t1);
+\end{minted}
+
+Lowered to Lower, the equivalent statements are:
+\begin{minted}{text}
+R0 <- a;     // MOV
+R1 <- b;     // MOV
+R2 = 5;      // IMMEDIATE
+R3 <- c;     // MOV
+PUSH (PAD);  // PUSH_STACK_PAD
+PUSH f;      // PUSH_STACK
+PUSH e;      // PUSH_STACK
+PUSH d;      // PUSH_STACK
+CALL Func_0; // BRANCH_LINK
+POP 4;       // POP_STACK
+_t1 <- R0;   // MOV
+R0 <- _t1;   // MOV
+CALL Func_1; // BRANCH_LINK
+\end{minted}
+
+Assuming that \texttt{a} is assigned to register \texttt{R4}, \texttt{b} to register \texttt{R1}, \texttt{c} to register \texttt{R5}, \texttt{d} to register \texttt{R6}, \texttt{e} to register \texttt{R7}, \texttt{f} to register \texttt{R8}, \texttt{g} to register \texttt{R0}, then the generated ARM code is:
+\begin{minted}{gas}
+MOV R0, R4
+MOV R2, #5
+MOV R3, R5
+SUB SP, SP, #4
+STR R8, [SP, #4]!
+STR R7, [SP, #4]!
+STR R6, [SP, #4]!
+BL Func_0
+ADD SP, SP, #16
+BL Func_1
+\end{minted}
+
+Observe that \texttt{MOV} to the same registers are omitted.
+With the liveness information used to construct the interference graph, the register allocator is able to tell, e.g. that variables \texttt{b} and \texttt{\_t1} do not live across function calls.
+Thus, the register allocator is able to make a more optimal choice of assigning \texttt{b} to \texttt{R1}, given that it is the second parameter to \texttt{Func\_0}, while \texttt{\_t1} is assigned to \texttt{R0} as it is the first parameter of \texttt{Func\_1}.
+
+\subsection{ARM Code Generation}
+With register allocation from the register allocator, ARM code generation from Lower IR is relatively trivial, as most types of Lower statements correspond with exactly one ARM instruction, except for \texttt{CMP}, and comparison operators in \texttt{BINARY} and \texttt{BINARY\_BIT}.
+
+\subsection{Optional Peephole Optimisation Passes}
+There are a couple of optimisations that I have implemented on the ARM code generated.
+I will expound on this in a later section.
+
+\section{Lower IR Optimisations}
+A couple of optimisations are performed on the Lower IR.
+These optimisations are run continuously until 2 runs produce the same Lower IR.
+
+\subsection{Algebraic Identities}
+We make use of the following algebraic identities:
+\begin{itemize}
+  \item $x + 0 = 0 + x = x$ and $x - 0 = x$.
+  \item $x \land true = x$
+  \item $x \land false = false$
+  \item $x \lor true = true$
+  \item $x \lor false = x$
+\end{itemize}
+
+\subsection{Deadcode Elimination}
+There are a couple of dead code types that are detected in this pass:
+\begin{itemize}
+  \item \textbf{Basic Block}: basic blocks with in-degrees = 0 except for the entry node is removed.
+  \item \textbf{Uses}: statements that defines dead variables are removed.
+  \item \textbf{Dead Gotos}: delete goto statemens pointing to a label that follows the goto statement directly, i.e. \texttt{GOTO L2; L2:}, and rather use the fallthrough behaviour.
+  \item \textbf{Mov to itself}: delete mov statements with the same source and destination.
+  \item \textbf{Remove useless labels}: remove labels that are not the destination of any goto or if-goto statements.
+  \item \textbf{Remove double goto}: remove labels whose content is another goto statement, and ensuring all gotos to the removed label go to the destination of the goto statement in the removed label.
+  \item \textbf{Remove label return}: remove labels whose only content is return, in favour of replacing the original goto to the removed labels to return directly.
+\end{itemize}
+
+\subsection{Barrel-shifter Operand2}
+Replace the sequence of \texttt{BIT} followed by \texttt{BINARY} with \texttt{BINARY\_BIT}, and \texttt{BIT} followed by \texttt{REVERSE\_SUBTRACT} with \texttt{REVERSE\_SUBTRACT\_BIT}.
+If the destination of the \texttt{BIT} statement is not used anymore anywhere else, then the \textbf{Deadcode Elimination} pass will pick it up to remove the \texttt{BIT} statements.
+
+\subsection{Constant Propagation and Constant Folding}
+Using reaching definition dataflow analysis, resolve the value of variables into a constant.
+If all operands in a statement is identified, then perform constant folding: do the operation during compile time instead and turn the statement into an \texttt{IMMEDIATE} statement with the result of the operation.
+
+This works wonderfully on the provided \texttt{test\_booleans.j} and \texttt{test\_ops.j} sample input files provided, and we are left only with print statements containing the results.
+
+There are 2 additional passes performed on the resulting constant-propagated and constant-folded program:
+\begin{itemize}
+  \item \textbf{Handling large immediate}: operand2 immediate values are limited to 8-bit values rotated by an even number of bits.
+        Any immediate outside of that range must be loaded from a constant pool.
+        This is handled by replacing those with \texttt{LOAD\_LARGE\_IMM} Lower statement.
+  \item \textbf{Inlining of println\_bool}: if the parameter to \texttt{println\_bool} is constant-folded and known at compile-time, then inline the helper function to either \mintinline{c}{puts("true");} or \mintinline{c}{puts("false");}.
+\end{itemize}
+
+\section{ARM Code Peephole Optimisations}
+There are a couple of peephole optimisations that can be performed on the resulting ARM code.
+
+\subsection{Algebraic Identities}
+\subsubsection{Addition and subtraction with zero}
+Replace \mintinline{gas}{ADD R0, R1, #0} or \mintinline{gas}{SUB R0, R1, #0} with \mintinline{gas}{MOV R0, R1}.
+
+\subsubsection{And with true}
+Replace \mintinline{gas}{AND R0, R1, #1} with \mintinline{gas}{MOV R0, R1}.
+
+\subsubsection{And with false}
+Replace \mintinline{gas}{AND R0, R1, #0} with \mintinline{gas}{MOV R0, #0}.
+
+\subsubsection{Or with true}
+Replace \mintinline{gas}{ORR R0, R1, #1} with \mintinline{gas}{MOV R0, #1}.
+
+\subsubsection{Or with false}
+Replace \mintinline{gas}{ORR R0, R1, #0} with \mintinline{gas}{MOV R0, R1}.
+
+\subsection{Useless \texttt{MOV}}
+Replace:
+\begin{minted}{gas}
+MOV R5, R0
+MOV R0, R5
+\end{minted}
+with:
+\begin{minted}{gas}
+MOV R5, R0
+\end{minted}
+
+Note that we cannot remove \mintinline{gas}{MOV R5, R0} entirely as the value of \texttt{R5} might be used later on, for example, to ensure a variable survives a function call.
+
+\subsection{Useless \texttt{LDR}}
+Replace:
+\begin{minted}{gas}
+STR R0, [SP]
+LDR R0, [SP]
+\end{minted}
+with:
+\begin{minted}{gas}
+STR R0, [SP]
+\end{minted}
+
+Note that we cannot remove \mintinline{gas}{STR R0, [SP]} entirely as that value in memory might be loaded later on.
+
+\subsection{Remove \texttt{MOV} to itself}
+Delete:
+\begin{minted}{gas}
+MOV R0, R0
+\end{minted}
+
+\subsection{Consecutive \texttt{MOV} of immediate values to the same register}
+Replace:
+\begin{minted}{gas}
+MOV R0, #5
+MOV R0, #1
+\end{minted}
+with:
+\begin{minted}{gas}
+MOV R0, #1
+\end{minted}
+
+\section{Additional Notes}
+Possible future work includes:
+\begin{itemize}
+  \item Sub-expression elimination, which is probably best done on the IR3 level.
+  \item Better spilling heuristic by changing the weight of the number of defs and uses inside a loop as opposed to outside a loop, for example $score = ((\text{number of defs and uses outside loops}) + 10 \times (\text{number of defs and uses inside loops})) \div \text{degree}$.
+  \item Converting into Single Static Assignment form to unlock further optimisation, for example with sparse conditional constant propagation.
+  \item Performing
+\end{itemize}
+
+\end{document}
