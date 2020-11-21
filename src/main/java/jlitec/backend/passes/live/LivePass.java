@@ -209,7 +209,7 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
       }
       case BRANCH_LINK -> {
         final Set<Node> paramRegNodes =
-            IntStream.range(0, 4)
+            IntStream.of(0, 1, 2, 3, 12)
                 .boxed()
                 .map(Register::fromInt)
                 .map(Node.Reg::new)
