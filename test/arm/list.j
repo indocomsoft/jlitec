@@ -17,23 +17,33 @@ class Main {
       readln(op);
 
       if (op == 1) {
+        println("=================");
         println("Enter item to add");
+        println("=================");
         readln(item);
         list.add(item);
+        println("=================");
       } else {
         if (op == 2) {
+          println("=====================");
           println("Enter index to remove");
+          println("=====================");
           readln(index);
           list.removeAt(index);
+          println("=====================");
         } else {
           if (op == 3) {
+            println("=====================");
             list.print();
+            println("=====================");
           } else {
             if (op == 4) {
               return;
             } else {
               if (op < 1 || op > 3) {
+                println("=================");
                 println("Invalid operation");
+                println("=================");
               } else {
                 op = op;
               }
@@ -71,19 +81,25 @@ class List {
   Void removeAt(Int index) {
     Int count;
     List cur;
-    count = 0;
-    cur = this;
-    index = index - 1;
-    while (cur.hasTail && count < index) {
-      cur = cur.tail;
-      count = count + 1;
-    }
-    if (cur.hasTail) {
-      cur.hasTail = cur.tail.hasTail;
-      cur.tail = cur.tail.tail;
+    if (index == 0 ) {
+      this.item = this.tail.item;
+      this.hasTail = this.tail.hasTail;
+      this.tail = this.tail.tail;
     } else {
-      // end of list has been reached
-      return;
+      count = 0;
+      cur = this;
+      index = index - 1;
+      while (cur.hasTail && count < index) {
+        cur = cur.tail;
+        count = count + 1;
+      }
+      if (cur.hasTail) {
+        cur.hasTail = cur.tail.hasTail;
+        cur.tail = cur.tail.tail;
+      } else {
+        // end of list has been reached
+        return;
+      }
     }
   }
 
@@ -95,7 +111,7 @@ class List {
     cur = this;
     while (cur.hasTail) {
       println(index);
-      println(cur.item);
+      println("Item = " + cur.item);
       index = index + 1;
       cur = cur.tail;
     }
