@@ -151,17 +151,34 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               yield List.of(
                   new CmpLowerStmt(be.op().comparisonOpposite(), rhs, be.lhs(), cs.dest().label()));
             } else {
-              final var tempVar =
-                  switch (be.lhs().getRvalExprType()) {
-                    case ID, NULL, STRING -> throw new RuntimeException("should not be reached");
-                    case INT -> gen.gen(new Type.PrimitiveType(Ir3Type.INT));
-                    case BOOL -> gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
-                  };
-              final var idRvalExpr = new IdRvalExpr(tempVar.id());
-              yield List.of(
-                  new ImmediateLowerStmt(
-                      new Addressable.IdRval(idRvalExpr), (LiteralRvalExpr) be.lhs()),
-                  new CmpLowerStmt(be.op(), idRvalExpr, be.rhs(), cs.dest().label()));
+              // constant folding!
+              yield switch (be.op()) {
+                case PLUS, MINUS, DIV, MULT -> throw new RuntimeException();
+                case AND, OR -> {
+                  final var lhs = (BoolRvalExpr) be.lhs();
+                  final var rhs = (BoolRvalExpr) be.lhs();
+                  final var result =
+                      be.op() == BinaryOp.AND
+                          ? (lhs.value() && rhs.value())
+                          : (lhs.value() || rhs.value());
+                  yield result ? List.of(new GotoLowerStmt(cs.dest().label())) : List.of();
+                }
+                case GT, LT, GEQ, LEQ, EQ, NEQ -> {
+                  final var lhs = (IntRvalExpr) be.lhs();
+                  final var rhs = (IntRvalExpr) be.lhs();
+                  final boolean result =
+                      switch (be.op()) {
+                        case LT -> lhs.value() < rhs.value();
+                        case GT -> lhs.value() > rhs.value();
+                        case LEQ -> lhs.value() <= rhs.value();
+                        case GEQ -> lhs.value() >= rhs.value();
+                        case EQ -> lhs.value() == rhs.value();
+                        case NEQ -> lhs.value() != rhs.value();
+                        case PLUS, MINUS, DIV, MULT, AND, OR -> throw new RuntimeException();
+                      };
+                  yield result ? List.of(new GotoLowerStmt(cs.dest().label())) : List.of();
+                }
+              };
             }
           }
           case RVAL -> {
@@ -174,12 +191,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                     new CmpLowerStmt(BinaryOp.EQ, ire, new BoolRvalExpr(true), cs.dest().label()));
               }
               case BOOL -> {
-                final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
-                final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                yield List.of(
-                    new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), (BoolRvalExpr) re),
-                    new CmpLowerStmt(
-                        BinaryOp.EQ, idRvalExpr, new BoolRvalExpr(true), cs.dest().label()));
+                final var bre = (BoolRvalExpr) re;
+                yield bre.value() ? List.of(new GotoLowerStmt(cs.dest().label())) : List.of();
               }
             };
           }
