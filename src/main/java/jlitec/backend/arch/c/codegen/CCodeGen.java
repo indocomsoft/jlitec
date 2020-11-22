@@ -325,7 +325,9 @@ public class CCodeGen {
         yield new ExprChunk(
             new CallExpr(
                 "calloc",
-                List.of(new CallExpr("sizeof", List.of(new IdExpr("struct " + ne.cname()))))),
+                List.of(
+                    new IntLiteralExpr(1),
+                    new CallExpr("sizeof", List.of(new IdExpr("struct " + ne.cname()))))),
             List.of());
       }
     };

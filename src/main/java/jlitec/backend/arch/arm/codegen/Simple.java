@@ -849,8 +849,9 @@ public class Simple {
         final var ne = (NewExpr) expr;
         final var data = dataMap.get(ne.cname());
         yield List.of(
+            new MOVInsn(Condition.AL, Register.R0, new Operand2.Immediate(1)),
             new MOVInsn(
-                Condition.AL, Register.R0, new Operand2.Immediate(data.fields().size() * 4)),
+                Condition.AL, Register.R1, new Operand2.Immediate(data.fields().size() * 4)),
             new BLInsn(Condition.AL, "calloc"),
             new MOVInsn(Condition.AL, dest, new Operand2.Register(Register.R0)));
       }

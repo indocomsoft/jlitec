@@ -726,14 +726,15 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       case NEW -> {
         final var ne = (NewExpr) expr;
         final var data = cnameToData.get(ne.cname());
-        // Do not generate calloc(0)
+        // Do not generate calloc(1, 0)
         if (data.sizeof() == 0) {
           yield List.of();
         }
         // Use calloc for "shallow" initialization
         yield List.of(
+            new ImmediateLowerStmt(new Addressable.Reg(Register.R1), new IntRvalExpr(1)),
             new ImmediateLowerStmt(
-                new Addressable.Reg(Register.R0), new IntRvalExpr(data.sizeof())),
+                new Addressable.Reg(Register.R1), new IntRvalExpr(data.sizeof())),
             new BranchLinkLowerStmt("calloc"),
             new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)));
       }
