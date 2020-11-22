@@ -2,6 +2,7 @@ package jlitec.backend.passes.lower;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Streams;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -71,14 +72,26 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     final var cnameToData =
         input.dataList().stream()
             .collect(Collectors.toUnmodifiableMap(Data::cname, Function.identity()));
+    final Map<String, List<Type>> methodArgsMap =
+        input.methodList().stream()
+            .collect(
+                Collectors.toUnmodifiableMap(
+                    jlitec.ir3.Method::id,
+                    m ->
+                        m.argsWithThis().stream()
+                            .map(Var::type)
+                            .collect(Collectors.toUnmodifiableList())));
     final var methodList =
         input.methodList().stream()
-            .map(m -> LowerPass.pass(m, cnameToData))
+            .map(m -> LowerPass.pass(m, cnameToData, methodArgsMap))
             .collect(Collectors.toUnmodifiableList());
     return new Program(input.dataList(), methodList);
   }
 
-  private static Method pass(jlitec.ir3.Method method, Map<String, Data> cnameToData) {
+  private static Method pass(
+      jlitec.ir3.Method method,
+      Map<String, Data> cnameToData,
+      Map<String, List<Type>> methodArgsMap) {
     final var stmtList = new ArrayList<LowerStmt>();
 
     final var typeMap =
@@ -102,7 +115,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       stmtList.addAll(loadStackArgLowerStmts);
     }
     for (final var stmt : method.stmtList()) {
-      stmtList.addAll(pass(stmt, typeMap, gen, cnameToData));
+      stmtList.addAll(pass(stmt, typeMap, gen, cnameToData, methodArgsMap));
     }
     final var finalStmt = stmtList.get(stmtList.size() - 1);
     if (!(finalStmt instanceof ReturnLowerStmt)) {
@@ -133,7 +146,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
   }
 
   private static List<LowerStmt> pass(
-      Stmt stmt, Map<String, Type> typeMap, TempVarGen gen, Map<String, Data> cnameToData) {
+      Stmt stmt,
+      Map<String, Type> typeMap,
+      TempVarGen gen,
+      Map<String, Data> cnameToData,
+      Map<String, List<Type>> methodArgsMap) {
     return switch (stmt.getStmtType()) {
       case LABEL -> {
         final var ls = (LabelStmt) stmt;
@@ -267,7 +284,13 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       case VAR_ASSIGN -> {
         final var vas = (VarAssignStmt) stmt;
         yield genAssignToIdRvalExpr(
-            vas.rhs(), vas.lhs(), typeMap.get(vas.lhs().id()), typeMap, gen, cnameToData);
+            vas.rhs(),
+            vas.lhs(),
+            typeMap.get(vas.lhs().id()),
+            typeMap,
+            gen,
+            methodArgsMap,
+            cnameToData);
       }
       case FIELD_ASSIGN -> {
         final var fas = (FieldAssignStmt) stmt;
@@ -282,7 +305,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         final var idRvalExpr = new IdRvalExpr(tempVar.id());
         yield ImmutableList.<LowerStmt>builder()
             .addAll(
-                genAssignToIdRvalExpr(fas.rhs(), idRvalExpr, fieldType, typeMap, gen, cnameToData))
+                genAssignToIdRvalExpr(
+                    fas.rhs(), idRvalExpr, fieldType, typeMap, gen, methodArgsMap, cnameToData))
             .add(
                 new FieldAssignLowerStmt(
                     fas.lhsId(), fas.lhsField(), new Addressable.IdRval(idRvalExpr)))
@@ -290,7 +314,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       }
       case CALL -> {
         final var cs = (CallStmt) stmt;
-        yield genCall(cs.args(), cs.target().id(), typeMap, cnameToData, gen);
+        yield genCall(cs.args(), cs.target().id(), typeMap, cnameToData, methodArgsMap, gen);
       }
       case RETURN -> {
         final var rs = (ReturnStmt) stmt;
@@ -306,13 +330,16 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     };
   }
 
+  private static record RvalExprWithType(RvalExpr rvalExpr, Type type) {}
+
   private static List<LowerStmt> generatePushStackLowerStmt(
-      List<RvalExpr> rvalExprList, TempVarGen gen, Map<String, Type> typeMap) {
+      List<RvalExprWithType> rvalExprWithTypeList, TempVarGen gen) {
     final var result = new ArrayList<LowerStmt>();
-    if ((rvalExprList.size() & 1) == 1) {
+    if ((rvalExprWithTypeList.size() & 1) == 1) {
       result.add(new PushPadStackLowerStmt());
     }
-    for (final var rvalExpr : Lists.reverse(rvalExprList)) {
+    for (final var rvalExprWithType : Lists.reverse(rvalExprWithTypeList)) {
+      final var rvalExpr = rvalExprWithType.rvalExpr;
       final List<LowerStmt> stmtList =
           switch (rvalExpr.getRvalExprType()) {
             case ID -> List.of(new PushStackLowerStmt((IdRvalExpr) rvalExpr));
@@ -341,12 +368,20 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                   new PushStackLowerStmt(idRvalExpr));
             }
             case NULL -> {
-              final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
+              final var type = rvalExprWithType.type;
+              final var tempVar = gen.gen(type);
               final var idRvalExpr = new IdRvalExpr(tempVar.id());
-              yield List.of(
-                  new ImmediateLowerStmt(
-                      new Addressable.IdRval(idRvalExpr), new StringRvalExpr("")),
-                  new PushStackLowerStmt(idRvalExpr));
+              if (type.type() == Ir3Type.STRING) {
+                yield List.of(
+                    new ImmediateLowerStmt(
+                        new Addressable.IdRval(idRvalExpr), new StringRvalExpr("")),
+                    new PushStackLowerStmt(idRvalExpr));
+              } else {
+                // if class type, then assign NULL == 0
+                yield List.of(
+                    new ImmediateLowerStmt(new Addressable.IdRval(idRvalExpr), new IntRvalExpr(0)),
+                    new PushStackLowerStmt(idRvalExpr));
+              }
             }
           };
       result.addAll(stmtList);
@@ -360,8 +395,9 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     }
   }
 
-  private static IdRvalExprChunk rvaltoIdRval(RvalExpr rvalExpr, TempVarGen gen) {
+  private static IdRvalExprChunk nonStringRvaltoIdRval(RvalExpr rvalExpr, TempVarGen gen) {
     return switch (rvalExpr.getRvalExprType()) {
+      case STRING, NULL -> throw new RuntimeException();
       case ID -> new IdRvalExprChunk((IdRvalExpr) rvalExpr, List.of());
       case BOOL -> {
         final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.BOOL));
@@ -381,24 +417,6 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 new ImmediateLowerStmt(
                     new Addressable.IdRval(idRvalExpr), (IntRvalExpr) rvalExpr)));
       }
-      case STRING -> {
-        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalExprChunk(
-            idRvalExpr,
-            List.of(
-                new ImmediateLowerStmt(
-                    new Addressable.IdRval(idRvalExpr), (StringRvalExpr) rvalExpr)));
-      }
-      case NULL -> {
-        final var tempVar = gen.gen(new Type.PrimitiveType(Ir3Type.STRING));
-        final var idRvalExpr = new IdRvalExpr(tempVar.id());
-        yield new IdRvalExprChunk(
-            idRvalExpr,
-            List.of(
-                new ImmediateLowerStmt(
-                    new Addressable.IdRval(idRvalExpr), new StringRvalExpr(""))));
-      }
     };
   }
 
@@ -407,11 +425,13 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       String target,
       Map<String, Type> typeMap,
       Map<String, Data> cnameToData,
+      Map<String, List<Type>> methodArgsMap,
       TempVarGen gen) {
     final var result = new ArrayList<LowerStmt>();
     final var theThis = (IdRvalExpr) args.get(0);
     final var thisCname = ((Type.KlassType) typeMap.get(theThis.id())).cname();
     final var data = cnameToData.get(thisCname);
+    final var argTypes = methodArgsMap.get(target);
     if (data.sizeof() != 0) {
       result.add(
           new MovLowerStmt(new Addressable.Reg(Register.R0), new Addressable.IdRval(theThis)));
@@ -423,6 +443,16 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
             new MovLowerStmt(
                 new Addressable.Reg(Register.fromInt(i)),
                 new Addressable.IdRval((IdRvalExpr) arg)));
+      } else if (arg.getRvalExprType() == RvalExprType.NULL) {
+        final var argType = argTypes.get(i);
+        if (argType.type() == Ir3Type.STRING) {
+          result.add(
+              new ImmediateLowerStmt(
+                  new Addressable.Reg(Register.fromInt(i)), new StringRvalExpr("")));
+        } else {
+          result.add(
+              new ImmediateLowerStmt(new Addressable.Reg(Register.fromInt(i)), new IntRvalExpr(0)));
+        }
       } else {
         result.add(
             new ImmediateLowerStmt(
@@ -431,7 +461,11 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
     }
     final List<RvalExpr> stackArgs = args.size() > 4 ? args.subList(4, args.size()) : List.of();
     if (!stackArgs.isEmpty()) {
-      result.addAll(generatePushStackLowerStmt(stackArgs, gen, typeMap));
+      final var stackArgsTypes = argTypes.subList(4, args.size());
+      final var rvalExprWithTypeList =
+          Streams.zip(stackArgs.stream(), stackArgsTypes.stream(), RvalExprWithType::new)
+              .collect(Collectors.toUnmodifiableList());
+      result.addAll(generatePushStackLowerStmt(rvalExprWithTypeList, gen));
     }
     result.add(new BranchLinkLowerStmt(target));
     if (!stackArgs.isEmpty()) {
@@ -446,6 +480,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       Type destType,
       Map<String, Type> typeMap,
       TempVarGen gen,
+      Map<String, List<Type>> methodArgsMap,
       Map<String, Data> cnameToData) {
     return switch (expr.getExprType()) {
       case BINARY -> {
@@ -582,7 +617,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               && ire.value() >= 2
               && (ire.value() & (ire.value() - 1)) == 0) {
             // lhs is power of 2
-            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+            final var rhsIdRvalExprChunk = nonStringRvaltoIdRval(be.rhs(), gen);
             yield ImmutableList.<LowerStmt>builder()
                 .addAll(rhsIdRvalExprChunk.lowerStmtList)
                 .add(
@@ -597,7 +632,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
               && ire.value() >= 2
               && (ire.value() & (ire.value() - 1)) == 0) {
             // rhs is power of 2
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            final var lhsIdRvalExprChunk = nonStringRvaltoIdRval(be.lhs(), gen);
             yield ImmutableList.<LowerStmt>builder()
                 .addAll(lhsIdRvalExprChunk.lowerStmtList)
                 .add(
@@ -614,7 +649,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           case PLUS, AND, OR, LT, GT, LEQ, GEQ, EQ, NEQ -> {
             // can be easily flipped
             if (!(be.lhs() instanceof IdRvalExpr)) {
-              final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+              final var rhsIdRvalExprChunk = nonStringRvaltoIdRval(be.rhs(), gen);
               yield ImmutableList.<LowerStmt>builder()
                   .addAll(rhsIdRvalExprChunk.lowerStmtList)
                   .add(
@@ -625,7 +660,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                           be.lhs()))
                   .build();
             }
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            final var lhsIdRvalExprChunk = nonStringRvaltoIdRval(be.lhs(), gen);
             yield ImmutableList.<LowerStmt>builder()
                 .addAll(lhsIdRvalExprChunk.lowerStmtList)
                 .add(
@@ -638,7 +673,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
           }
           case MINUS -> {
             if (!(be.lhs() instanceof IdRvalExpr)) {
-              final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+              final var rhsIdRvalExprChunk = nonStringRvaltoIdRval(be.rhs(), gen);
               yield ImmutableList.<LowerStmt>builder()
                   .addAll(rhsIdRvalExprChunk.lowerStmtList)
                   .add(
@@ -648,7 +683,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                           be.lhs()))
                   .build();
             }
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
+            final var lhsIdRvalExprChunk = nonStringRvaltoIdRval(be.lhs(), gen);
             yield ImmutableList.<LowerStmt>builder()
                 .addAll(lhsIdRvalExprChunk.lowerStmtList)
                 .add(
@@ -660,8 +695,8 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
                 .build();
           }
           case MULT, DIV -> {
-            final var lhsIdRvalExprChunk = rvaltoIdRval(be.lhs(), gen);
-            final var rhsIdRvalExprChunk = rvaltoIdRval(be.rhs(), gen);
+            final var lhsIdRvalExprChunk = nonStringRvaltoIdRval(be.lhs(), gen);
+            final var rhsIdRvalExprChunk = nonStringRvaltoIdRval(be.rhs(), gen);
             yield ImmutableList.<LowerStmt>builder()
                 .addAll(lhsIdRvalExprChunk.lowerStmtList)
                 .addAll(rhsIdRvalExprChunk.lowerStmtList)
@@ -732,7 +767,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       case CALL -> {
         final var ce = (CallExpr) expr;
         yield ImmutableList.<LowerStmt>builder()
-            .addAll(genCall(ce.args(), ce.target().id(), typeMap, cnameToData, gen))
+            .addAll(genCall(ce.args(), ce.target().id(), typeMap, cnameToData, methodArgsMap, gen))
             .add(new MovLowerStmt(new Addressable.IdRval(dest), new Addressable.Reg(Register.R0)))
             .build();
       }
@@ -745,7 +780,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
         }
         // Use calloc for "shallow" initialization
         yield List.of(
-            new ImmediateLowerStmt(new Addressable.Reg(Register.R1), new IntRvalExpr(1)),
+            new ImmediateLowerStmt(new Addressable.Reg(Register.R0), new IntRvalExpr(1)),
             new ImmediateLowerStmt(
                 new Addressable.Reg(Register.R1), new IntRvalExpr(data.sizeof())),
             new BranchLinkLowerStmt("calloc"),
