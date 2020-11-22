@@ -249,7 +249,7 @@ public class CCodeGen {
                                 "malloc",
                                 List.of(
                                     new BinaryExpr(
-                                        BinaryOp.MINUS,
+                                        BinaryOp.PLUS,
                                         new BinaryExpr(BinaryOp.PLUS, lhs.size(), rhs.size()),
                                         new IntLiteralExpr(1))))))
                     .add(new CallStmt("strcpy", List.of(new IdExpr(tempVar.id()), lhs.expr())))
@@ -324,7 +324,7 @@ public class CCodeGen {
         final var ne = (NewExpr) expr;
         yield new ExprChunk(
             new CallExpr(
-                "malloc",
+                "calloc",
                 List.of(new CallExpr("sizeof", List.of(new IdExpr("struct " + ne.cname()))))),
             List.of());
       }

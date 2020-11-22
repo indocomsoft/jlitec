@@ -420,25 +420,18 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey,
                     e -> (double) e.getValue() / (double) degree.get(e.getKey())));
-    // Prioritise already spilled stack arguments
-    final var stackArgZeroedScores =
-        preliminaryScores.entrySet().stream()
-            .collect(
-                Collectors.toUnmodifiableMap(
-                    Map.Entry::getKey,
-                    e -> stackArgIdList.contains(e.getKey().id()) ? 0 : e.getValue()));
     // Add the max score to temporary generated nodes to make them less prioritised (those have
     // short lifetimes)
     // Also, make already spilled temporaries score even higher so they are even less likely to be
     // chosen.
     final var maxScore =
-        stackArgZeroedScores.values().stream()
+        preliminaryScores.values().stream()
             .filter(Double::isFinite)
             .mapToDouble(Double::doubleValue)
             .max()
             .getAsDouble();
     final var result =
-        stackArgZeroedScores.entrySet().stream()
+        preliminaryScores.entrySet().stream()
             .collect(
                 Collectors.toUnmodifiableMap(
                     Map.Entry::getKey,

@@ -851,7 +851,7 @@ public class Simple {
         yield List.of(
             new MOVInsn(
                 Condition.AL, Register.R0, new Operand2.Immediate(data.fields().size() * 4)),
-            new BLInsn(Condition.AL, "malloc"),
+            new BLInsn(Condition.AL, "calloc"),
             new MOVInsn(Condition.AL, dest, new Operand2.Register(Register.R0)));
       }
     };

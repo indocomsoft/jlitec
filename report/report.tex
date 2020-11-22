@@ -83,20 +83,25 @@ The generated abstract syntax tree is then passed on to the typechecker.
 Typechecker and IR3 code generation were done as part of Programming Assignment 1.
 
 Typechecking is performed on the abstract syntax tree recursively, and the types are attached to the abstract syntax tree.
-Generating IR3 from the abstract syntax tree generated is quite trivial through recursion and with the type information yielded from the typechecker.
+My compiler supports function overloading based on types of the parameters of a method, together with a check that there is no two method with duplicate signature (defined as the types of the parameters).
+The method resolution is then based on the types of the parameters to yield the correct return type for the method.
 
+Generating IR3 from the abstract syntax tree is quite trivial through recursion with the information yielded from the typechecker, i.e. the type information and the method resolution information.
+IR3 does not have a notion of classes anymore, only structs and functions that act on structs.
 The generated IR3 code is then passed on to the Lower codegen.
 
 \subsection{Lower Codegen}
 Lower is my machine-specific where I perform all the passes on.
 Unlike Jlite and IR3, Lower does not have any notion of expression, only statements.
-These statements are designed to very closely match ARM instructions, while still maintaining IR3 semantics as much as possible.
+These statements are designed to very closely match ARM instructions, while still maintaining IR3 semantics as much as possible to still allow reasonable optimization at this IR level.
 Lower also allows statements to make use of real physical hardware ARM registers, besides variables.
 The struct \texttt{Addressable} in Lower is designed to be the representation of a ``register'', both real physical hardware registers as well as pseudo-registers (which program variables are).
 
-There are many types of statements in Lower:
+The pass that lowers IR3 to Lower is the file \texttt{LowerPass.java}.
+
+There are many types of statements in Lower (located in \texttt{src/main/java/jlitec/\-backend/\-passes/\-lower/\-stmt/}):
 \begin{itemize}
-  \item \texttt{BINARY}, representing instructions in ARM whose operands are one register and one Operand2 (either Immediate or Register without barrel-shifter operation).
+  \item \texttt{BINARY}, representing instructions in ARM whose operands are one register and one Operand2 that is either Immediate or Register without barrel-shifter operation.
   \item \texttt{BINARY\_BIT}, representing instructions in ARM whose operands are one register and one Register with barrel-shifter operation.
   \item \texttt{BIT}, representing barrel-shifter instructions in ARM.
   \item \texttt{BRANCH\_LINK}, representing the \texttt{BL} instruction.
@@ -127,7 +132,8 @@ The purpose of Lower is to make ARM code generation trivial given register alloc
 
 \texttt{new} statements, \texttt{println} statements, \texttt{readln} statements, and string concatenation operations are also lowered into either a call into a helper function, or the corresponding \texttt{libc} functions:
 \begin{itemize}
-  \item \textbf{new} statements are implemented by calling \texttt{malloc} with the correct number of bytes based on the number of fields of the class.
+  \item \textbf{new} statements are implemented by calling \texttt{calloc} with the correct number of bytes based on the number of fields of the class.
+        Note that \texttt{calloc} is used here instead of \texttt{malloc} in order to perform the ``shallow'' initialization specified in Programming Assignment 1, since \texttt{calloc} will fill the memory regions allocated with zero bytes, while \texttt{malloc} makes no such promises.
         The types of the fields do not matter as all types in JLite are uniformly 32 bits (4 bytes):
         \begin{itemize}
           \item \texttt{String} is represented as a pointer to the first element of a null-terminated array of characters. Since ARM is an ISA for a 32-bit machine, pointer lengths are 32-bits.
@@ -147,6 +153,7 @@ The purpose of Lower is to make ARM code generation trivial given register alloc
           \item \texttt{String}: calling \mintinline{c}{getline_without_newline();} and using the result.
         \end{itemize}
   \item \textbf{String concatentation} is implemented by using \texttt{strlen} to find out the lengths of the two string, then \texttt{malloc} to allocate a buffer for the resulting string, then \texttt{strcpy} from the first string to the resulting string, followed by \texttt{strcat} from the second string to the resulting string.
+        Note that it is safe to use \texttt{malloc} here as opposed to the use of \texttt{calloc} for \textbf{new} statements, as the allocated memory buffer will be immediately overwritten with \texttt{strcpy} and \texttt{strcat}.
 \end{itemize}
 
 Note that since we do not have a garbage collector, currently memory allocated for strings and classes are just leaked when they go out of scope.
@@ -282,16 +289,18 @@ ADD SP, SP, #8
 LDMFD SP!, {R4, PC}
 \end{minted}
 
-
-
 \subsection{Optional Optimisation Passes}
 There are a couple of optimisations that I have implemented on the Lower IR.
 I will expound on this in a later section.
 
 \subsection{Register Allocation}
+My register allocation implementation is located in the file \texttt{RegAllocPass.java}.
+Live dataflow analysis implementation is located in file \texttt{LivePass.java}, while basic block analysis is located in file \texttt{FlowPass.java}.
+
 Register allocation is performed on the Lower IR based on graph colouring of the interference graph, created using liveness dataflow analysis.
-Performing graph colouring based on the Lower IR rather than IR3 allows for more optimal register allocation, such as using \texttt{R0} to \texttt{R3}, as well as \texttt{R12} and \texttt{LR} (as long as \texttt{LR} is saved) for variables that are not live across function calls.
-\texttt{R12} is not safe to use across function calls as it is used as Intra-Procedure-call scratch register.
+Performing graph colouring based on the Lower IR rather than IR3 allows for more optimal register allocation.
+For example, variables that are not live across function calls can be allocated to registers \texttt{R0} to \texttt{R3}, as well as registers \texttt{R12} and \texttt{LR} (as long as \texttt{LR} is saved).
+Note that register \texttt{R12} is not safe to use across function calls as it is used as an Intra-Procedure-call scratch register.
 
 \begin{figure}[htpb]
   \centering
@@ -301,11 +310,18 @@ Performing graph colouring based on the Lower IR rather than IR3 allows for more
 \end{figure}
 
 The register allocation method used is Chaitin-Briggs-George-Appel algorithm based on Kempe's graph-colouring algorithm.
+Let $K$ be the number of available physical hardware register.
 The steps are as can be seen from Figure~\ref{fig:regallocgraph}:
 \begin{itemize}
   \item \textbf{Build}: construct the interference graph, and categorise each pseudo-register as either move-related or non-move-related.
-  \item \textbf{Simplify}: one at a time, remove non-move-related nodes of low-degree from the graph, similar to Kempe's graph-colouring algorithm.
+  \item \textbf{Simplify}: one at a time, remove non-move-related nodes of low-degree ($< K$) from the graph, similar to Kempe's graph-colouring algorithm.
   \item \textbf{Coalesce}: perform conservative coalescing on the reduced graph obtained in the simplification phase.
+        Conservative coalescing means that nodes are only coalesced if it will not turn a $K$-colourable graph uncolourable.
+        Here we use two heuristics for conservative coalescing:
+        \begin{itemize}
+          \item \underline{Briggs}: two nodes can be coalesced if the resulting node will have fewer than $K$ neighbours of significant degree (having $\geq K$ edges).
+          \item \underline{George}: Nodes $a$ and $b$ can be coalesced if, for every neighbour $t$ of $a$, either $t$ already interferes with $b$ or $t$ is of insignificant degree.
+        \end{itemize}
   \item \textbf{Freeze}: if neither simplify nor coalesce applies, freeze all the low-degree move-related nodes -- this means that they are considered to be non-move-related, which enables more simplication.
         After this, simplify and coalesce are resumed
   \item \textbf{Potential Spill}: If there are no low-degree nodes, select a significant-degree node for potential spilling and push it on the stack.
@@ -321,11 +337,14 @@ Temporaries created in IR3/Lower is given higher scores than user-defined variab
 
 Note that some operands of Lower statements are actual physical hardware registers, which means that they are precoloured in terms of the graph colouring problem.
 Using conservative coalescing, these registers can be coalesced with other pseudo-registers, resulting in a more optimal register allocation.
-Registers \texttt{R0} to \texttt{R3} are also used in the calling convention.
+Note that care should also be taken to ensure short live-range of physical hardware registers, as they cannot be spilled into memory, unlike pseudo-registers.
+
+Another interesting implementation is on registers \texttt{R0} to \texttt{R3} used in the calling convention.
 Since they are caller-saved, their contents are clobbered after a function call.
 This can be indicated in the interference graph by making these registers interfere with one another, as well as with variables that are live across function calls.
-Care should also be taken to ensure short live-range of physical hardware registers, as they cannot be spilled into memory.
-As such, the standard convention call is represented in Lower using \texttt{MOV} and \texttt{IMMEDIATE} statements to move the parameters into registers \texttt{R0} to \texttt{R3}, as well if need be pushing the rest of the parameters into stack, then a \texttt{BRANCH\_LINK} statement, followed by a \texttt{POP\_STACK} statement if there were parameters on the stack, and finally, if need be, a \texttt{MOV} statement to move the result of the function call to a variable if the result is used.
+Implementation-wise, this is done by making \texttt{BRANCH\_LINK} statement use registers \texttt{R0} to \texttt{R3} and defines (clobbers) registers \texttt{R0} to \texttt{R3} as well as \texttt{R12} and \texttt{LR}.
+
+The standard convention call is represented in Lower using \texttt{MOV} and \texttt{IMMEDIATE} statements to move the parameters into registers \texttt{R0} to \texttt{R3}, as well pushing the rest of the parameters into stack if need be, then a \texttt{BRANCH\_LINK} statement, followed by a \texttt{POP\_STACK} statement if there were parameters on the stack, and finally, a \texttt{MOV} statement to move the result of the function call to a variable if the result is used.
 
 For example, take the following JLite statements (with the class signature in the comment):
 \begin{minted}{java}
@@ -336,6 +355,7 @@ For example, take the following JLite statements (with the class signature in th
  */
 Func a; Int b; Int c; Int d; Int e; Int f;
 a.f(b, 5, c, d, e, f).g();
+// a, c, d, e, f are live here
 \end{minted}
 
 Lowered to IR3, the equivalent statements are:
@@ -343,6 +363,7 @@ Lowered to IR3, the equivalent statements are:
 Func _t1;
 _t1 = %Func_0(a, b, 5, c, d, e, f);
 %Func_1(_t1);
+// a, c, d, e, f are live here
 \end{minted}
 
 Lowered to Lower, the equivalent statements are:
@@ -360,9 +381,10 @@ POP 4;       // POP_STACK
 _t1 <- R0;   // MOV
 R0 <- _t1;   // MOV
 CALL Func_1; // BRANCH_LINK
+// a, c, d, e, f are live here
 \end{minted}
 
-Assuming that \texttt{a} is assigned to register \texttt{R4}, \texttt{b} to register \texttt{R1}, \texttt{c} to register \texttt{R5}, \texttt{d} to register \texttt{R6}, \texttt{e} to register \texttt{R7}, \texttt{f} to register \texttt{R8}, \texttt{\_t1} to register \texttt{R0}, then the generated ARM code is:
+Assuming that result of the register allocation is that \texttt{a} is assigned to register \texttt{R4}, \texttt{b} to register \texttt{R1}, \texttt{c} to register \texttt{R5}, \texttt{d} to register \texttt{R6}, \texttt{e} to register \texttt{R7}, \texttt{f} to register \texttt{R8}, \texttt{\_t1} to register \texttt{R0}, then the generated ARM code is:
 \begin{minted}{gas}
 MOV R0, R4
 MOV R2, #5
@@ -376,12 +398,17 @@ ADD SP, SP, #16
 BL Func_1
 \end{minted}
 
-Observe that \texttt{MOV} to the same registers are omitted.
-With the liveness information used to construct the interference graph, the register allocator is able to tell, e.g. that variables \texttt{b} and \texttt{\_t1} do not live across function calls.
+Observe that \texttt{MOV} to the same registers are omitted, as this is the result of the coalescing phase done in the register allocator.
+With the liveness information used to construct the interference graph, the register allocator is able to tell that variables \texttt{b} and \texttt{\_t1} do not live across function calls.
 Thus, the register allocator is able to make a more optimal choice of assigning \texttt{b} to \texttt{R1}, given that it is the second parameter to \texttt{Func\_0}, while \texttt{\_t1} is assigned to \texttt{R0} as it is the first parameter of \texttt{Func\_1}.
 
 \subsection{ARM Code Generation}
-With register allocation from the register allocator, ARM code generation from Lower IR is relatively trivial, as most types of Lower statements correspond with exactly one ARM instruction, except for \texttt{CMP}, and comparison operators in \texttt{BINARY} and \texttt{BINARY\_BIT}.
+My code for the ARM Code Generation is located in \texttt{Global.java}.
+
+With register allocation from the register allocator, the only complicated thing for ARM code generation from Lower IR is the calculation of offsets of spilled variables and stack arguments.
+This is especially since the ARM calling convention specifies that stack must be 8-byte aligned, thus my compiler needs to add the appropriate padding to align the stack.
+
+The rest of it is trivial, as most types of Lower statements correspond with exactly one ARM instruction, except for \texttt{CMP}, and comparison operators in \texttt{BINARY} and \texttt{BINARY\_BIT}.
 
 One addition that I performed was to make the \texttt{main} function return \texttt{0}, to conform to the Unix convention.
 
@@ -394,6 +421,8 @@ A couple of optimisations can be performed on the Lower IR.
 These optimisations are run continuously until 2 runs produce the same Lower IR.
 
 \subsection{Algebraic Identities}
+The file for this is \texttt{AlgebraicPass.java}.
+
 We make use of the following algebraic identities:
 \begin{itemize}
   \item $x + 0 = 0 + x = x$ and $x - 0 = x$.
@@ -404,6 +433,9 @@ We make use of the following algebraic identities:
 \end{itemize}
 
 \subsection{Deadcode Elimination}
+The file for this is \texttt{DeadcodeOptimizationPass.java}.
+This optimization also makes use of live dataflow analysis implementation, located in file \texttt{LivePass.java}, and basic block analysis is located in file \texttt{FlowPass.java}.
+
 There are a couple of dead code types that are detected in this pass:
 \begin{itemize}
   \item \textbf{Basic Block}: basic blocks with in-degrees = 0 except for the entry node is removed.
@@ -420,6 +452,8 @@ Replace the sequence of \texttt{BIT} followed by \texttt{BINARY} with \texttt{BI
 If the destination of the \texttt{BIT} statement is not used anymore anywhere else, then the \textbf{Deadcode Elimination} pass will pick it up to remove the \texttt{BIT} statements.
 
 \subsection{Constant Propagation and Constant Folding}
+The file for this is \texttt{ConstantFoldingOptimizationPass.java} and \texttt{ReachingPass.java}.
+
 Using reaching definition dataflow analysis, resolve the value of variables into a constant.
 If all operands in a statement is identified, then perform constant folding: do the operation during compile time instead and turn the statement into an \texttt{IMMEDIATE} statement with the result of the operation.
 
