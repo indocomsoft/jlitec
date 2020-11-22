@@ -55,12 +55,22 @@ public record Program(List<Struct> structs, List<Method> methods) implements Pri
               return realloc(result, len - 1);
             }
 
-            static inline int readln_int_bool() {
+            static inline int readln_int() {
               int a;
               char* result = NULL;
               size_t n = 0;
               getline(&result, &n, stdin);
               sscanf(result, "%d", &a);
+              free(result);
+              return a;
+            }
+
+            static inline bool readln_bool() {
+              bool a;
+              char* result = NULL;
+              size_t n = 0;
+              getline(&result, &n, stdin);
+              a = strncmp(result, "true", 4) == 0;
               free(result);
               return a;
             }

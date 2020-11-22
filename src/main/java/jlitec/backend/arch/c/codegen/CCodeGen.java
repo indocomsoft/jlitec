@@ -94,8 +94,10 @@ public class CCodeGen {
       case READLN -> {
         final var rs = (jlitec.ir3.stmt.ReadlnStmt) stmt;
         yield switch (typeMap.get(rs.dest().id()).type()) {
-          case INT, BOOL -> List.of(
-              new VarAssignStmt(rs.dest().id(), new CallExpr("readln_int_bool", List.of())));
+          case INT -> List.of(
+              new VarAssignStmt(rs.dest().id(), new CallExpr("readln_int", List.of())));
+          case BOOL -> List.of(
+              new VarAssignStmt(rs.dest().id(), new CallExpr("readln_bool", List.of())));
           case CHAR_ARRAY -> List.of(
               new VarAssignStmt(
                   rs.dest().id(), new CallExpr("getline_without_newline", List.of())));

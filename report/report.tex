@@ -170,10 +170,10 @@ MOV R0, R1
 b puts
 \end{minted}
 
-Helper function \mintinline{c}{readln_int_bool();} gets one whole new line and read an integer from it.
+Helper function \mintinline{c}{readln_int();} gets one whole new line and read an integer from it.
 The implementation in C and ARM assembly:
 \begin{minted}{c}
-int readln_int_bool()
+int readln_int()
 {
   int a;
   char* result = NULL;
@@ -186,7 +186,7 @@ int readln_int_bool()
 \end{minted}
 
 \begin{minted}{gas}
-readln_int_bool:
+readln_int:
 STMFD SP!, {R4, LR}
 SUB SP, SP, #16
 MOV R0, #0
@@ -206,6 +206,47 @@ BL free
 LDR R0, [SP, #12]
 ADD SP, SP, #16
 LDMFD SP!, {R4, PC}
+\end{minted}
+
+Helper function \mintinline{c}{readln_bool();} gets one whole new line and returns true (1) if and only if the input starts with the substring \texttt{"true"}, otherwise the function returns false (0).
+The implementation in C and ARM assembly:
+\begin{minted}{c}
+bool readln_bool()
+{
+  bool a;
+  char* result = NULL;
+  size_t n = 0;
+  getline(&result, &n, stdin);
+  a = strncmp(result, "true", 4) == 0;
+  free(result);
+  return a;
+}
+\end{minted}
+
+\begin{minted}{gas}
+readln_bool:
+STMFD SP!, {R4, R5, R11, LR}
+SUB SP, SP, #8
+MOV R0, #0
+STR R0, [SP, #4]
+STR R0, [SP]
+LDR R0, .Lstdin
+LDR R2, [R0]
+MOV R1, SP
+ADD R0, SP, #4
+BL getline
+LDR R4, [SP, #4]
+LDR R1, .TRUE
+MOV R2, #4
+MOV R0, R4
+BL strncmp
+MOV R5, R0
+MOV R0, R4
+BL free
+RSBS R0, R5, #0
+ADC R0, R5, R0
+ADD SP, SP, #8
+LDMFD SP!, {R4, R5, R11, PC}
 \end{minted}
 
 Helper function \mintinline{c}{getline_without_newline();} gets one whole new line and removes the newline from it.

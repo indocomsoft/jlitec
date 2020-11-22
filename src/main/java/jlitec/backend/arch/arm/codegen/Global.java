@@ -1,6 +1,7 @@
 package jlitec.backend.arch.arm.codegen;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -21,6 +22,7 @@ import jlitec.backend.arch.arm.Operand2;
 import jlitec.backend.arch.arm.Program;
 import jlitec.backend.arch.arm.Register;
 import jlitec.backend.arch.arm.Size;
+import jlitec.backend.arch.arm.insn.ADCInsn;
 import jlitec.backend.arch.arm.insn.ADDInsn;
 import jlitec.backend.arch.arm.insn.ANDInsn;
 import jlitec.backend.arch.arm.insn.ASRInsn;
@@ -81,8 +83,13 @@ public class Global {
   // Prevent instantiation
   private Global() {}
 
+  private static final String READLN_INT = "readln_int";
+  private static final String READLN_BOOL = "readln_bool";
+  private static final String PRINTLN_BOOL = "println_bool";
+  private static final String GETLINE_WITHOUT_NEWLINE = "getline_without_newline";
+
   private static final Set<String> helperFunctions =
-      Set.of("readln_int_bool", "println_bool", "getline_without_newline");
+      Set.of(READLN_INT, READLN_BOOL, PRINTLN_BOOL, GETLINE_WITHOUT_NEWLINE);
 
   public static Program gen(jlitec.backend.passes.lower.Program program) {
     final var insnList = new ArrayList<Insn>();
@@ -105,14 +112,21 @@ public class Global {
             .flatMap(i -> i instanceof BLInsn bli ? Stream.of(bli.label()) : Stream.empty())
             .filter(helperFunctions::contains)
             .collect(Collectors.toUnmodifiableSet());
-    if (helperFunctionsCalled.contains("readln_int_bool")) {
-      addReadlnIntBool(insnList, stringGen);
+    if (helperFunctionsCalled.contains(READLN_INT)) {
+      addReadlnInt(insnList, stringGen);
     }
-    if (helperFunctionsCalled.contains("println_bool")) {
+    if (helperFunctionsCalled.contains(READLN_BOOL)) {
+      addReadlnBool(insnList, stringGen);
+    }
+    if (helperFunctionsCalled.contains(PRINTLN_BOOL)) {
       addPrintlnBool(insnList, stringGen);
     }
-    if (helperFunctionsCalled.contains("getline_without_newline")) {
+    if (helperFunctionsCalled.contains(GETLINE_WITHOUT_NEWLINE)) {
       addGetlineWithoutNewline(insnList);
+    }
+    if (!Sets.intersection(
+            helperFunctionsCalled, Set.of(READLN_INT, READLN_BOOL, GETLINE_WITHOUT_NEWLINE))
+        .isEmpty()) {
       // stdin stream
       insnList.add(new LabelInsn(".Lstdin"));
       insnList.add(new AssemblerDirective("word", "stdin"));
@@ -576,7 +590,7 @@ public class Global {
 
   /**
    * In ASM: <code>
-   * readln_int_bool:
+   * readln_int:
    *   stmfd sp!, {r4, lr}
    *   sub sp, sp, #16
    *   mov r0, #0
@@ -597,7 +611,7 @@ public class Global {
    *   add sp, sp, #16
    *   ldmfd sp!, {r4, pc}
    * </code> In C: <code>
-   * int readln_int_bool()
+   * int readln_int()
    * {
    *   int a;
    *   char* result = NULL;
@@ -611,8 +625,8 @@ public class Global {
    *
    * @param insnList instruction list to add instructions to.
    */
-  private static void addReadlnIntBool(List<Insn> insnList, StringGen stringGen) {
-    addFunctionPreamble(insnList, "readln_int_bool");
+  private static void addReadlnInt(List<Insn> insnList, StringGen stringGen) {
+    addFunctionPreamble(insnList, READLN_INT);
     insnList.add(new STMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.LR), true));
     insnList.add(
         new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(16)));
@@ -674,6 +688,105 @@ public class Global {
 
   /**
    * In ASM: <code>
+   * readln_bool:
+   *   STMFD SP!, {R4, R5, R11, LR}
+   *   SUB SP, SP, #8
+   *   MOV R0, #0
+   *   STR R0, [SP, #4]
+   *   STR R0, [SP]
+   *   LDR R0, .Lstdin
+   *   LDR R2, [R0]
+   *   MOV R1, SP
+   *   ADD R0, SP, #4
+   *   BL getline
+   *   LDR R4, [SP, #4]
+   *   LDR R1, .TRUE
+   *   MOV R2, #4
+   *   MOV R0, R4
+   *   BL strncmp
+   *   MOV R5, R0
+   *   MOV R0, R4
+   *   BL free
+   *   RSBS R0, R5, #0
+   *   ADC R0, R5, R0
+   *   ADD SP, SP, #8
+   *   LDMFD SP!, {R4, R5, R11, PC}
+   * </code> In C: <code>
+   *  bool readln_bool()
+   *  {
+   *    bool a;
+   *    char* result = NULL;
+   *    size_t n = 0;
+   *    getline(&result, &n, stdin);
+   *    a = strncmp(result, "true", 4) == 0;
+   *    free(result);
+   *    return a;
+   *  }
+   * </code>
+   */
+  private static void addReadlnBool(List<Insn> insnList, StringGen stringGen) {
+    addFunctionPreamble(insnList, READLN_BOOL);
+    insnList.add(
+        new STMFDInsn(
+            Register.SP, EnumSet.of(Register.R4, Register.R5, Register.R11, Register.LR), true));
+    insnList.add(
+        new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Immediate(0)));
+    insnList.add(
+        new STRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R0,
+            new MemoryAddress.ImmediateOffset(Register.SP, 4)));
+    insnList.add(
+        new STRInsn(
+            Condition.AL, Size.WORD, Register.R0, new MemoryAddress.ImmediateOffset(Register.SP)));
+    insnList.add(
+        new LDRInsn(Condition.AL, Size.WORD, Register.R0, new MemoryAddress.PCRelative(".Lstdin")));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL, Size.WORD, Register.R2, new MemoryAddress.ImmediateOffset(Register.R0)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R1, new Operand2.Register(Register.SP)));
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.R0, Register.SP, new Operand2.Immediate(4)));
+    insnList.add(new BLInsn(Condition.AL, "getline"));
+
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R4,
+            new MemoryAddress.ImmediateOffset(Register.SP, 4)));
+    insnList.add(
+        new LDRInsn(
+            Condition.AL,
+            Size.WORD,
+            Register.R1,
+            new MemoryAddress.PCRelative(stringGen.gen("true"))));
+    insnList.add(new MOVInsn(Condition.AL, Register.R2, new Operand2.Immediate(4)));
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.R4)));
+    insnList.add(new BLInsn(Condition.AL, "strncmp"));
+    insnList.add(new MOVInsn(Condition.AL, Register.R5, new Operand2.Register(Register.R0)));
+
+    insnList.add(new MOVInsn(Condition.AL, Register.R0, new Operand2.Register(Register.R4)));
+    insnList.add(new BLInsn(Condition.AL, "free"));
+
+    insnList.add(
+        new RSBInsn(Condition.AL, true, Register.R0, Register.R5, new Operand2.Immediate(0)));
+    insnList.add(
+        new ADCInsn(
+            Condition.AL, false, Register.R0, Register.R5, new Operand2.Register(Register.R0)));
+
+    insnList.add(
+        new ADDInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));
+    insnList.add(
+        new LDMFDInsn(
+            Register.SP, EnumSet.of(Register.R4, Register.R5, Register.R11, Register.PC), true));
+  }
+
+  /**
+   * In ASM: <code>
    * println_bool:
    *   ldr r2, .TRUE
    *   ldr r1, .FALSE
@@ -691,7 +804,7 @@ public class Global {
    * @param insnList instruction list to add instructions to.
    */
   private static void addPrintlnBool(List<Insn> insnList, StringGen stringGen) {
-    addFunctionPreamble(insnList, "println_bool");
+    addFunctionPreamble(insnList, PRINTLN_BOOL);
     insnList.add(
         new LDRInsn(
             Condition.AL,
@@ -742,7 +855,7 @@ public class Global {
    * @param insnList
    */
   private static void addGetlineWithoutNewline(List<Insn> insnList) {
-    addFunctionPreamble(insnList, "getline_without_newline");
+    addFunctionPreamble(insnList, GETLINE_WITHOUT_NEWLINE);
     insnList.add(new STMFDInsn(Register.SP, EnumSet.of(Register.R4, Register.LR), true));
     insnList.add(
         new SUBInsn(Condition.AL, false, Register.SP, Register.SP, new Operand2.Immediate(8)));

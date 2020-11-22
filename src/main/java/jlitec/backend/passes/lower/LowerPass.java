@@ -194,8 +194,12 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
       case READLN -> {
         final var rs = (ReadlnStmt) stmt;
         yield switch (typeMap.get(rs.dest().id()).type()) {
-          case INT, BOOL -> List.of(
-              new BranchLinkLowerStmt("readln_int_bool"),
+          case BOOL -> List.of(
+              new BranchLinkLowerStmt("readln_bool"),
+              new MovLowerStmt(
+                  new Addressable.IdRval(rs.dest()), new Addressable.Reg(Register.R0)));
+          case INT -> List.of(
+              new BranchLinkLowerStmt("readln_int"),
               new MovLowerStmt(
                   new Addressable.IdRval(rs.dest()), new Addressable.Reg(Register.R0)));
           case STRING -> List.of(

@@ -13,6 +13,7 @@ public interface DataBinaryInsn extends ARMInsn {
 
   enum Type {
     ADD,
+    ADC,
     AND,
     EOR,
     ORR,
