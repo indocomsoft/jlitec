@@ -26,8 +26,10 @@ Usage with optimisation:
 
 ## Subdirectories
 
+```
 |- jlitec   : Project code
 `- sample   : 5 sample programs tried on the product
+```
 
 ## Sample
 There are 5 sample programs I tried on my compiler.
