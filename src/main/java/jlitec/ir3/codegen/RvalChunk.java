@@ -7,6 +7,6 @@ import jlitec.ir3.stmt.Stmt;
 
 public record RvalChunk(RvalExpr rval, List<Stmt> stmtList) {
   public RvalChunk {
-    this.stmtList = Collections.unmodifiableList(stmtList);
+    stmtList = Collections.unmodifiableList(stmtList);
   }
 }

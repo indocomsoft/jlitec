@@ -5,6 +5,6 @@ import java.util.List;
 
 public record Program(List<Klass> klassList) {
   public Program {
-    this.klassList = Collections.unmodifiableList(klassList);
+    klassList = Collections.unmodifiableList(klassList);
   }
 }

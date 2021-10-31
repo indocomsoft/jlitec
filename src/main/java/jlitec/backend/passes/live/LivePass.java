@@ -46,8 +46,8 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
     public static final DefUse EMPTY = new DefUse(Set.of(), Set.of());
 
     public DefUse {
-      this.use = Collections.unmodifiableSet(use);
-      this.def = Collections.unmodifiableSet(def);
+      use = Collections.unmodifiableSet(use);
+      def = Collections.unmodifiableSet(def);
     }
 
     public static DefUse combine(DefUse defUse1, DefUse defUse2) {
@@ -57,8 +57,8 @@ public class LivePass implements Pass<MethodWithFlow, MethodWithLive> {
 
   private record InOut(SetMultimap<Integer, Node> in, SetMultimap<Integer, Node> out) {
     public InOut {
-      this.in = Multimaps.unmodifiableSetMultimap(in);
-      this.out = Multimaps.unmodifiableSetMultimap(out);
+      in = Multimaps.unmodifiableSetMultimap(in);
+      out = Multimaps.unmodifiableSetMultimap(out);
     }
   }
 

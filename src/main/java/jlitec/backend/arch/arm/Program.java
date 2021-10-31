@@ -7,7 +7,7 @@ import jlitec.Printable;
 
 public record Program(List<Insn> insnList) implements Printable {
   public Program {
-    this.insnList = Collections.unmodifiableList(insnList);
+    insnList = Collections.unmodifiableList(insnList);
   }
 
   @Override

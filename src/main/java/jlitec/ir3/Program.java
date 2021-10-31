@@ -6,8 +6,8 @@ import jlitec.Printable;
 
 public record Program(List<Data> dataList, List<Method> methodList) implements Printable {
   public Program {
-    this.dataList = Collections.unmodifiableList(dataList);
-    this.methodList = Collections.unmodifiableList(methodList);
+    dataList = Collections.unmodifiableList(dataList);
+    methodList = Collections.unmodifiableList(methodList);
   }
 
   @Override

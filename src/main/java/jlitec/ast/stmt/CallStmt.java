@@ -10,7 +10,7 @@ public record CallStmt(
     Expr target, List<Expr> args, TypeAnnotation typeAnnotation, MethodReference methodReference)
     implements Stmt {
   public CallStmt {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

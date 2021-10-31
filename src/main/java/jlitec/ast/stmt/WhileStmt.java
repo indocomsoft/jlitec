@@ -8,7 +8,7 @@ import jlitec.ast.expr.Expr;
 
 public record WhileStmt(Expr condition, List<Stmt> stmtList) implements Stmt {
   public WhileStmt {
-    this.stmtList = Collections.unmodifiableList(stmtList);
+    stmtList = Collections.unmodifiableList(stmtList);
   }
 
   @Override

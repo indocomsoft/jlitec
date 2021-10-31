@@ -64,7 +64,7 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
 
   public static record Output(Map<String, Register> color, Method method) {
     public Output {
-      this.color = Collections.unmodifiableMap(color);
+      color = Collections.unmodifiableMap(color);
     }
   }
 

@@ -13,8 +13,8 @@ public record IfStmt(
     Location rightLocation)
     implements Stmt {
   public IfStmt {
-    this.thenStmtList = Collections.unmodifiableList(thenStmtList);
-    this.elseStmtList = Collections.unmodifiableList(elseStmtList);
+    thenStmtList = Collections.unmodifiableList(thenStmtList);
+    elseStmtList = Collections.unmodifiableList(elseStmtList);
   }
 
   @Override

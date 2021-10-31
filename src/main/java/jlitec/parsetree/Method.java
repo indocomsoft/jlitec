@@ -18,9 +18,9 @@ public record Method(
     implements Printable, Locatable {
   /** Construct a Method in the AST. */
   public Method {
-    this.args = Collections.unmodifiableList(args);
-    this.vars = Collections.unmodifiableList(vars);
-    this.stmtList = Collections.unmodifiableList(stmtList);
+    args = Collections.unmodifiableList(args);
+    vars = Collections.unmodifiableList(vars);
+    stmtList = Collections.unmodifiableList(stmtList);
   }
 
   @Override

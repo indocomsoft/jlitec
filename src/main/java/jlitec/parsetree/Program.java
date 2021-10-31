@@ -8,7 +8,7 @@ import jlitec.Printable;
 public record Program(List<Klass> klassList, Location leftLocation, Location rightLocation)
     implements Printable, Locatable {
   public Program {
-    this.klassList = Collections.unmodifiableList(klassList);
+    klassList = Collections.unmodifiableList(klassList);
   }
 
   @Override

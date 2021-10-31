@@ -9,8 +9,8 @@ import jlitec.ast.expr.Expr;
 public record IfStmt(Expr condition, List<Stmt> thenStmtList, List<Stmt> elseStmtList)
     implements Stmt {
   public IfStmt {
-    this.thenStmtList = Collections.unmodifiableList(thenStmtList);
-    this.elseStmtList = Collections.unmodifiableList(elseStmtList);
+    thenStmtList = Collections.unmodifiableList(thenStmtList);
+    elseStmtList = Collections.unmodifiableList(elseStmtList);
   }
 
   @Override

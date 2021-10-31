@@ -6,7 +6,7 @@ import jlitec.Printable;
 
 public record Data(String cname, List<Var> fields) implements Printable {
   public Data {
-    this.fields = Collections.unmodifiableList(fields);
+    fields = Collections.unmodifiableList(fields);
   }
 
   public int sizeof() {

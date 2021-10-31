@@ -9,8 +9,8 @@ public record Program(List<Struct> structs, List<Method> methods) implements Pri
   static final String[] LIBRARIES = new String[] {"stdio", "stdlib", "string", "stdbool"};
 
   public Program {
-    this.structs = Collections.unmodifiableList(structs);
-    this.methods = Collections.unmodifiableList(methods);
+    structs = Collections.unmodifiableList(structs);
+    methods = Collections.unmodifiableList(methods);
   }
 
   @Override

@@ -11,9 +11,9 @@ public record Method(
     String cname, Type returnType, String id, List<Var> args, List<Var> vars, List<Stmt> stmtList)
     implements Printable {
   public Method {
-    this.args = Collections.unmodifiableList(args);
-    this.vars = Collections.unmodifiableList(vars);
-    this.stmtList = Collections.unmodifiableList(stmtList);
+    args = Collections.unmodifiableList(args);
+    vars = Collections.unmodifiableList(vars);
+    stmtList = Collections.unmodifiableList(stmtList);
   }
 
   public List<Var> argsWithThis() {

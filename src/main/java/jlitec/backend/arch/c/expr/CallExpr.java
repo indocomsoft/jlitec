@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 public record CallExpr(String methodName, List<Expr> args) implements Expr {
   public CallExpr {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

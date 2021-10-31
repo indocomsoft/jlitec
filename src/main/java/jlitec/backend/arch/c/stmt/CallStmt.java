@@ -7,7 +7,7 @@ import jlitec.backend.arch.c.expr.Expr;
 
 public record CallStmt(String methodName, List<Expr> args) implements Stmt {
   public CallStmt {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

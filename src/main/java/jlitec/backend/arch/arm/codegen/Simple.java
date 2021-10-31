@@ -231,7 +231,7 @@ public class Simple {
       Map<String, LocationDescriptor.Stack> varToLocation, int totalOffset) {
     public StackDescriptor {
       // 8-byte alignment
-      this.totalOffset = totalOffset == 0 ? 0 : ((totalOffset - 1) / 8 + 1) * 8;
+      totalOffset = totalOffset == 0 ? 0 : ((totalOffset - 1) / 8 + 1) * 8;
     }
   }
 

@@ -8,7 +8,7 @@ import jlitec.ir3.expr.rval.RvalExpr;
 
 public record CallExpr(IdRvalExpr target, List<RvalExpr> args) implements Expr {
   public CallExpr {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

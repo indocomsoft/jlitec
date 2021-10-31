@@ -14,7 +14,7 @@ public interface Block {
 
   record Basic(List<LowerStmt> lowerStmtList) implements Block {
     public Basic {
-      this.lowerStmtList = Collections.unmodifiableList(lowerStmtList);
+      lowerStmtList = Collections.unmodifiableList(lowerStmtList);
     }
 
     @Override

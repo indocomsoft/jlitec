@@ -9,7 +9,7 @@ import jlitec.parsetree.expr.Expr;
 public record CallStmt(Expr target, List<Expr> args, Location leftLocation, Location rightLocation)
     implements Stmt {
   public CallStmt {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

@@ -6,7 +6,7 @@ import jlitec.Printable;
 
 public record Struct(String name, List<Var> fields) implements Printable {
   public Struct {
-    this.fields = Collections.unmodifiableList(fields);
+    fields = Collections.unmodifiableList(fields);
   }
 
   @Override

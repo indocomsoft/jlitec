@@ -13,8 +13,8 @@ public record Klass(
     Location rightLocation)
     implements Printable, Locatable {
   public Klass {
-    this.fields = Collections.unmodifiableList(fields);
-    this.methods = Collections.unmodifiableList(methods);
+    fields = Collections.unmodifiableList(fields);
+    methods = Collections.unmodifiableList(methods);
   }
 
   @Override

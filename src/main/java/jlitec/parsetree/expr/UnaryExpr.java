@@ -8,7 +8,7 @@ public record UnaryExpr(UnaryOp op, Expr expr, Location leftLocation, Location r
   /** Constructor that checks the type validity. */
   public UnaryExpr {
     // Force this line to be an expression such that exhaustiveness is enforced.
-    this.op =
+    op =
         switch (op) {
           case NOT -> {
             if (expr.getTypeHint().filter(t -> t != TypeHint.BOOL).isPresent()) {

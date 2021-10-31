@@ -13,9 +13,9 @@ public record MethodWithLive(
     List<BlockWithLive> blockWithLiveList,
     List<LowerStmtWithLive> lowerStmtWithLiveList) {
   public MethodWithLive {
-    this.argsWithThis = Collections.unmodifiableList(argsWithThis);
-    this.vars = Collections.unmodifiableList(vars);
-    this.blockWithLiveList = Collections.unmodifiableList(blockWithLiveList);
-    this.lowerStmtWithLiveList = Collections.unmodifiableList(lowerStmtWithLiveList);
+    argsWithThis = Collections.unmodifiableList(argsWithThis);
+    vars = Collections.unmodifiableList(vars);
+    blockWithLiveList = Collections.unmodifiableList(blockWithLiveList);
+    lowerStmtWithLiveList = Collections.unmodifiableList(lowerStmtWithLiveList);
   }
 }

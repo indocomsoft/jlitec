@@ -17,10 +17,10 @@ public record Method(
     List<LowerStmt> lowerStmtList)
     implements Printable {
   public Method {
-    this.argsWithThis = Collections.unmodifiableList(argsWithThis);
-    this.vars = Collections.unmodifiableList(vars);
-    this.spilled = Collections.unmodifiableList(spilled);
-    this.lowerStmtList = Collections.unmodifiableList(lowerStmtList);
+    argsWithThis = Collections.unmodifiableList(argsWithThis);
+    vars = Collections.unmodifiableList(vars);
+    spilled = Collections.unmodifiableList(spilled);
+    lowerStmtList = Collections.unmodifiableList(lowerStmtList);
   }
 
   @Override

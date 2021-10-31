@@ -11,8 +11,8 @@ import org.apache.commons.text.StringEscapeUtils;
 
 public record FlowGraph(List<Block> blocks, SetMultimap<Integer, Integer> edges) {
   public FlowGraph {
-    this.blocks = Collections.unmodifiableList(blocks);
-    this.edges = Multimaps.unmodifiableSetMultimap(edges);
+    blocks = Collections.unmodifiableList(blocks);
+    edges = Multimaps.unmodifiableSetMultimap(edges);
   }
 
   public String generateDot() {

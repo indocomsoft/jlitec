@@ -9,7 +9,7 @@ import java_cup.runtime.ComplexSymbolFactory.Location;
 public record CallExpr(Expr target, List<Expr> args, Location leftLocation, Location rightLocation)
     implements Expr {
   public CallExpr {
-    this.args = Collections.unmodifiableList(args);
+    args = Collections.unmodifiableList(args);
   }
 
   @Override

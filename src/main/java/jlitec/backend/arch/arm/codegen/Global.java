@@ -186,9 +186,9 @@ public class Global {
             "LDMFD should be either (empty) or (contain PC and not contain LR), instead = "
                 + ldmfdRegs);
       }
-      this.stmfdRegs = Collections.unmodifiableSet(stmfdRegs);
-      this.ldmfdRegs = Collections.unmodifiableSet(ldmfdRegs);
-      this.offsets = Collections.unmodifiableMap(offsets);
+      stmfdRegs = Collections.unmodifiableSet(stmfdRegs);
+      ldmfdRegs = Collections.unmodifiableSet(ldmfdRegs);
+      offsets = Collections.unmodifiableMap(offsets);
     }
   }
 

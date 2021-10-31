@@ -391,7 +391,7 @@ public class LowerPass implements Pass<jlitec.ir3.Program, Program> {
 
   private record IdRvalExprChunk(IdRvalExpr idRvalExpr, List<LowerStmt> lowerStmtList) {
     public IdRvalExprChunk {
-      this.lowerStmtList = Collections.unmodifiableList(lowerStmtList);
+      lowerStmtList = Collections.unmodifiableList(lowerStmtList);
     }
   }
 

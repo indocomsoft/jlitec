@@ -39,8 +39,8 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
     public static final GenKill EMPTY = new GenKill(Set.of(), Set.of());
 
     public GenKill {
-      this.gen = Collections.unmodifiableSet(gen);
-      this.kill = Collections.unmodifiableSet(kill);
+      gen = Collections.unmodifiableSet(gen);
+      kill = Collections.unmodifiableSet(kill);
     }
 
     public static GenKill combine(GenKill genKill1, GenKill genKill2) {
@@ -96,8 +96,8 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
   // mapping from stmt index number to the reaching definitions
   public static record InOut(SetMultimap<Integer, Integer> in, SetMultimap<Integer, Integer> out) {
     public InOut {
-      this.in = Multimaps.unmodifiableSetMultimap(in);
-      this.out = Multimaps.unmodifiableSetMultimap(out);
+      in = Multimaps.unmodifiableSetMultimap(in);
+      out = Multimaps.unmodifiableSetMultimap(out);
     }
   }
 

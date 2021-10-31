@@ -9,7 +9,7 @@ public record WhileStmt(
     Expr condition, List<Stmt> stmtList, Location leftLocation, Location rightLocation)
     implements Stmt {
   public WhileStmt {
-    this.stmtList = Collections.unmodifiableList(stmtList);
+    stmtList = Collections.unmodifiableList(stmtList);
   }
 
   @Override
