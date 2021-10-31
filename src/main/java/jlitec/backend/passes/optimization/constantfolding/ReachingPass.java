@@ -179,8 +179,15 @@ public class ReachingPass implements Pass<Method, ReachingPass.InOut> {
 
   public static Set<Node> nodesOf(LowerStmt stmt) {
     return switch (stmt.stmtExtensionType()) {
-      case CMP, GOTO, LABEL, STR_SPILL, RETURN, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, FIELD_ASSIGN -> Set
-          .of();
+      case CMP,
+          GOTO,
+          LABEL,
+          STR_SPILL,
+          RETURN,
+          PUSH_PAD_STACK,
+          PUSH_STACK,
+          POP_STACK,
+          FIELD_ASSIGN -> Set.of();
       case BRANCH_LINK -> IntStream.range(0, 4)
           .boxed()
           .map(Register::fromInt)

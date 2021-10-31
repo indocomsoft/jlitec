@@ -734,16 +734,13 @@ public class RegAllocPass implements Pass<jlitec.backend.passes.lower.Method, Re
               }
               case CMP -> {
                 final var cs = (CmpLowerStmt) stmt;
-                if (!(cs.lhs() instanceof IdRvalExpr lhsIre && lhsIre.id().equals(id))
+                if (!cs.lhs().id().equals(id)
                     && !(cs.rhs() instanceof IdRvalExpr rhsIre && rhsIre.id().equals(id))) {
                   yield List.of(stmt);
                 }
                 final var tempVar = gen.gen(type);
                 final var idRvalExpr = new IdRvalExpr(tempVar.id());
-                final var lhs =
-                    (cs.lhs() instanceof IdRvalExpr ire && ire.id().equals(id))
-                        ? idRvalExpr
-                        : cs.lhs();
+                final var lhs = (cs.lhs().id().equals(id)) ? idRvalExpr : cs.lhs();
                 final var rhs =
                     (cs.rhs() instanceof IdRvalExpr ire && ire.id().equals(id))
                         ? idRvalExpr

@@ -101,8 +101,20 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
       final var in = inOut.in().get(i);
       final List<LowerStmt> stmtChunk =
           switch (stmt.stmtExtensionType()) {
-            case BRANCH_LINK, GOTO, FIELD_ASSIGN, FIELD_ACCESS, LABEL, LOAD_STACK_ARG, LDR_SPILL, PUSH_STACK, STR_SPILL, RETURN, PUSH_PAD_STACK, POP_STACK, IMMEDIATE, LOAD_LARGE_IMM -> List
-                .of(stmt);
+            case BRANCH_LINK,
+                GOTO,
+                FIELD_ASSIGN,
+                FIELD_ACCESS,
+                LABEL,
+                LOAD_STACK_ARG,
+                LDR_SPILL,
+                PUSH_STACK,
+                STR_SPILL,
+                RETURN,
+                PUSH_PAD_STACK,
+                POP_STACK,
+                IMMEDIATE,
+                LOAD_LARGE_IMM -> List.of(stmt);
             case REVERSE_SUBTRACT_BIT -> {
               final var rsbs = (ReverseSubtractWithBitLowerStmt) stmt;
               if (!(rsbs.lhs() instanceof Addressable.IdRval idRvalLhs)) {
@@ -612,8 +624,27 @@ public class ConstantFoldingOptimizationPass implements OptimizationPass {
         final var is = (LoadLargeImmediateLowerStmt) definingStmt;
         yield Optional.of(is.value());
       }
-      case BINARY_BIT, REVERSE_SUBTRACT_BIT, BINARY, BIT, REG_BINARY, UNARY, LABEL, BRANCH_LINK, CMP, FIELD_ASSIGN, GOTO, LOAD_STACK_ARG, FIELD_ACCESS, LDR_SPILL, STR_SPILL, RETURN, MOV, PUSH_PAD_STACK, PUSH_STACK, POP_STACK, REVERSE_SUBTRACT -> Optional
-          .empty();
+      case BINARY_BIT,
+          REVERSE_SUBTRACT_BIT,
+          BINARY,
+          BIT,
+          REG_BINARY,
+          UNARY,
+          LABEL,
+          BRANCH_LINK,
+          CMP,
+          FIELD_ASSIGN,
+          GOTO,
+          LOAD_STACK_ARG,
+          FIELD_ACCESS,
+          LDR_SPILL,
+          STR_SPILL,
+          RETURN,
+          MOV,
+          PUSH_PAD_STACK,
+          PUSH_STACK,
+          POP_STACK,
+          REVERSE_SUBTRACT -> Optional.empty();
     };
   }
 }

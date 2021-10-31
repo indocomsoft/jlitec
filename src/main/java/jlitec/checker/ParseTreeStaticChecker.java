@@ -354,7 +354,15 @@ public class ParseTreeStaticChecker {
       Environment env)
       throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_THIS,
+          EXPR_CALL,
+          EXPR_NEW,
+          EXPR_NULL -> throw new SemanticException(
           "Trying to call non-callable expression.", "non-callable expression", List.of(target));
       case EXPR_ID -> {
         // local call
@@ -374,7 +382,15 @@ public class ParseTreeStaticChecker {
                 yield new jlitec.ast.expr.NewExpr(ne.cname());
               }
               case EXPR_CALL -> toAst(de.target(), klassDescriptorMap, env);
-              case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_DOT, EXPR_ID, EXPR_NULL, EXPR_PAREN -> transformCallTarget(
+              case EXPR_INT_LITERAL,
+                  EXPR_STRING_LITERAL,
+                  EXPR_BOOL_LITERAL,
+                  EXPR_BINARY,
+                  EXPR_UNARY,
+                  EXPR_DOT,
+                  EXPR_ID,
+                  EXPR_NULL,
+                  EXPR_PAREN -> transformCallTarget(
                   de.target(), typeAnnotation, klassDescriptorMap, env);
             };
         yield new jlitec.ast.expr.DotExpr(newTarget, de.id(), toAst(targetType));
@@ -393,7 +409,15 @@ public class ParseTreeStaticChecker {
       Environment env)
       throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_THIS,
+          EXPR_CALL,
+          EXPR_NEW,
+          EXPR_NULL -> throw new SemanticException(
           "Trying to call non-callable expression.", "non-callable expression", List.of(target));
         // LocalCall
       case EXPR_ID -> {
@@ -602,7 +626,8 @@ public class ParseTreeStaticChecker {
             typecheck(is.elseStmtList(), expectedReturnType, klassDescriptorMap, env);
         if (!isCompatible(thenType, elseType)) {
           throw new SemanticException(
-              "The types of then and else blocks of conditionals must be compatible, then block type is `"
+              "The types of then and else blocks of conditionals must be compatible, then block"
+                  + " type is `"
                   + thenType.friendlyName()
                   + "', else block type is `"
                   + elseType.friendlyName()
@@ -638,7 +663,8 @@ public class ParseTreeStaticChecker {
         if (!EnumSet.of(Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING)
             .contains(varType.typeEnum())) {
           throw new SemanticException(
-              "Type of variable passed to `readln' must be `Int', `Bool', or `String', but encountered `"
+              "Type of variable passed to `readln' must be `Int', `Bool', or `String', but"
+                  + " encountered `"
                   + varType.friendlyName()
                   + "'",
               "incompatible type",
@@ -653,7 +679,8 @@ public class ParseTreeStaticChecker {
                 Type.TypeEnum.INT, Type.TypeEnum.BOOL, Type.TypeEnum.STRING, Type.TypeEnum.NULL)
             .contains(psType.typeEnum())) {
           throw new SemanticException(
-              "Type of expression passed to `println' must be `Int', `Bool', or `String', but encountered `"
+              "Type of expression passed to `println' must be `Int', `Bool', or `String', but"
+                  + " encountered `"
                   + psType.friendlyName()
                   + "'",
               "incompatible type",
@@ -783,7 +810,8 @@ public class ParseTreeStaticChecker {
                 yield Type.STRING;
               } else {
                 throw new SemanticException(
-                    "String concatenation operator `+' second operand must be `String' or `null' but encountered `"
+                    "String concatenation operator `+' second operand must be `String' or `null'"
+                        + " but encountered `"
                         + rhsType.friendlyName()
                         + "'",
                     "wrong operand type for string concatenation",
@@ -791,7 +819,8 @@ public class ParseTreeStaticChecker {
               }
             } else {
               throw new SemanticException(
-                  "Invalid first operand type for binary operator `+', expected either `Int', `String', or `null' but encountered `"
+                  "Invalid first operand type for binary operator `+', expected either `Int',"
+                      + " `String', or `null' but encountered `"
                       + lhsType.friendlyName()
                       + "'",
                   "wrong operand type for `+'",
@@ -908,7 +937,15 @@ public class ParseTreeStaticChecker {
       Environment env)
       throws SemanticException {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new SemanticException(
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_THIS,
+          EXPR_CALL,
+          EXPR_NEW,
+          EXPR_NULL -> throw new SemanticException(
           "Trying to call non-callable expression.", "non-callable expression", List.of(target));
         // LocalCall
       case EXPR_ID -> {

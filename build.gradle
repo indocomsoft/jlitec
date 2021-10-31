@@ -18,7 +18,7 @@ plugins {
     // JFlex plugins
     id "org.xbib.gradle.plugin.jflex" version "1.4.0"
     // CUP plugin
-    id "cup.gradle.cup-gradle-plugin" version "1.2"
+    id "cup.gradle.cup-gradle-plugin" version "2.0"
 
     // google-java-format plugin
     id 'com.github.sherter.google-java-format' version '0.9'
@@ -33,7 +33,7 @@ repositories {
     jcenter()
 }
 
-def versions = [checkstyle: '8.36', googleJavaFormat: '1.9', spotbugs: '4.1.2']
+def versions = [checkstyle: '8.36', googleJavaFormat: '1.12.0', spotbugs: '4.1.2']
 
 configurations {
     checkstyleConfig
@@ -108,6 +108,8 @@ jar {
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
+
+    duplicatesStrategy = DuplicatesStrategy.WARN
 }
 
 googleJavaFormat {

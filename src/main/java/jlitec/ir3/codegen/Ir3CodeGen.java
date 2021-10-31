@@ -628,7 +628,14 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (expr.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_NEW, EXPR_CALL, EXPR_DOT -> {
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_NEW,
+          EXPR_CALL,
+          EXPR_DOT -> {
         // delegate to `toExpr` and wrap with a temp var.
         final var exprChunk = toExpr(expr, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
         final var tempVar = gen.gen(Type.fromTypeAnnotation(expr.typeAnnotation()));
@@ -714,8 +721,11 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (expr.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_NULL, EXPR_NEW, EXPR_THIS -> throw new RuntimeException(
-          "Should not be reached");
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_NULL,
+          EXPR_NEW,
+          EXPR_THIS -> throw new RuntimeException("Should not be reached");
       case EXPR_BOOL_LITERAL -> new ExprChunk(
           new BoolRvalExpr(!((jlitec.ast.expr.BoolLiteralExpr) expr).value()), List.of());
       case EXPR_UNARY -> {
@@ -798,8 +808,15 @@ public class Ir3CodeGen {
       Map<String, Type> fieldMap,
       TempVarGen gen) {
     return switch (target.getExprType()) {
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_THIS, EXPR_CALL, EXPR_NEW, EXPR_NULL -> throw new RuntimeException(
-          "Trying to call non-callable expression.");
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_THIS,
+          EXPR_CALL,
+          EXPR_NEW,
+          EXPR_NULL -> throw new RuntimeException("Trying to call non-callable expression.");
         // local call
       case EXPR_ID -> new IdRvalChunk(new IdRvalExpr("this"), List.of());
         // global call
@@ -823,8 +840,12 @@ public class Ir3CodeGen {
     return switch (target.getExprType()) {
       case EXPR_ID, EXPR_NEW, EXPR_CALL, EXPR_THIS -> toIdRval(
           target, cname, mangledMethodNameMap, localVarMap, fieldMap, gen);
-      case EXPR_INT_LITERAL, EXPR_STRING_LITERAL, EXPR_BOOL_LITERAL, EXPR_BINARY, EXPR_UNARY, EXPR_NULL -> throw new RuntimeException(
-          "Invalid target");
+      case EXPR_INT_LITERAL,
+          EXPR_STRING_LITERAL,
+          EXPR_BOOL_LITERAL,
+          EXPR_BINARY,
+          EXPR_UNARY,
+          EXPR_NULL -> throw new RuntimeException("Invalid target");
       case EXPR_DOT -> {
         final var de = (DotExpr) target;
         final var idRvalChunk =
