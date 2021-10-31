@@ -23,8 +23,8 @@ plugins {
     // google-java-format plugin
     id 'com.github.sherter.google-java-format' version '0.9'
 
-    // TODO: re-enable after https://github.com/spotbugs/spotbugs/pull/1277 is released
-    // id "com.github.spotbugs" version "4.5.0"
+    // Uncomment to run spotbugs
+    // id "com.github.spotbugs" version "4.7.9"
 }
 
 repositories {
@@ -33,7 +33,7 @@ repositories {
     jcenter()
 }
 
-def versions = [checkstyle: '8.36', googleJavaFormat: '1.12.0', spotbugs: '4.1.2']
+def versions = [checkstyle: '8.36', googleJavaFormat: '1.12.0', spotbugs: '4.4.2']
 
 configurations {
     checkstyleConfig
@@ -122,7 +122,7 @@ checkstyle {
     checkstyleMain.source = "src/main/java"
 }
 
-// TODO: re-enable after https://github.com/spotbugs/spotbugs/pull/1277 is released
+// Uncomment to run spotbugs
 // spotbugs {
 //     excludeFilter = file("config/spotbugs_exclude.xml")
 //     toolVersion = "${versions.spotbugs}"
@@ -142,7 +142,7 @@ checkstyle {
 //     reports {
 //         html {
 //             enabled = true
-//             destination = file("$buildDir/reports/spotbugs/main/spotbugs.html")
+//             destination = file("$buildDir/reports/spotbugs/test/spotbugs.html")
 //             stylesheet = 'fancy-hist.xsl'
 //         }
 //     }
